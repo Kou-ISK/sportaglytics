@@ -551,6 +551,16 @@ export class NativePlaybackController {
         observation.revision <= this.lastRevision
       )
         return;
+      const confirmedBufferedImage =
+        this.clockAuthority === 'drawn-pair' &&
+        observation.phase === 'buffering';
+      // Main has already checked the complete-pair ledger. Do not substitute
+      // the requested target or an unrelated snapshot clock for that image.
+      if (
+        confirmedBufferedImage &&
+        value.lastConfirmedTime !== observation.time
+      )
+        throw Error('NATIVE_IMAGE_CLOCK_MISMATCH');
       this.lastResponse = performance.now();
       this.lastRevision = observation.revision;
       if (observation.reverseCapabilities)
@@ -592,7 +602,9 @@ export class NativePlaybackController {
       }
       this.update({
         observation,
-        ...(ready ? { time: value.lastConfirmedTime } : {}),
+        ...(ready || confirmedBufferedImage
+          ? { time: value.lastConfirmedTime }
+          : {}),
       });
       if (
         ready &&

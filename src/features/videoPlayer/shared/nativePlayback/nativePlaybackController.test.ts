@@ -192,10 +192,12 @@ const make = (
       seekId: number,
       time: number,
       revision: number,
+      confirmedTime = snapshot.lastConfirmedTime,
     ) => {
       if (!snapshot.observation) throw Error('ready observation required');
       snapshot = {
         ...snapshot,
+        lastConfirmedTime: confirmedTime,
         observation: {
           ...snapshot.observation,
           sequence,
@@ -1556,4 +1558,42 @@ it('does not infer unknown group rates or bypass legacy measured reverse capabil
   expect(legacy.controller.supportsReverse(2)).toBe(false);
   legacy.reply(1, 1, 3, 2, false, true, true);
   expect(legacy.controller.supportsReverse(2)).toBe(true); legacy.controller.fail('test cleanup');
+});
+
+it.each(['source-clock', 'drawn-pair'] as const)(
+  'uses only the qualified clock authority during buffering: %s',
+  async (authority) => {
+    vi.useFakeTimers();
+    const f = make(null, authority);
+    await vi.advanceTimersByTimeAsync(1);
+    f.reply(1, 1, 3);
+    f.buffering(1, 1, 2.9, 2, authority === 'drawn-pair' ? 2.9 : 3);
+    expect(f.controller.snapshot().time).toBe(authority === 'drawn-pair' ? 2.9 : 3);
+    expect(f.controller.snapshot().observation).toMatchObject({
+      phase: 'buffering', videoReady: false, audioReady: false,
+    });
+    expect(f.controller.hasConfirmedSeek).toBe(true);
+    // A confirmed image does not extend the five-second refill deadline.
+    await vi.advanceTimersByTimeAsync(5250);
+    expect(f.controller.snapshot().phase).toBe('failed');
+    if (authority === 'drawn-pair') {
+      f.api.close.mockResolvedValue(drawnClose());
+      await f.controller.returnToOriginal().catch(() => {});
+    } else await f.controller.returnToOriginal();
+  },
+);
+it('rejects a mismatched group image clock before adopting its observation or tag time', async () => {
+  vi.useFakeTimers();
+  const f = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3);
+  f.api.close.mockResolvedValue(drawnClose());
+  f.buffering(1, 1, 2.9, 2, 8);
+  expect(f.controller.snapshot()).toMatchObject({
+    phase: 'failed', time: 3, error: 'NATIVE_OBSERVATION_FAILED',
+    observation: null,
+  });
+  expect(f.original.release).not.toHaveBeenCalled();
+  f.api.close.mockResolvedValue(drawnClose());
+  await f.controller.returnToOriginal();
 });

@@ -4,7 +4,10 @@ import type { ReactElement } from 'react';
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import type { IElectronAPI } from '../../../../renderer';
-import type { NativePlaybackAvailability } from '../../../../types/ipc/nativePlayback';
+import type {
+  NativePlaybackSnapshot,
+  NativePlaybackAvailability,
+} from '../../../../types/ipc/nativePlayback';
 import type { NativeGroupPresentation } from '../../../../types/ipc/nativeGroupSurface';
 import type { CachePlayerPort } from '../PlaybackCache/cachePlayerSwitch';
 import { CachePlayerContext } from '../PlaybackCache/CachePlayerContext';
@@ -112,6 +115,10 @@ const port = (initial = 3, duration = 10): CachePlayerPort => {
   };
 };
 const fixture = () => {
+  const clockTime = vi.fn();
+  let snapshotListener:
+    | ((value: NativePlaybackSnapshot | null) => void)
+    | null = null;
   const left = port(),
     right = port(5, 12);
   let present: ((pair: NativeGroupPresentation) => void) | null = null;
@@ -140,7 +147,12 @@ const fixture = () => {
       closing: false,
       closed: false,
     })),
-    onSnapshot: () => () => {},
+    onSnapshot: (_owner, listener) => {
+      snapshotListener = listener;
+      return () => {
+        if (snapshotListener === listener) snapshotListener = null;
+      };
+    },
     close: vi.fn<IElectronAPI['nativePlayback']['close']>(
       async (activeOwner) => ({
         generation: activeOwner.generation,
@@ -211,7 +223,7 @@ const fixture = () => {
       isVideoPlaying: false,
       videoPlayBackRate: 1,
       currentTime: 3,
-      setCurrentTime: () => {},
+      setCurrentTime: clockTime,
       setIsVideoPlaying: () => {},
       setMaxSec: () => {},
     });
@@ -231,6 +243,10 @@ const fixture = () => {
   return {
     left,
     right,
+    clockTime,
+    publish: (value: NativePlaybackSnapshot): void => {
+      snapshotListener?.(value);
+    },
     mounts,
     bind,
     release,
@@ -573,4 +589,95 @@ it('retains ownership and suppresses automatic retry if visibility recovery cann
   });
   expect(htmlPlaybackAllowed()).toBe(true);
   expect(f.api.open).toHaveBeenCalledOnce();
+});
+
+it('propagates the Main-confirmed buffered image to the package clock without adding an angle offset or claiming ready audio', async () => {
+  const f = fixture();
+  render(<f.View />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  const controller = getNativePlayback();
+  if (!controller) throw Error('missing controller');
+  const initial = vi.mocked(f.api.apply).mock.lastCall?.[0];
+  if (!initial) throw Error('missing issued intent');
+  await act(async () =>
+    f.publish({
+      intent: initial,
+      observation: {
+        ...owner,
+        sequence: 1,
+        seekId: 1,
+        revision: 1,
+        time: 3,
+        rate: 0,
+        audioTrack: 0,
+        volume: 0.5,
+        muted: true,
+        phase: 'paused',
+        videoReady: true,
+        audioReady: true,
+        error: null,
+      },
+      lastConfirmedTime: 3,
+      error: null,
+      closing: false,
+      closed: false,
+    }),
+  );
+  await act(async () => {
+    controller.controls({ playing: true, rate: -2 });
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  const issued = vi.mocked(f.api.apply).mock.lastCall?.[0];
+  if (!issued) throw Error('missing issued intent');
+  vi.mocked(f.api.close).mockResolvedValue({
+    generation: owner.generation,
+    nativeDrained: true,
+    processStarted: true,
+    processExited: true,
+    pipesClosed: true,
+    stopped: null,
+    presentedStop: {
+      document: 'doc',
+      generation: owner.generation,
+      operation: 2,
+      seekId: 1,
+      pair: 2,
+      globalTicks: 348000,
+      ids: [3, 4],
+    },
+  });
+  await act(async () =>
+    f.publish({
+      intent: issued,
+      observation: {
+        ...owner,
+        sequence: issued.sequence,
+        seekId: issued.seekId,
+        revision: 2,
+        time: 2.9,
+        rate: 0,
+        audioTrack: 0,
+        volume: 0.5,
+        muted: true,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+        error: null,
+      },
+      lastConfirmedTime: 2.9,
+      error: null,
+      closing: false,
+      closed: false,
+    }),
+  );
+  expect(controller.snapshot().time).toBe(2.9);
+  expect(f.clockTime).toHaveBeenLastCalledWith(2.9);
+  expect(controller.snapshot().observation).toMatchObject({
+    phase: 'buffering',
+    videoReady: false,
+    audioReady: false,
+  });
+  expect(f.right.seek).not.toHaveBeenCalled();
 });

@@ -873,7 +873,7 @@ it.each([1, -2])(
         ),
       ).toBe(true);
     }
-    expect(session.snapshot().lastConfirmedTime).toBe(ready);
+    expect(session.snapshot().lastConfirmedTime).toBe(3 + direction * 0.12);
     // Even genuine old Drawn history cannot authorize moving against direction.
     expect(
       session.observe(
@@ -1168,7 +1168,7 @@ it('anchors only a ledger-confirmed exact initial group image when reverse buffe
     ),
   ).toBe(true);
   expect(confirmed).toHaveBeenCalled();
-  expect(session.snapshot().lastConfirmedTime).toBe(0);
+  expect(session.snapshot().lastConfirmedTime).toBe(3);
   expect(session.snapshot().observation?.audioReady).toBe(false);
   expect(
     session.observe(
@@ -1268,7 +1268,7 @@ it('reanchors a new exact group seek independently of the prior reverse directio
       }),
     ),
   ).toBe(true);
-  expect(session.snapshot().lastConfirmedTime).toBe(3);
+  expect(session.snapshot().lastConfirmedTime).toBe(7);
   expect(
     session.observe(
       observation({
@@ -1531,4 +1531,46 @@ it('retains only the exact stop image across later paused settings acknowledgeme
     }),
   );
   expect((await session.close()).presentedStop).toEqual(proof);
+});
+
+it('publishes a verified group image time for tags while readiness remains buffering', async () => {
+  const { backend } = make();
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [1, -2],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: (value) => value.time === 3 || value.time === 2.9,
+      confirmsPresentedStop: () => false,
+    },
+  );
+  session.apply(intent());
+  await tick();
+  session.observe(observation());
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 2,
+        revision: 2,
+        time: 2.9,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(2.9);
+  expect(session.snapshot().observation).toMatchObject({
+    phase: 'buffering',
+    videoReady: false,
+    audioReady: false,
+  });
 });

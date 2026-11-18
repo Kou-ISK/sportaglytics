@@ -308,8 +308,9 @@ export class NativePlaybackSession {
     if (value.phase === 'buffering') {
       // In the image-clock contract an exact, Main-ledger-confirmed complete
       // pair may arrive before the initial audio-ready paused observation.
-      // Anchor only this image baseline; readiness and confirmed time remain
-      // unchanged until an actual ready observation. Source clocks cannot do this.
+      // Anchor the image baseline without claiming audio/video readiness.
+      // Its separately confirmed image time is also the tag clock; source
+      // clocks still require an actual ready observation.
       const groupImageAnchor =
         this.scope.clockAuthority === 'drawn-pair' &&
         this.anchoredSeek !== value.seekId &&
@@ -371,6 +372,13 @@ export class NativePlaybackSession {
       this.clockTime = value.time;
     }
     this.observation = value;
+    // In drawn-pair mode the ledger, rather than audio readiness, establishes
+    // which image is visible. Keep the refill/ready deadlines and stop guard.
+    if (
+      this.scope.clockAuthority === 'drawn-pair' &&
+      value.phase === 'buffering'
+    )
+      this.lastTime = value.time;
     if (
       (value.phase === 'paused' || value.phase === 'playing') &&
       value.videoReady &&
