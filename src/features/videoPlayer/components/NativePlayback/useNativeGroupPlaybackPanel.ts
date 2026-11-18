@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { CachePlayerRegistration } from '../PlaybackCache/CachePlayerContext';
 import type { NativePlaybackAvailability } from '../../../../types/ipc/nativePlayback';
 import { parseNativePlaybackAvailability } from '../../../../types/ipc/nativePlayback';
@@ -9,6 +15,13 @@ import { useNativePlaybackState } from '../../shared/nativePlayback/useNativePla
 import { nativeStartUnavailableReason } from '../../shared/nativePlayback/nativeStartAvailability';
 import type { NativePlaybackControls } from '../../shared/nativePlayback/nativePlaybackController';
 import type { NativePlaybackPanelViewProps } from './NativePlaybackPanelView';
+
+const subscribeVisibility = (listener: () => void): (() => void) => {
+  document.addEventListener('visibilitychange', listener);
+  return () => document.removeEventListener('visibilitychange', listener);
+};
+const isDocumentVisible = (): boolean => document.visibilityState === 'visible';
+const notVisible = (): boolean => false;
 
 export const useNativeGroupPlaybackPanel = (
   timeline: NativeGroupTimeline,
@@ -22,6 +35,11 @@ export const useNativeGroupPlaybackPanel = (
   view: NativePlaybackPanelViewProps | null;
   warning: string | null;
 } => {
+  const visible = useSyncExternalStore(
+    subscribeVisibility,
+    isDocumentVisible,
+    notVisible,
+  );
   const players = useRef(new Set<CachePlayerRegistration>());
   const [revision, setRevision] = useState(0);
   const [settingsRevision, setSettingsRevision] = useState(0);
@@ -90,6 +108,7 @@ export const useNativeGroupPlaybackPanel = (
     const inspect = window.electronAPI?.nativePlayback.inspectGroup;
     if (
       !inspect ||
+      !visible ||
       !surfaces.ready ||
       !pair ||
       audioId === null ||
@@ -119,10 +138,11 @@ export const useNativeGroupPlaybackPanel = (
       cancelled = true;
     };
     // Member changes are represented by registration revision, audio by its ID.
-  }, [timeline.key, revision, audioId, surfaces.ready, controller]);
+  }, [timeline.key, revision, audioId, surfaces.ready, controller, visible]);
   useEffect(() => {
     if (
       controller ||
+      !visible ||
       playing ||
       !surfaces.ready ||
       !qualification ||
@@ -198,6 +218,7 @@ export const useNativeGroupPlaybackPanel = (
     }
   }, [
     controller,
+    visible,
     playing,
     surfaces.ready,
     qualification,

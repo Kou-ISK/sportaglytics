@@ -241,7 +241,10 @@ const fixture = () => {
     },
   };
 };
-beforeEach(() => vi.useFakeTimers());
+beforeEach(() => {
+  vi.useFakeTimers();
+  vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+});
 afterEach(async () => {
   const controller = getNativePlayback();
   if (controller)
@@ -252,6 +255,7 @@ afterEach(async () => {
   document.body.replaceChildren();
   Reflect.deleteProperty(window, 'electronAPI');
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 it('connects two ordinary same-URL slots through one pair binding and actual Controller, never legacy', async () => {
   const f = fixture();
@@ -412,9 +416,61 @@ it('rejects a disposed original during pending React cleanup without opening or 
   expect(htmlPlaybackAllowed()).toBe(true);
 });
 
-it('shows a safe fallback warning when opening lacks the mandatory presentation fence',async()=>{
- const f=fixture();f.api.freezePresentation=undefined;
- render(<f.View/>);await act(async()=>{await vi.advanceTimersByTimeAsync(1);});
- expect(f.api.open).not.toHaveBeenCalled();expect(htmlPlaybackAllowed()).toBe(true);
- expect(screen.getByRole('alert').textContent).toContain('互換再生を使用');
+it('shows a safe fallback warning when opening lacks the mandatory presentation fence', async () => {
+  const f = fixture();
+  f.api.freezePresentation = undefined;
+  render(<f.View />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.api.open).not.toHaveBeenCalled();
+  expect(htmlPlaybackAllowed()).toBe(true);
+  expect(screen.getByRole('alert').textContent).toContain('互換再生を使用');
+});
+
+it('defers group qualification and opening while hidden, then starts once naturally visible', async () => {
+  let visibility: DocumentVisibilityState = 'hidden';
+  vi.spyOn(document, 'visibilityState', 'get').mockImplementation(
+    () => visibility,
+  );
+  const f = fixture();
+  render(<f.View />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.inspect).not.toHaveBeenCalled();
+  expect(f.api.open).not.toHaveBeenCalled();
+  await act(async () => {
+    visibility = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.inspect).toHaveBeenCalledOnce();
+  expect(f.api.open).toHaveBeenCalledOnce();
+});
+it('does not consume a qualification resolved after hiding or lose the next visible attempt', async () => {
+  let visibility: DocumentVisibilityState = 'visible';
+  vi.spyOn(document, 'visibilityState', 'get').mockImplementation(
+    () => visibility,
+  );
+  const f = fixture(),
+    pending = Promise.withResolvers<NativePlaybackAvailability>();
+  f.inspect.mockReturnValueOnce(pending.promise);
+  render(<f.View />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  await act(async () => {
+    visibility = 'hidden';
+    document.dispatchEvent(new Event('visibilitychange'));
+    pending.resolve(qualified());
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.api.open).not.toHaveBeenCalled();
+  await act(async () => {
+    visibility = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.api.open).toHaveBeenCalledOnce();
 });
