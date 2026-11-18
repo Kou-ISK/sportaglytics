@@ -53,7 +53,22 @@ it.each(['Sample.stpkg', 'Without extension', 'ライブ 🏉.stpkg'])(
   async (name) => {
     const { root, source } = await fixture(name);
     const before = await packageCopyDigest(source);
-    const result = await open(source);
+    const result = await open(source).catch((error: unknown) => {
+      // A failed Windows subprocess otherwise prints only its command. Keep
+      // the original failure, but distinguish timeout/termination from an
+      // actual lookup rejection before changing any ownership deadline.
+      if (error instanceof Error) {
+        const stderr = 'stderr' in error ? error.stderr : undefined;
+        console.error('migration owner lookup failure', {
+          code: 'code' in error ? error.code : undefined,
+          signal: 'signal' in error ? error.signal : undefined,
+          killed: 'killed' in error ? error.killed : undefined,
+          stderrBytes:
+            typeof stderr === 'string' ? Buffer.byteLength(stderr) : null,
+        });
+      }
+      throw error;
+    });
     expect(result.packagePath).toBe(source);
     expect(result.migrated).toBe(true);
     expect(await packageCopyDigest(result.backupPath!)).toBe(before);
@@ -78,7 +93,7 @@ it.each(['Sample.stpkg', 'Without extension', 'ライブ 🏉.stpkg'])(
       'PACKAGE_UPDATE_BACKUP_SELECTED',
     );
   },
-  // Windows owner-identity lookup has its own 5s subprocess timeout. Leave room
+  // Windows owner-identity lookup has its own 10s subprocess timeout. Leave room
   // for the surrounding filesystem work and propagate lookup errors unchanged.
   process.platform === 'win32' ? 15_000 : 5_000,
 );

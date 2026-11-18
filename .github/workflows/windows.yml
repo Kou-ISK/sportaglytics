@@ -74,6 +74,8 @@ jobs:
         run: node scripts/test-export-text-layout.mjs
       - name: Prepare test-only AI model
         run: node scripts/prepare-test-model.mjs
+      - name: Verify actual read-only package owner lookup
+        run: node scripts/windows/verify-package-owner.mjs
       - name: Windows quality gates
         run: |
           pnpm run typecheck

@@ -1,6 +1,7 @@
 import { createContext } from 'react';
 import type { CachePlayerPort } from './cachePlayerSwitch';
 export interface CachePlayerRegistration {
+  playerId?: string;
   source: string;
   port: CachePlayerPort;
   suppressMetadata: (suppress: boolean) => void;

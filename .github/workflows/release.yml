@@ -132,6 +132,7 @@ jobs:
         run: |
           pnpm run native:build
           pnpm run test:native-runtime
+          pnpm run test:native-group-player-host
 
       - name: Run Electron E2E
         env:

@@ -1,3 +1,4 @@
+import { parseNativePlaybackGroupSelection } from '../../../src/types/ipc/nativePlaybackGroup';
 import { parseNativePlaybackFailure } from '../../../src/types/ipc/nativePlaybackFailure';
 import type { IElectronAPI } from '../../../src/renderer';
 import {
@@ -85,6 +86,9 @@ export const createNativePlaybackBridge = (
     },
     inspect: async () =>
       parseNativePlaybackAvailability(await transport.invoke(channels.inspect)),
+    inspectGroup: async (selection) => parseNativePlaybackAvailability(
+      await transport.invoke(channels.inspectGroup, parseNativePlaybackGroupSelection(selection)),
+    ),
     open: async (owner) => {
       await transport.invoke(channels.open, owner);
     },

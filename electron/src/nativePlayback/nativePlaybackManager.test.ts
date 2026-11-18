@@ -1,13 +1,13 @@
 import { expect, it, vi } from 'vitest';
 import { NativePlaybackManager } from './nativePlaybackManager';
 import type { QualifiedNativeSource } from './nativePlaybackManager';
-import type { NativePlaybackOwner } from '../../../src/types/ipc/nativePlayback';
+import type { NativePlaybackClosed, NativePlaybackOwner } from '../../../src/types/ipc/nativePlayback';
 import { createCommandLeftBroker } from '../nativeInput/commandLeftBroker';
 import { createCommandLeftHealth } from '../nativeInput/commandLeftHealth';
 const make = () => {
   let context: string | null = 'document-a';
   let owner: NativePlaybackOwner | null = null;
-  const close = vi.fn(async () => ({
+  const close = vi.fn(async (): Promise<NativePlaybackClosed> => ({
     generation: owner?.generation ?? '',
     nativeDrained: true,
     processStarted: true,
@@ -457,4 +457,77 @@ it('rejects evidence from changed documents and isolates a throwing optional sin
     'NATIVE_OWNER_CHANGED',
   );
   expect(backend.close).toHaveBeenCalledTimes(1);
+});
+
+const groupPresentation = { width: 1920, height: 1080, start: 0, end: 20,
+  seekEnd: 19, playEnd: 19.5, rates: [1, -2], audioTracks: 3,
+  seekGrid: null, mutedOnly: true, exactFloatVolume: false, audioSwitch: false };
+it('advertises only Main-qualified group authority and forwards its real ledger verifiers', async () => {
+  const f = make();
+  f.source.scope = { ...f.source.scope, rates: [1, -2], clockAuthority: 'drawn-pair' };
+  f.source.presentation = groupPresentation;
+  let emit: ((value: unknown) => void) | undefined;
+  const confirmsPresentation = vi.fn(() => true), confirmsPresentedStop = vi.fn(() => true);
+  f.source.createBackend = vi.fn((_owner, observe) => {
+    emit = observe; return { ...f.backend, confirmsPresentation, confirmsPresentedStop };
+  });
+  const available = await f.manager.inspect();
+  expect(available.clockAuthority).toBe('drawn-pair');
+  expect(available.presentation?.rates).toEqual([1, -2]);
+  if (!available.owner) throw Error('missing owner');
+  const owner = available.owner;
+  await f.manager.open(owner);
+  await f.manager.apply({ ...owner, sequence: 1, seekId: 1, targetTime: 3,
+    playing: false, rate: 1, audioTrack: 0, volume: 0.5, muted: true });
+  const observed = { ...owner, revision: 1, sequence: 1, seekId: 1, phase: 'paused',
+    time: 3, rate: 0, audioTrack: 0, volume: 0.5, muted: true,
+    videoReady: true, audioReady: true, error: null };
+  if (!emit) throw Error('missing source observer'); emit(observed);
+  expect(f.manager.observe(owner).observation).toEqual(observed);
+  expect(confirmsPresentation).toHaveBeenCalledWith(observed);
+  const proof = { document: 'doc', generation: owner.generation, operation: 1,
+    seekId: 1, pair: 1, globalTicks: 360000, ids: [1, 2] };
+  f.backend.close.mockResolvedValue({ generation: owner.generation,
+    nativeDrained: true, processStarted: true, processExited: true, pipesClosed: true,
+    stopped: null, presentedStop: proof });
+  expect((await f.manager.close(owner)).presentedStop).toEqual(proof);
+  expect(confirmsPresentedStop).toHaveBeenCalledWith(proof);
+});
+it('does not advertise a group without a qualified presentation or silently drop missing verifiers', async () => {
+  const f = make(); f.source.scope.clockAuthority = 'drawn-pair';
+  await expect(f.manager.inspect()).rejects.toThrow('GROUP_PRESENTATION_SCOPE');
+  f.source.scope.rates = [1, -2]; f.source.presentation = groupPresentation;
+  const available = await f.manager.inspect(); if (!available.owner) throw Error('missing owner');
+  await expect(f.manager.open(available.owner)).rejects.toThrow('GROUP_VERIFIER_MISSING');
+  await f.manager.close(available.owner); expect(f.backend.close).toHaveBeenCalledOnce();
+});
+
+it('revokes only idle qualification when Main changes selected angles', async () => {
+  const { manager, source } = make();
+  const first = await manager.inspect(); const originalOwner = first.owner; if (!originalOwner) throw Error('owner');
+  manager.resetIdleQualification();
+  expect(() => manager.open(originalOwner)).toThrow('OWNER_CHANGED');
+  const second = await manager.inspect(); expect(second.owner?.generation).not.toBe(first.owner.generation);
+  expect(source.createBackend).not.toHaveBeenCalled();
+});
+it('cannot replace a pending qualification or an active/held owner', async () => {
+  const { manager, source } = make(), pending = Promise.withResolvers<void>();
+  vi.mocked(source.assertCurrent).mockReturnValueOnce(pending.promise);
+  const inspecting = manager.inspect();
+  expect(() => manager.resetIdleQualification()).toThrow('BUSY');
+  pending.resolve(); const available = await inspecting; if (!available.owner) throw Error('owner');
+  await manager.open(available.owner);
+  expect(() => manager.resetIdleQualification()).toThrow('BUSY');
+  const release = await manager.hold();
+  expect(() => manager.resetIdleQualification()).toThrow('BUSY');
+  release(); expect(() => manager.resetIdleQualification()).not.toThrow();
+});
+it('retains a failed close and rejects qualification replacement instead of bypassing uncertain cleanup', async () => {
+  const { manager, backend } = make();
+  const available = await manager.inspect(); if (!available.owner) throw Error('owner');
+  await manager.open(available.owner);
+  const cause = Error('native close remains uncertain'); backend.close.mockRejectedValueOnce(cause);
+  await expect(manager.close(available.owner)).rejects.toBe(cause);
+  expect(() => manager.resetIdleQualification()).toThrow('BUSY');
+  expect(backend.close).toHaveBeenCalledOnce();
 });

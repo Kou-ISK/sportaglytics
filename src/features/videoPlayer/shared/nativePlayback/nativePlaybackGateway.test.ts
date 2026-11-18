@@ -220,3 +220,13 @@ it('passes the qualified source endpoint to recovery without replacing the sourc
   );
   expect(htmlPlaybackAllowed()).toBe(true);
 });
+
+it('rejects a qualified group at the one-port gateway before claiming HTML or opening native', () => {
+  const f = make();
+  expect(() => openQualifiedNativePlayback({ ...availability, clockAuthority: 'drawn-pair',
+    presentation: { width: 1920, height: 1080, start: 0, end: 20, seekEnd: 19,
+      playEnd: 19.5, rates: [1, -2], audioTracks: 1, seekGrid: null,
+      mutedOnly: true, exactFloatVolume: false, audioSwitch: false } },
+    f.player, () => {}, () => {})).toThrow('GROUP_GATEWAY_REQUIRED');
+  expect(f.api.open).not.toHaveBeenCalled(); expect(htmlPlaybackAllowed()).toBe(true);
+});

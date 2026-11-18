@@ -1,5 +1,6 @@
 import type { VideoViewMode } from '../../../../shared/media/angleView';
-import React from 'react';
+import React, { useMemo } from 'react';
+import { resolveNativeGroupTimeline } from '../../shared/nativePlayback/nativeGroupTimeline';
 import { Box } from '@mui/material';
 import { VideoPlayer, VideoController } from '../..';
 import type { VideoSyncData } from '../../../../types/video/sync';
@@ -52,6 +53,13 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   mediaAngles,
   setMediaAngles,
 }) => {
+  const groupTimeline = useMemo(
+    () =>
+      videoList.length === 2
+        ? resolveNativeGroupTimeline(mediaAngles, syncData)
+        : null,
+    [mediaAngles, syncData, videoList.length],
+  );
   const restoreNativePlayback = useNativePlaybackRestoration(
     setCurrentTime,
     setVideoPlayBackRate,
@@ -75,9 +83,11 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
     <PlaybackCacheBoundary
       eligible={
         syncMode === 'auto' &&
-        videoList.length === 1 &&
+        (videoList.length === 1 ||
+          (videoList.length === 2 && groupTimeline !== null)) &&
         livePlaybackEnd === undefined
       }
+      groupTimeline={groupTimeline}
       playing={isVideoPlaying}
       timelineTime={currentTime}
       pause={() => setIsVideoPlaying(false)}

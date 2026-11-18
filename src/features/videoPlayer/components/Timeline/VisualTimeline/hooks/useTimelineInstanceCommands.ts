@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useRef } from 'react';
+import { useTimelineRowSelectionFocus } from './useTimelineRowSelectionFocus';
 import type React from 'react';
 import type { VisualTimelineProps } from '../VisualTimeline.types';
 import type { TimelineRowInteractions } from './useTimelineRowInteractions';
@@ -27,6 +28,7 @@ interface Commands {
   handleDeleteSelectedItems: (ids: string[]) => void;
   clearSelection: () => void;
   selectAllItems: () => void;
+  rowMenuExited: (element: HTMLElement) => void;
 }
 
 export const useTimelineInstanceCommands = ({
@@ -46,20 +48,9 @@ export const useTimelineInstanceCommands = ({
   info,
 }: Params): Commands => {
   const copiedItemsRef = useRef<typeof timeline>([]);
-  const rowSelectionFocus = useRef(false);
-  const rowMenu = rowInteractions.rowContextMenu;
-  useEffect(() => {
-    if (rowMenu !== null) {
-      rowSelectionFocus.current = false;
-      return;
-    }
-    if (!rowSelectionFocus.current) return;
-    rowSelectionFocus.current = false;
-    // MUI restores its previous focus during the closing commit. Apply the
-    // selection action's keyboard destination after that child cleanup, without
-    // changing Escape/backdrop dismissal or dialog focus restoration.
-    scrollContainerRef.current?.focus({ preventScroll: true });
-  }, [rowMenu, scrollContainerRef]);
+  const rowSelectionFocus = useTimelineRowSelectionFocus(
+    rowInteractions.rowContextMenu, scrollContainerRef,
+  );
   const handleCopyTimelineItems = useCallback(
     (items: typeof timeline): void => {
       copiedItemsRef.current = items.map((item) => ({
@@ -133,7 +124,7 @@ export const useTimelineInstanceCommands = ({
     rowInteractions.clearRowSelection();
   };
   const selectAllItems = (): void => {
-    rowSelectionFocus.current = rowMenu !== null;
+    rowSelectionFocus.select();
     const names = new Set(
       rows
         .filter((row) => rowInteractions.selectedRowIds.includes(row.id))
@@ -155,5 +146,6 @@ export const useTimelineInstanceCommands = ({
     handleDeleteSelectedItems,
     clearSelection,
     selectAllItems,
+    rowMenuExited: rowSelectionFocus.exited,
   };
 };

@@ -70,7 +70,20 @@ export interface IElectronAPI {
       }) => void,
     ) => () => void;
   };
+  /** Pair binding is not a helper capability or a source qualification grant. */
+  nativeGroupSurface?: {
+    bind: (
+      canvasIds: readonly [string, string],
+      onPair: (
+        pair: import('./types/ipc/nativeGroupSurface').NativeGroupPresentation,
+      ) => void,
+    ) => () => void;
+  };
   nativePlayback: {
+    /** Synchronous preload fence; captures no Renderer-selected time or proof. */
+    freezePresentation?: (
+      intent: import('./types/ipc/nativePlayback').NativePlaybackIntent,
+    ) => void;
     reportFailure?: (
       owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
       failure: import('./types/ipc/nativePlaybackFailure').NativePlaybackFailure,
@@ -86,6 +99,9 @@ export interface IElectronAPI {
     inspect: () => Promise<
       import('./types/ipc/nativePlayback').NativePlaybackAvailability
     >;
+    inspectGroup?: (
+      selection: import('./types/ipc/nativePlaybackGroup').NativePlaybackGroupSelection,
+    ) => Promise<import('./types/ipc/nativePlayback').NativePlaybackAvailability>;
     open: (
       owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
     ) => Promise<void>;

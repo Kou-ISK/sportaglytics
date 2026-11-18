@@ -12,6 +12,7 @@ export const useCachePlayerRegistration = (
   playerRef: MutableRefObject<Player | null>,
   videoSrc: string,
   isReady: boolean,
+  playerId?: string,
 ): MutableRefObject<boolean> => {
   const context = useContext(CachePlayerContext);
   const suppressMetadata = useRef(false);
@@ -54,12 +55,13 @@ export const useCachePlayerRegistration = (
       },
     };
     return context.register({
+      playerId,
       source: resolveVideoSource(videoSrc).src,
       port,
       suppressMetadata: (value) => {
         suppressMetadata.current = value;
       },
     });
-  }, [context, isReady, playerRef, videoSrc]);
+  }, [context, isReady, playerRef, videoSrc, playerId]);
   return suppressMetadata;
 };

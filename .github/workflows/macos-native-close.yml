@@ -7,6 +7,7 @@ on:
       - '.github/workflows/macos-native-close.yml'
       - 'electron/**'
       - 'src/**'
+      - 'native/**'
       - 'scripts/**'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -29,8 +30,15 @@ jobs:
         with:
           version: 9.1.0
       - run: pnpm install --frozen-lockfile
+      - name: Verify native runtime ownership contracts
+        run: pnpm run test:native-runtime
       - name: Verify held publication contract before media build
         run: pnpm exec vitest run electron/src/testing/nativeFixtureCompilation.test.ts electron/src/ipc/exportHeldPublish.test.ts
+      - name: Build verified native playback and verify group addon transport
+        run: |
+          pnpm run native:build
+          pnpm run test:native-group-surface
+          pnpm run test:native-group-player-host
       - name: Build verified host media tools
         run: pnpm run media:build
       - name: Build application and preload

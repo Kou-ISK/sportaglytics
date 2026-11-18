@@ -1,3 +1,4 @@
+import type { NativePlaybackGroupBinding } from '../../../src/types/ipc/nativePlaybackGroup';
 import {
   parseNativePlaybackPresentation,
   nativePresentationSupports,
@@ -26,6 +27,7 @@ import type {
 
 /** Supplied only by trusted Main composition. No renderer path/arguments/proof. */
 export interface QualifiedNativeSource {
+  group?: NativePlaybackGroupBinding;
   // Omit when this backend has no embedded presentation contract.
   presentation?: NativePlaybackPresentation;
   sourceKey: string;
@@ -136,9 +138,13 @@ export class NativePlaybackManager {
             JSON.stringify(source.scope.rates))
       )
         throw Error('NATIVE_PRESENTATION_SCOPE_MISMATCH');
+      if (source.scope.clockAuthority === 'drawn-pair' && !presentation)
+        throw Error('NATIVE_GROUP_PRESENTATION_SCOPE');
       const availability = parseNativePlaybackAvailability({
         available: true,
+        ...(source.scope.clockAuthority === 'drawn-pair' ? { clockAuthority: 'drawn-pair' } : {}),
         presentation,
+        ...(source.group ? { group: source.group } : {}),
         owner: { ...owner },
         sourceUrl: source.sourceUrl,
         sourceEnd: source.sourceEnd,
@@ -152,6 +158,17 @@ export class NativePlaybackManager {
       this.lookup = null;
     });
     return this.lookup;
+  }
+  /** Revoke only idle qualification, never a lookup/factory/retained resource.
+   * Main uses this before changing selected angle IDs, not as a cleanup grant. */
+  resetIdleQualification(): void {
+    if (this.lookup || this.opening || this.held ||
+        (this.session && !this.drained) || (this.closing && !this.drained))
+      throw Error('NATIVE_BUSY');
+    this.failureSink = undefined; this.failureReported = false;
+    this.qualified = null; this.owner = null; this.context = null;
+    this.session = null; this.closeWork = null;
+    this.closing = false; this.invalidated = false; this.drained = false;
   }
   private authenticate(raw: NativePlaybackOwner): QualifiedNativeSource {
     const value = parseNativePlaybackOwner(raw);
@@ -202,6 +219,8 @@ export class NativePlaybackManager {
               return Promise.reject(Error('NATIVE_INITIALIZATION_UNKNOWN'));
             return backend.write(intent);
           },
+          confirmsPresentation: (value) => backend?.confirmsPresentation?.(value) === true,
+          confirmsPresentedStop: (proof) => backend?.confirmsPresentedStop?.(proof) === true,
           close: () => {
             if (!backend)
               return Promise.reject(Error('NATIVE_INITIALIZATION_UNKNOWN'));
@@ -216,6 +235,10 @@ export class NativePlaybackManager {
         if (this.session === retainedSession) retainedSession.observe(value);
       });
       this.failureSink = backend.reportFailure;
+      if (source.scope.clockAuthority === 'drawn-pair' &&
+          (typeof backend.confirmsPresentation !== 'function' ||
+           typeof backend.confirmsPresentedStop !== 'function'))
+        throw Error('NATIVE_GROUP_VERIFIER_MISSING');
     })().finally(() => {
       this.opening = null;
     });

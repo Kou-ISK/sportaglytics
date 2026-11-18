@@ -421,8 +421,39 @@ macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成
 
 `exportHeldPublish.test.ts`のC++ fixtureは非同期で準備します。CIでコンパイラ15秒とhook既定10秒の両期限超過が観測されたため、準備専用にコンパイラ30秒/64KiB、外側hook35秒を指定します。製品の書き出し・保存・各caseの期限と6件の安全性assertionは変更しません。外側hook終了時は準備をabandonし、遅れたFS復帰から新しいコンパイラを起動しません。既に開始した子を強制終了したとは扱いません。timeout/異常終了は失敗のまま、FS準備のsettleと当該子のcloseが未確認なら一時領域を削除せず保持します。35秒がOS/FS停止を必ず包含する保証ではありません。`nativeFixtureCompilation.test.ts`は未完FS、exitだけ/close未確認、timeout・出力上限・起動失敗、別子のclose混線をプロセスなしで検証します。macOS PR CIではメディアbuild前にこのfixtureと実C++の6件を実行します。SDK cacheの完全なcold状態やrelease全体負荷・署名受入の代替とはしません。
 
-行メニューからのインスタンス選択は、MUIの閉鎖時focus復元後にもタイムラインへキーが届くことを実Menu/Controllerのjsdom回帰で確認します。Escapeによる通常の復元と、閉鎖中に別要素へ移したfocusを奪わないことも別に検証します。実Electronの配送・window focus・ネイティブ閉鎖順序の証拠とは区別します。
+行メニューからのインスタンス選択は、MUIの閉鎖commit後に古いメニューが再びfocusを取得する順序を実Menu/Controllerのjsdom回帰で再現します。`useTimelineRowSelectionFocus.test.tsx`は終了通知とportal切離しの順序、新しいメニュー・外部focus・unmountによる描画callback失効を検査します。Electron E2Eはaccessibility上の非表示だけでなくportalの実切離しとタイムラインへのfocus復帰を待ち、選択・削除・Undoの正確なIDを引き続き検証します。Escapeによる通常の復元と、閉鎖中に別要素へ移したfocusを奪わないことも別に検証します。実Electronの配送・window focus・ネイティブ閉鎖順序の証拠とは区別します。
 
 文書切替はreal `useTimelineSessionController`（persistence/history含む）とwindow integrationを結合し、読み込み完了からhistory採用までに旧項目・行が新document IDで送られないことを確認します。空・同内容の置換、読み込みleaseの旧callback、採用後の編集とUndoも別に確認します。Fs/IPC配送はmockであり、実Electron結果とは区別します。
 
+### 有界reverse frame所有
+
+`test:native-runtime`の`ReverseFrameCache.test.cpp`は複数bank共通budget、consumer貸出後の解放、別thread返却、過大要求、旧操作/source、穴・排他的末尾・重複/重なる区間の拒否を検査します。このportable C++回帰は実decoderや画面提示の試験ではありません。実AVAssetReader比較と残る受入は[設計と測定](multi-angle-playback.md)へ分離します。
+
+`SurfaceSender.test.mm`は同じFrameLeaseをcacheから実CoreVideo/IOSurface/Mach転送へ渡し、cache消去・Drawn後も保持しReleased後だけ予算を返すこと、pool再利用、送信失敗・移動済みlease・二重ACKを確認します。2つのsenderへ同じ画像を渡しても二重計上せず、片側の取消/Releasedでは他方の保持を解放しません。Released未確認のsender破棄はstickyなquarantineを一度だけ計上し、他方のReleasedやpool再利用を終了確認と誤認せず、同じ予算での保持・再送を拒否します。別予算のleaseを拒否し、小さい注入予算では通常転送も副作用なしで拒否することを確認します。小容量の実転送と試験peerによるACKであり、実Electron GPUや実画面の試験ではありません。既存のraw画像の所有と最大3送信枠も維持します。
+
+`PlayerObservation.test.cpp`はDrawnが少しずつ後退していても実時計から遅れる負例、0.5/2/4/6倍での同じ1秒の換算境界、無効時計・時刻・整数差の安全な計算を検査します。設定更新の連打で期限が延長されず、再押下・倍率/方向変更・新しいseekでは再基準化し、古いseekでは更新できないことも確認します。取得PTSログの再生は監視条件の対照であり、実Drawnや物理画面の受入とは区別します。
+
+`scripts/testing/active-nv12-digest.test.mm`は小さな実CoreVideoバッファで、paddingだけの変更を画像変化と数えず、疎な輝度採取で見落とす変更やchromaだけの変更を検出することを確認します。format・寸法の違い、不正なformat/nullの拒否も検査し、既存`test:native-runtime`で実行します。元映像や追加media fixtureは使いません。
+
+macOS PR workflowは`native/**`の変更も対象に含め、media buildの前に既存`test:native-runtime`を実行します。単なるnativeファイル変更だけで画像所有回帰が未実行になることを防ぎます。取得画像の任意診断と実配布物の画面受入は別ゲートです。
 0.17.30の限定リリースでは`export-text-geometry`を共通Electron E2Eとインストール済みWindowsへ登録する。署名済みMac DMGも同じ共通runnerを実行するため、インストールされたMainと同梱FFmpegで回転・SAR結合・オーバーレイのpreview/export整合を検査する。CIでの画素比較を実聴取・物理画面の受入とは扱わない。
+
+### 限定group Hostの非GUI結合
+
+macOS arm64の`pnpm run native:build && pnpm run test:native-group-player-host`はMainのmanifest変換、実FIFO・helper・独立AVPlayer・実sample metadata・N-API/Mach転送と、停止proof拒否/再押下/結果hash/子close・pipe終了を検査する。`test:native-runtime`のsource/pair試験は同じ取得部のoffset、半開区間、旧非同期完了、片側の終了と借用画像会計を確認する。描画ACKは模擬であり実Canvas/音声/署名済み版や継続reverseの品質を代替しない。通常Controllerのgroup接続が完成するまで単一経路の既存受入を維持する。
+
+Windows package-owner lookup has a standalone real-OS contract at `scripts/windows/verify-package-owner.mjs`. It must pass before migration/desktop acceptance. A successful mock EOF-ordering test does not replace this Windows execution. The diagnostic preserves the same finite command and does not accept stdout after timeout/termination, retry through another API, change security settings, or infer that an unknown owner is inactive.
+
+The experimental `test:native-group-player-host` also runs `test-native-group-reverse.mjs`: four reverse rates, adjacent-bank crossing, complete-pair acknowledgement, release and real drain. `test:native-runtime` includes `GroupPlaybackClock` pending-target/re-press/range regressions and actual two-bank ownership. These tests do not activate the normal Controller or prove sustained heavy-media/display/audio performance; see [current limits](multi-angle-playback.md#bounded-prefetch-and-presentation-backpressure-experimental).
+
+The group Host regression now instantiates the ordinary `NativePlaybackController` and Main `NativePlaybackSession`, with the actual native FIFO/helper and a complete-pair ledger. IPC subscription/delivery, qualification/signature, Drawn and HTML restoration remain test adapters; this is not normal UI/provider activation or physical display acceptance. The Main-only `drawn-pair` clock requires a presentation verifier and exact complete Drawn history for observations and the separately tagged `presentedStop` receipt. Missing/old/unissued receipts cannot release recovery ownership; legacy source-clock mode rejects image receipts. Source clocks and canvas anchors remain distinct.
+
+`menuCommandDelivery.test.ts` covers sync commands from focused package children, unrelated windows and an ambiguous no-focus state. `e2e-clip-sync.mjs` explicitly focuses and verifies the main window before testing its manual-sync accelerator, including after reopening persisted YouTube timelines. The installed Windows scenario retains the workspace assertion and original deadlines; a timeout is not converted into success. A previous installed run lacked the workspace after a shortcut; its exact native focus was not logged. Focused-child delivery is a separately reproduced code defect consistent with that failure. Code-level routing regressions do not replace a successful installed Windows rerun.
+
+The persisted YouTube clip-sync E2E explicitly focuses the main BrowserWindow and blurs the media iframe to establish the top document as its input target. It asserts that target before issuing its single DOM shortcut and logs the captured top-document key plus final focus. BrowserWindow focus alone does not identify the active browsing context. This tests Renderer keyboard handling, not physical OS accelerator delivery; menu targeting has separate unit coverage and actual OS-menu acceptance remains distinct. The 30-second workspace assertion is unchanged, with no fallback click or retry.
+
+The macOS `test:native-runtime` gate generates its own bounded 64×64 H.264 fixture for AVC preroll coverage. A one-second full-decode reference is compared with partial requested windows, including non-frame-aligned boundaries, for source intervals and active NV12 pixel equality. The encoder's actual non-reference packet count is reported; allowing frame reordering alone is not coverage evidence. AVCC parser cases and contiguous/fragmented CoreMedia framing are separate tests. Encoder failure is a failure, with no external software fallback. This remains distinct from physical two-camera playback, speaker audio and signed-distribution acceptance.
+
+The reverse producer diagnostic counts an image change only when at least one member's original source PTS decreases, and also records each angle independently. New global ticks/pair IDs with unchanged source PTS do not count. First-source-image latency and maximum silence include the initial and trailing hold gaps; malformed/forward source PTS are rejected. The portable regression is part of `test:native-build` and `test:run`/`test:ci`. These are delivered source-sample measurements with adapted Drawn, not physical display, pixel-hash or speaker proof.
+
+The stopped-image pin regressions in `GroupPlayerSource.test.mm` and `GroupPlayerPair.test.mm` use real generated media/decoder banks and actual Mach/IOSurface transfer. Drawn ACKs are test-driven; no actual compositor or speaker is measured. They verify bounded publication IDs, wrong interval/owner rejection, original-file revalidation, nonzero offset, new-seek revocation, real delayed-audio readiness, close-before-callback, identical stopped surfaces and retained charges until all real receiver loans are released. Comparison is driven by explicit bank/ownership transitions, not sleep-based latency assertions. Native preparation/publication timings are distinct from physical input/display/audio and from uninterrupted nominal reverse-rate acceptance.

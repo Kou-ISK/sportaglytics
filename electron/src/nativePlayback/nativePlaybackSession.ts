@@ -1,3 +1,4 @@
+import type { NativeGroupPresentation } from '../../../src/types/ipc/nativeGroupSurface';
 import {
   isPlaybackRate,
   clockMovedAgainstRate,
@@ -22,8 +23,13 @@ export interface NativePlaybackBackend {
   reportFailure?: (failure: NativePlaybackFailure) => void;
   write: (intent: NativePlaybackIntent) => Promise<void>;
   close: () => Promise<NativePlaybackClosed>;
+  /** Main-owned complete-pair ledger; never a Renderer-selected verifier. */
+  confirmsPresentation?: (value: NativePlaybackObservation) => boolean;
+  confirmsPresentedStop?: (proof: NativeGroupPresentation) => boolean;
 }
 export interface NativePlaybackScope {
+  /** Omission preserves the legacy measured-source-clock contract. */
+  clockAuthority?: 'source-clock' | 'drawn-pair';
   owner: NativePlaybackOwner;
   start: number;
   end: number;
@@ -42,11 +48,19 @@ export class NativePlaybackSession {
     allowed: () => boolean;
   } | null = null;
   private transportGuard: (() => boolean) | null = null;
+  private pendingStop: typeof this.pending = null;
   private delivery: Promise<void> | null = null;
   private observation: NativePlaybackObservation | null = null;
   private lastRevision = 0;
   private issuedSequence = 0;
   private issuedIntents = new Map<number, NativePlaybackIntent>();
+  // At most one delivered/in-flight stop retains its referenced image intent.
+  // It is not a native/GPU drain proof or an audio-ready acknowledgement.
+  private presentationStop: {
+    sequence: number;
+    fence: NativeGroupPresentation;
+    delivered: boolean;
+  } | null = null;
   private processedSequence = 0;
   private anchoredSeek = 0;
   private bufferedStop: { seekId: number; time: number } | null = null;
@@ -64,6 +78,12 @@ export class NativePlaybackSession {
     private readonly changed: () => void = () => {},
   ) {
     if (
+      (scope.clockAuthority !== undefined &&
+        scope.clockAuthority !== 'source-clock' &&
+        scope.clockAuthority !== 'drawn-pair') ||
+      (scope.clockAuthority === 'drawn-pair' &&
+        (typeof backend.confirmsPresentation !== 'function' ||
+          typeof backend.confirmsPresentedStop !== 'function')) ||
       !Number.isFinite(scope.start) ||
       !Number.isFinite(scope.end) ||
       scope.start < 0 ||
@@ -85,6 +105,22 @@ export class NativePlaybackSession {
     this.clockTime = scope.start;
   }
 
+  private presentationConfirmed(value: NativePlaybackObservation): boolean {
+    try {
+      return this.backend.confirmsPresentation?.(value) === true;
+    } catch {
+      return false;
+    } // A failed ledger lookup grants no authority.
+  }
+
+  private presentedStopConfirmed(proof: NativeGroupPresentation): boolean {
+    try {
+      return this.backend.confirmsPresentedStop?.(proof) === true;
+    } catch {
+      return false;
+    }
+  }
+
   apply(raw: NativePlaybackIntent, allowed?: () => boolean): void {
     const next = parseNativePlaybackIntent(raw);
     if (this.closing || this.error || !sameOwner(next, this.scope.owner))
@@ -97,6 +133,17 @@ export class NativePlaybackSession {
     )
       throw Error('NATIVE_UNQUALIFIED_INTENT');
     const old = this.intent;
+    if (next.presentationFence && this.scope.clockAuthority !== 'drawn-pair')
+      throw Error('NATIVE_STOP_AUTHORITY');
+    if (
+      this.scope.clockAuthority === 'drawn-pair' &&
+      old &&
+      old.playing &&
+      !next.playing &&
+      old.seekId === next.seekId &&
+      !next.presentationFence
+    )
+      throw Error('NATIVE_GROUP_STOP_FENCE_MISSING');
     if (
       (old &&
         (next.sequence <= old.sequence ||
@@ -109,22 +156,39 @@ export class NativePlaybackSession {
       throw Error('NATIVE_INVALID_INTENT_ORDER');
     // A settings change or coalesced pause/resume may retain the transport.
     // Keep its permit lineage until a new operation or an explicit new permit.
-    const guard = allowed ?? (old &&
-      old.rate === next.rate && old.seekId === next.seekId
-      ? this.transportGuard : null);
+    const guard =
+      allowed ??
+      (old && old.rate === next.rate && old.seekId === next.seekId
+        ? this.transportGuard
+        : null);
     this.transportGuard = guard;
     this.intent = next;
-    this.pending = { intent: next, allowed: next.playing ? guard ?? (() => true) : () => true };
+    this.pending = {
+      intent: next,
+      allowed: next.playing ? (guard ?? (() => true)) : () => true,
+    };
+    if (old && next.seekId > old.seekId) this.pendingStop = null;
+    if (this.scope.clockAuthority === 'drawn-pair' && next.presentationFence)
+      this.pendingStop = this.pending;
     this.flush();
   }
 
   private flush(): void {
-    if (this.delivery || !this.pending || this.closing || this.error) return;
-    const { intent: next, allowed } = this.pending;
-    this.pending = null;
+    if (
+      this.delivery ||
+      (!this.pending && !this.pendingStop) ||
+      this.closing ||
+      this.error
+    )
+      return;
+    const selected = this.pendingStop ?? this.pending;
+    if (!selected) return;
+    const { intent: next, allowed } = selected;
+    this.pendingStop = null;
+    if (this.pending?.intent.sequence === next.sequence) this.pending = null;
     // Keep ownership if the writer never settles. close() must still cancel the
     // backend independently and cannot acknowledge while delivery is unknown.
-    const work = Promise.resolve().then(() => {
+    const work = Promise.resolve().then(async () => {
       if (!this.closing && !this.error) {
         // A Main-owned gesture permit can be revoked while a prior write is in
         // flight. Do not deliver that now-stale start to the native host.
@@ -136,7 +200,19 @@ export class NativePlaybackSession {
           throw Error('NATIVE_COMMAND_ACK_BOUND');
         this.issuedSequence = next.sequence;
         this.issuedIntents.set(next.sequence, next);
-        return this.backend.write({ ...next });
+        if (next.playing || this.presentationStop?.fence.seekId !== next.seekId)
+          this.presentationStop = null;
+        if (next.presentationFence) {
+          const proof = next.presentationFence;
+          this.presentationStop = {
+            sequence: next.sequence,
+            delivered: false,
+            fence: { ...proof, ids: [proof.ids[0], proof.ids[1]] },
+          };
+        }
+        await this.backend.write({ ...next });
+        if (this.presentationStop?.sequence === next.sequence)
+          this.presentationStop.delivered = true;
       }
     });
     this.delivery = work
@@ -182,11 +258,24 @@ export class NativePlaybackSession {
       this.fail('protocol');
       return false;
     }
+    if (
+      this.scope.clockAuthority === 'drawn-pair' &&
+      (value.videoReady || value.audioReady || value.phase === 'buffering')
+    ) {
+      if (!this.presentationConfirmed(value)) {
+        this.fail('protocol');
+        return false;
+      }
+    }
     // Delivery is not processing. Retain the bounded unacknowledged intents so
     // a terminal failure of the prior processed command can still drain safely.
     this.processedSequence = value.sequence;
     for (const sequence of this.issuedIntents.keys()) {
-      if (sequence < value.sequence) this.issuedIntents.delete(sequence);
+      if (
+        sequence < value.sequence &&
+        sequence !== this.presentationStop?.fence.operation
+      )
+        this.issuedIntents.delete(sequence);
     }
     if (value.phase === 'closed' || value.phase === 'closing') {
       this.fail('cleanup');
@@ -205,7 +294,10 @@ export class NativePlaybackSession {
         this.fail('protocol');
         return false;
       }
-      if (value.phase === 'paused' && value.videoReady && value.audioReady)
+      if (
+        (value.phase === 'paused' && value.videoReady && value.audioReady) ||
+        (this.scope.clockAuthority === 'drawn-pair' && value.phase === 'buffering')
+      )
         this.lastTime = value.time;
       this.observation = value;
       this.changed();
@@ -217,11 +309,24 @@ export class NativePlaybackSession {
     const directionChanged =
       Math.sign(processed.rate) !== Math.sign(this.clockRate);
     if (value.phase === 'buffering') {
+      // In the image-clock contract an exact, Main-ledger-confirmed complete
+      // pair may arrive before the initial audio-ready paused observation.
+      // Anchor the image baseline without claiming audio/video readiness.
+      // Its separately confirmed image time is also the tag clock; source
+      // clocks still require an actual ready observation.
+      const groupImageAnchor =
+        this.scope.clockAuthority === 'drawn-pair' &&
+        this.anchoredSeek !== value.seekId &&
+        Math.abs(value.time - processed.targetTime) <= 0.000001;
+      if (groupImageAnchor) this.anchoredSeek = value.seekId;
       if (
         this.anchoredSeek !== value.seekId ||
-        (!directionChanged &&
+        (!groupImageAnchor &&
+          !directionChanged &&
           clockMovedAgainstRate(value.time, this.clockTime, this.clockRate)) ||
-        (!directionChanged &&
+        (!groupImageAnchor &&
+          !directionChanged &&
+          this.scope.clockAuthority !== 'drawn-pair' &&
           this.bufferedStop?.seekId === value.seekId &&
           value.time !== this.bufferedStop.time)
       ) {
@@ -270,6 +375,13 @@ export class NativePlaybackSession {
       this.clockTime = value.time;
     }
     this.observation = value;
+    // In drawn-pair mode the ledger, rather than audio readiness, establishes
+    // which image is visible. Keep the refill/ready deadlines and stop guard.
+    if (
+      this.scope.clockAuthority === 'drawn-pair' &&
+      value.phase === 'buffering'
+    )
+      this.lastTime = value.time;
     if (
       (value.phase === 'paused' || value.phase === 'playing') &&
       value.videoReady &&
@@ -311,6 +423,7 @@ export class NativePlaybackSession {
     if (this.error) return;
     this.error = reason;
     this.pending = null;
+    this.pendingStop = null;
     // Backend close is also the pause/cancel request. No fallback completion here.
     const alreadyClosing = this.closeOperation !== null;
     void this.close().catch(() => {});
@@ -321,6 +434,7 @@ export class NativePlaybackSession {
     if (this.closeOperation) return this.closeOperation;
     this.closing = true;
     this.pending = null;
+    this.pendingStop = null;
     const delivery = this.delivery;
     this.closeOperation = (async () => {
       // Request normal cancellation before awaiting a possibly blocked writer.
@@ -334,6 +448,60 @@ export class NativePlaybackSession {
         !result.pipesClosed
       )
         throw Error('NATIVE_CLEANUP_UNCONFIRMED');
+      const proof = result.presentedStop;
+      if (this.scope.clockAuthority === 'drawn-pair') {
+        const processed = proof
+          ? this.issuedIntents.get(proof.operation)
+          : null;
+        const stop = this.presentationStop;
+        const fenced =
+          proof &&
+          stop?.delivered &&
+          this.intent &&
+          !this.intent.playing &&
+          this.intent.seekId === proof.seekId &&
+          stop.fence.document === proof.document &&
+          stop.fence.generation === proof.generation &&
+          stop.fence.operation === proof.operation &&
+          stop.fence.seekId === proof.seekId &&
+          stop.fence.pair === proof.pair &&
+          stop.fence.globalTicks === proof.globalTicks &&
+          stop.fence.ids[0] === proof.ids[0] &&
+          stop.fence.ids[1] === proof.ids[1];
+        const time = proof ? proof.globalTicks / 120000 : null;
+        if (result.stopped || (!proof && this.anchoredSeek > 0))
+          throw Error('NATIVE_STOP_PRESENTATION_UNCONFIRMED');
+        if (
+          proof &&
+          (!result.processStarted ||
+            !processed ||
+            !this.presentedStopConfirmed(proof) ||
+            (proof.operation < this.processedSequence && !fenced) ||
+            proof.seekId !== processed.seekId ||
+            time === null ||
+            time < this.scope.start ||
+            time >= this.scope.end ||
+            (proof.seekId === this.anchoredSeek &&
+              Math.sign(processed.rate) === Math.sign(this.clockRate) &&
+              clockMovedAgainstRate(time, this.clockTime, this.clockRate)) ||
+            !this.presentationConfirmed({
+              ...this.scope.owner,
+              revision: 1,
+              sequence: proof.operation,
+              seekId: proof.seekId,
+              time,
+              phase: 'paused',
+              rate: 0,
+              videoReady: true,
+              audioReady: true,
+              audioTrack: processed.audioTrack,
+              volume: processed.volume,
+              muted: processed.muted,
+              error: null,
+            }))
+        )
+          throw Error('NATIVE_STOP_PRESENTATION_UNCONFIRMED');
+      } else if (proof) throw Error('NATIVE_STOP_AUTHORITY');
       const stopped = result.stopped;
       const processed = stopped
         ? this.issuedIntents.get(stopped.sequence)
@@ -360,7 +528,7 @@ export class NativePlaybackSession {
       this.changed();
       return { ...result };
     })().catch((error: unknown) => {
-      this.error = 'cleanup';
+      this.error ??= 'cleanup';
       this.changed();
       throw error;
     });

@@ -1,3 +1,5 @@
+import { parseNativePlaybackGroupSelection } from '../../../src/types/ipc/nativePlaybackGroup';
+import type { NativePlaybackGroupSelection } from '../../../src/types/ipc/nativePlaybackGroup';
 import {
   objectValue,
   exactKeys,
@@ -27,6 +29,7 @@ import type { NativePlaybackIntent, NativePlaybackOwner } from '../../../src/typ
 
 const deliveries = new Map<BrowserWindow, NativeSnapshotDelivery>();
 const managers = new Map<BrowserWindow, NativePlaybackManager>();
+const selections = new Map<BrowserWindow, NativePlaybackGroupSelection>();
 let registered = false;
 let active: NativePlaybackManager | null = null;
 let quitting = false;
@@ -134,11 +137,12 @@ export const captureNativeGestureOwner = (
     },
   };
 };
-/** Ordinary startup supplies no qualification/provider, so no native helper can
- * launch. A diagnostic Main may supply a fixed, independently checked source. */
+/** Main startup supplies authenticated qualification. Without a provider no
+ * helper can launch. Group selection accepts only package IDs through its
+ * separate typed endpoint; source paths are never accepted from Renderer. */
 export const registerNativePlaybackHandlers = (
   qualify:
-    | ((window: BrowserWindow) => Promise<QualifiedNativeSource | null>)
+    | ((window: BrowserWindow, selection?: NativePlaybackGroupSelection) => Promise<QualifiedNativeSource | null>)
     | null = null,
 ): void => {
   if (registered) return;
@@ -165,12 +169,12 @@ export const registerNativePlaybackHandlers = (
           return !window.isDestroyed() &&
             current?.packageBound &&
             current.mainWindow === window
-            ? JSON.stringify([current.id, current.packagePath, epoch])
+            ? JSON.stringify([current.id, current.packagePath, epoch, selections.get(window)])
             : null;
         },
         qualify:
           qualify && process.platform === 'darwin'
-            ? () => qualify(window)
+            ? () => qualify(window, selections.get(window))
             : null,
       });
       const retained = manager;
@@ -185,6 +189,7 @@ export const registerNativePlaybackHandlers = (
             if (active === retained) active = null;
             if (window.isDestroyed()) {
               managers.delete(window);
+              selections.delete(window);
               deliveries.delete(window);
             }
           })
@@ -222,7 +227,20 @@ export const registerNativePlaybackHandlers = (
       parseNativePlaybackFailure(value.failure),
     );
   });
-  ipcMain.handle(channels.inspect, (event) => owner(event).inspect());
+  const inspect = (event: IpcMainInvokeEvent, raw?: unknown, group = false): ReturnType<NativePlaybackManager['inspect']> => {
+    const manager = owner(event);
+    const selection = group ? parseNativePlaybackGroupSelection(raw) : undefined;
+    const window = getValidatedEventSenderWindow(event);
+    if (!window) throw Error('NATIVE_UNAUTHORIZED');
+    if (JSON.stringify(selections.get(window)) !== JSON.stringify(selection)) {
+      manager.resetIdleQualification();
+      if (selection) selections.set(window, selection); else selections.delete(window);
+    }
+    return manager.inspect();
+  };
+  ipcMain.handle(channels.inspect, (event) => inspect(event));
+  ipcMain.handle(channels.inspectGroup, (event, raw: unknown) =>
+    inspect(event, raw, true));
   ipcMain.handle(channels.open, async (event, raw: unknown) => {
     const manager = owner(event);
     if (active) throw Error('NATIVE_BUSY');

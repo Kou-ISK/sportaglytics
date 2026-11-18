@@ -787,3 +787,808 @@ it.each(['playing', 'buffering', 'paused'] as const)(
     ).toBe(false);
   },
 );
+
+it('requires a Main-owned presentation verifier for a drawn-pair clock', () => {
+  const { backend } = make();
+  expect(
+    () =>
+      new NativePlaybackSession(
+        {
+          owner,
+          start: 0,
+          end: 10,
+          audioTracks: 1,
+          rates: [1],
+          clockAuthority: 'drawn-pair',
+        },
+        backend,
+      ),
+  ).toThrow('SCOPE');
+});
+it.each([1, -2])(
+  'accepts only ledger-confirmed directional pairs while buffering (%s)',
+  async (rate) => {
+    const { backend } = make();
+    const confirmed = new Set<number>([3]);
+    const session = new NativePlaybackSession(
+      {
+        owner,
+        start: 0,
+        end: 10,
+        audioTracks: 1,
+        rates: [rate],
+        clockAuthority: 'drawn-pair',
+      },
+      {
+        ...backend,
+        confirmsPresentation: (value) => confirmed.has(value.time),
+        confirmsPresentedStop: (proof) =>
+          proof.ids[0] === 1 && proof.ids[1] === 2,
+      },
+    );
+    session.apply(intent({ rate }));
+    await tick();
+    expect(session.observe(observation())).toBe(true);
+    session.apply(intent({ sequence: 2, playing: true, rate }));
+    await tick();
+    const direction = Math.sign(rate);
+    backend.close.mockResolvedValue({
+      ...drained,
+      presentedStop: {
+        document: 'doc',
+        generation: owner.generation,
+        operation: 2,
+        seekId: 1,
+        pair: 1,
+        globalTicks: Math.round((3 + direction * 0.12) * 120000),
+        ids: [1, 2],
+      },
+    });
+    const ready = 3 + direction * 0.1;
+    confirmed.add(ready);
+    expect(
+      session.observe(
+        observation({
+          revision: 2,
+          sequence: 2,
+          phase: 'playing',
+          time: ready,
+          rate,
+        }),
+      ),
+    ).toBe(true);
+    for (const [index, delta] of [0.11, 0.12].entries()) {
+      const time = 3 + direction * delta;
+      confirmed.add(time);
+      expect(
+        session.observe(
+          observation({
+            revision: 3 + index,
+            sequence: 2,
+            phase: 'buffering',
+            time,
+            videoReady: false,
+            audioReady: false,
+          }),
+        ),
+      ).toBe(true);
+    }
+    expect(session.snapshot().lastConfirmedTime).toBe(3 + direction * 0.12);
+    // Even genuine old Drawn history cannot authorize moving against direction.
+    expect(
+      session.observe(
+        observation({
+          revision: 5,
+          sequence: 2,
+          phase: 'buffering',
+          time: ready,
+          videoReady: false,
+          audioReady: false,
+        }),
+      ),
+    ).toBe(false);
+    expect(session.snapshot().error).toBe('protocol');
+    await session.close();
+    expect(backend.close).toHaveBeenCalledTimes(1);
+  },
+);
+it.each(['false', 'throw'] as const)(
+  'rejects unconfirmed drawn-pair observations: %s',
+  async (mode) => {
+    const { backend } = make();
+    const session = new NativePlaybackSession(
+      {
+        owner,
+        start: 0,
+        end: 10,
+        audioTracks: 1,
+        rates: [1],
+        clockAuthority: 'drawn-pair',
+      },
+      {
+        ...backend,
+        confirmsPresentedStop: () => false,
+        confirmsPresentation: () => {
+          if (mode === 'throw') throw Error('ledger');
+          return false;
+        },
+      },
+    );
+    session.apply(intent());
+    await tick();
+    expect(session.observe(observation())).toBe(false);
+    expect(session.snapshot().lastConfirmedTime).toBe(0);
+    await session.close();
+    expect(backend.close).toHaveBeenCalledTimes(1);
+  },
+);
+it.each([
+  'valid',
+  'missing',
+  'unissued',
+  'ledger-reject',
+  'not-started',
+] as const)(
+  'validates the Main-owned presentation receipt after actual drain: %s',
+  async (kind) => {
+    const { backend } = make();
+    const receipt: NativePlaybackClosed = {
+      ...drained,
+      presentedStop: {
+        document: 'doc',
+        generation: owner.generation,
+        operation: kind === 'unissued' ? 2 : 1,
+        seekId: 1,
+        pair: 1,
+        globalTicks: 360000,
+        ids: [1, 2],
+      },
+    };
+    if (kind === 'missing') delete receipt.presentedStop;
+    if (kind === 'not-started') receipt.processStarted = false;
+    backend.close.mockResolvedValue(receipt);
+    let closing = false;
+    const session = new NativePlaybackSession(
+      {
+        owner,
+        start: 0,
+        end: 10,
+        audioTracks: 1,
+        rates: [1],
+        clockAuthority: 'drawn-pair',
+      },
+      {
+        ...backend,
+        confirmsPresentedStop: () => !(closing && kind === 'ledger-reject'),
+        confirmsPresentation: () => true,
+      },
+    );
+    session.apply(intent());
+    await tick();
+    expect(session.observe(observation())).toBe(true);
+    closing = true;
+    if (kind === 'valid') expect(await session.close()).toEqual(receipt);
+    else
+      await expect(session.close()).rejects.toThrow('PRESENTATION_UNCONFIRMED');
+    expect(backend.close).toHaveBeenCalledOnce();
+  },
+);
+it('requires a preload release fence only for the same-seek group stop, without relaxing source-clock authority', async () => {
+  const backend = {
+    write: vi.fn(async (_value: NativePlaybackIntent) => {}),
+    close: vi.fn(async () => drained),
+    confirmsPresentation: () => true,
+    confirmsPresentedStop: () => false,
+  };
+  const group = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      rates: [-2],
+      audioTracks: 1,
+      clockAuthority: 'drawn-pair',
+    },
+    backend,
+  );
+  group.apply(intent({ rate: -2 }));
+  await tick();
+  group.apply(intent({ rate: -2, sequence: 2, playing: true }));
+  await tick();
+  expect(() => group.apply(intent({ rate: -2, sequence: 3 }))).toThrow(
+    'FENCE_MISSING',
+  );
+  const stopped = intent({
+    rate: -2,
+    sequence: 3,
+    presentationFence: {
+      document: 'doc',
+      generation: owner.generation,
+      operation: 1,
+      seekId: 1,
+      pair: 1,
+      globalTicks: 360000,
+      ids: [1, 2],
+    },
+  });
+  group.apply(stopped);
+  await tick();
+  expect(backend.write).toHaveBeenLastCalledWith(stopped);
+  await group.close();
+  const legacy = make();
+  expect(() => legacy.session.apply({ ...stopped, rate: 1 })).toThrow(
+    'STOP_AUTHORITY',
+  );
+  expect(legacy.backend.write).not.toHaveBeenCalled();
+  await legacy.session.close();
+});
+
+it('delivers a fenced group stop before a re-press while an earlier write is pending', async () => {
+  const held = deferred<void>(), delivered = deferred<void>();
+  const write = vi.fn(async (value: NativePlaybackIntent) => { if (value.sequence === 2) await held.promise; if (value.sequence === 4) delivered.resolve(); });
+  const session = new NativePlaybackSession({ owner, start: 0, end: 10, rates: [-2],
+    audioTracks: 1, clockAuthority: 'drawn-pair' }, { write, close: async () => drained,
+    confirmsPresentation: () => true, confirmsPresentedStop: () => true });
+  session.apply(intent({ rate: -2 })); await tick();
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 })); await tick();
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: { document: 'doc',
+    generation: owner.generation, operation: 1, seekId: 1, pair: 1, globalTicks: 360000, ids: [1, 2] } }));
+  session.apply(intent({ sequence: 4, playing: true, rate: -2 }));
+  expect(write.mock.calls.map(([value]) => value.sequence)).toEqual([1, 2]);
+  held.resolve(); await delivered.promise;
+  expect(write.mock.calls.map(([value]) => value.sequence)).toEqual([1, 2, 3, 4]);
+  await session.close();
+});
+
+it.each(['latest-stop', 'new-seek'] as const)('bounds unsent group stop barriers: %s', async (kind) => {
+  const held = deferred<void>(), delivered = deferred<void>();
+  const write = vi.fn(async (value: NativePlaybackIntent) => {
+    if (value.sequence === 2) await held.promise;
+    if (value.sequence === (kind === 'new-seek' ? 5 : 6)) delivered.resolve();
+  });
+  const session = new NativePlaybackSession({ owner, start: 0, end: 10, rates: [-2],
+    audioTracks: 1, clockAuthority: 'drawn-pair' }, { write, close: async () => drained,
+    confirmsPresentation: () => true, confirmsPresentedStop: () => true });
+  const fence = { document: 'doc', generation: owner.generation, operation: 1,
+    seekId: 1, pair: 1, globalTicks: 360000, ids: [1, 2] };
+  session.apply(intent({ rate: -2 })); await tick();
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 })); await tick();
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: fence }));
+  if (kind === 'new-seek') session.apply(intent({ sequence: 5, seekId: 2, targetTime: 4, rate: -2 }));
+  else {
+    session.apply(intent({ sequence: 4, playing: true, rate: -2 }));
+    session.apply(intent({ sequence: 5, rate: -2, presentationFence: fence }));
+    session.apply(intent({ sequence: 6, playing: true, rate: -2 }));
+  }
+  held.resolve(); await delivered.promise;
+  expect(write.mock.calls.map(([value]) => value.sequence)).toEqual(kind === 'new-seek' ? [1, 2, 5] : [1, 2, 5, 6]);
+  await session.close();
+});
+
+it.each(['revoked-repress', 'close'] as const)(
+  'does not revive a queued group operation after %s',
+  async (ending) => {
+    const writer = deferred<void>();
+    const closeRequested = deferred<void>();
+    const write = vi.fn(async (value: NativePlaybackIntent) => {
+      if (value.sequence === 2) await writer.promise;
+    });
+    const close = vi.fn(async () => {
+      closeRequested.resolve();
+      return drained;
+    });
+    const session = new NativePlaybackSession(
+      { owner, start: 0, end: 10, rates: [-2], audioTracks: 1,
+        clockAuthority: 'drawn-pair' },
+      { write, close, confirmsPresentation: () => true,
+        confirmsPresentedStop: () => true },
+    );
+    session.apply(intent({ rate: -2 }));
+    await tick();
+    session.apply(intent({ sequence: 2, playing: true, rate: -2 }));
+    await tick();
+    session.apply(intent({ sequence: 3, rate: -2, presentationFence: {
+      document: 'doc', generation: owner.generation, operation: 1,
+      seekId: 1, pair: 1, globalTicks: 360000, ids: [1, 2],
+    } }));
+    let permit = true;
+    session.apply(intent({ sequence: 4, playing: true, rate: -2 }), () => permit);
+    let completion: Promise<NativePlaybackClosed> | undefined;
+    let finished = false;
+    if (ending === 'close') {
+      completion = session.close();
+      void completion.then(() => { finished = true; });
+      await closeRequested.promise;
+      expect(finished).toBe(false); // A returned close receipt cannot drain a held writer.
+      expect(close).toHaveBeenCalledOnce();
+    } else permit = false;
+    writer.resolve();
+    await closeRequested.promise;
+    await (completion ?? session.close());
+    expect(write.mock.calls.map(([value]) => value.sequence)).toEqual(
+      ending === 'close' ? [1, 2] : [1, 2, 3],
+    );
+    expect(close).toHaveBeenCalledOnce();
+    expect(session.snapshot()).toMatchObject({ closed: true,
+      error: ending === 'close' ? null : 'owner' });
+  },
+);
+
+it('anchors only a ledger-confirmed exact initial group image when reverse buffers before the initial audio-ready ACK', async () => {
+  const { backend } = make();
+  const confirmed = vi.fn(
+    (value: NativePlaybackObservation) =>
+      value.sequence === 2 &&
+      value.seekId === 1 &&
+      [3, 2.9].includes(value.time),
+  );
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [1, -0.5],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: confirmed,
+      confirmsPresentedStop: () => false,
+    },
+  );
+  session.apply(intent({ muted: false }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+        muted: false,
+      }),
+    ),
+  ).toBe(true);
+  // A real first Drawn pair can precede AVPlayer's initial audio readiness. The
+  // next operation already has its own complete Drawn pair at the exact target.
+  session.apply(
+    intent({ sequence: 2, playing: true, rate: -0.5, muted: false }),
+  );
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        revision: 2,
+        sequence: 2,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+        muted: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(confirmed).toHaveBeenCalled();
+  expect(session.snapshot().lastConfirmedTime).toBe(3);
+  expect(session.snapshot().observation?.audioReady).toBe(false);
+  expect(
+    session.observe(
+      observation({
+        revision: 3,
+        sequence: 2,
+        phase: 'playing',
+        time: 2.9,
+        rate: -0.5,
+        muted: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(2.9);
+});
+it.each([
+  { authority: 'source-clock' as const, time: 3, proof: true },
+  { authority: 'drawn-pair' as const, time: 3, proof: false },
+  { authority: 'drawn-pair' as const, time: 3.000002, proof: true },
+  { authority: 'drawn-pair' as const, time: 2.9, proof: true },
+])(
+  'does not infer an initial buffering anchor without exact group presentation evidence: %j',
+  async ({ authority, time, proof }) => {
+    const { backend } = make();
+    const session = new NativePlaybackSession(
+      {
+        owner,
+        start: 0,
+        end: 10,
+        audioTracks: 1,
+        rates: [-0.5],
+        clockAuthority: authority,
+      },
+      {
+        ...backend,
+        confirmsPresentation: () => proof,
+        confirmsPresentedStop: () => false,
+      },
+    );
+    session.apply(intent({ rate: -0.5 }));
+    await tick();
+    expect(
+      session.observe(
+        observation({
+          phase: 'buffering',
+          time,
+          videoReady: false,
+          audioReady: false,
+        }),
+      ),
+    ).toBe(false);
+    expect(session.snapshot().error).toBe('protocol');
+    expect(session.snapshot().lastConfirmedTime).toBe(0);
+  },
+);
+
+it('reanchors a new exact group seek independently of the prior reverse direction, without relaxing subsequent monotonicity', async () => {
+  const { backend } = make();
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [-0.5],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: (value) => [3, 7, 6.9].includes(value.time),
+      confirmsPresentedStop: () => false,
+    },
+  );
+  session.apply(intent({ rate: -0.5 }));
+  await tick();
+  expect(session.observe(observation())).toBe(true);
+  session.apply(
+    intent({
+      sequence: 2,
+      seekId: 2,
+      targetTime: 7,
+      playing: true,
+      rate: -0.5,
+    }),
+  );
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        revision: 2,
+        sequence: 2,
+        seekId: 2,
+        time: 7,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(7);
+  expect(
+    session.observe(
+      observation({
+        revision: 3,
+        sequence: 2,
+        seekId: 2,
+        time: 6.9,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(
+    session.observe(
+      observation({
+        revision: 4,
+        sequence: 2,
+        seekId: 2,
+        time: 7,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(false);
+  expect(session.snapshot().error).toBe('protocol');
+});
+
+it('retains the issued image operation referenced by a stop fence through its later preparing ACK until physical close', async () => {
+  const { backend } = make();
+  const proof = {
+    document: 'doc',
+    generation: owner.generation,
+    operation: 2,
+    seekId: 1,
+    pair: 1,
+    globalTicks: 348000,
+    ids: [1, 2] as const,
+  };
+  backend.close.mockResolvedValue({ ...drained, presentedStop: proof });
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [1, -2],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: (value) =>
+        (value.sequence === 1 && value.time === 3) ||
+        (value.sequence === 2 && value.time === 2.9),
+      confirmsPresentedStop: () => true,
+    },
+  );
+  session.apply(intent());
+  await tick();
+  expect(session.observe(observation())).toBe(true);
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 2,
+        revision: 2,
+        time: 2.9,
+        phase: 'playing',
+        rate: -2,
+      }),
+    ),
+  ).toBe(true);
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 3,
+        revision: 3,
+        time: 2.9,
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  const closed = await session.close();
+  expect(closed.presentedStop).toEqual(proof);
+  expect(backend.close).toHaveBeenCalledOnce();
+});
+
+const preparedFencedGroup = async () => {
+  const { backend } = make();
+  const proof = {
+    document: 'doc',
+    generation: owner.generation,
+    operation: 2,
+    seekId: 1,
+    pair: 1,
+    globalTicks: 348000,
+    ids: [1, 2] as const,
+  };
+  backend.close.mockResolvedValue({ ...drained, presentedStop: proof });
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [1, -2],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: () => true,
+      confirmsPresentedStop: () => true,
+    },
+  );
+  session.apply(intent());
+  await tick();
+  session.observe(observation());
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 }));
+  await tick();
+  session.observe(
+    observation({
+      sequence: 2,
+      revision: 2,
+      time: 2.9,
+      phase: 'playing',
+      rate: -2,
+    }),
+  );
+  return { session, backend, proof };
+};
+it('retains an in-flight stop reference if preparing ACK arrives before delivery resolves, but requires that delivery before close', async () => {
+  const { session, backend, proof } = await preparedFencedGroup();
+  const delivery = deferred<void>();
+  backend.write.mockReturnValueOnce(delivery.promise);
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 3,
+        revision: 3,
+        time: 2.9,
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  delivery.resolve();
+  await tick();
+  expect((await session.close()).presentedStop).toEqual(proof);
+});
+it('does not accept an older image receipt when its referencing stop write failed', async () => {
+  const { session, backend, proof } = await preparedFencedGroup();
+  const delivery = deferred<void>();
+  backend.write.mockReturnValueOnce(delivery.promise);
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 3,
+        revision: 3,
+        time: 2.9,
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  delivery.reject(Error('stop delivery uncertain'));
+  await tick();
+  await expect(session.close()).rejects.toThrow('PRESENTATION_UNCONFIRMED');
+  expect(session.snapshot().error).toBe('protocol');
+  expect(backend.close).toHaveBeenCalledOnce();
+});
+it.each(['pair', 'ticks', 'repress', 'new-seek'] as const)(
+  'rejects a different or superseded old stop receipt: %s',
+  async (mode) => {
+    const { session, backend, proof } = await preparedFencedGroup();
+    session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+    await tick();
+    session.observe(
+      observation({
+        sequence: 3,
+        revision: 3,
+        time: 2.9,
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+      }),
+    );
+    if (mode === 'pair')
+      backend.close.mockResolvedValue({
+        ...drained,
+        presentedStop: { ...proof, pair: 2 },
+      });
+    if (mode === 'ticks')
+      backend.close.mockResolvedValue({
+        ...drained,
+        presentedStop: { ...proof, globalTicks: 347000 },
+      });
+    if (mode === 'repress' || mode === 'new-seek') {
+      session.apply(
+        intent({
+          sequence: 4,
+          seekId: mode === 'new-seek' ? 2 : 1,
+          playing: mode === 'repress',
+          rate: -2,
+        }),
+      );
+      await tick();
+      session.observe(
+        observation({
+          sequence: 4,
+          revision: 4,
+          seekId: mode === 'new-seek' ? 2 : 1,
+          time: 2.9,
+          phase: 'preparing',
+          videoReady: false,
+          audioReady: false,
+        }),
+      );
+    }
+    await expect(session.close()).rejects.toThrow('PRESENTATION_UNCONFIRMED');
+    expect(backend.close).toHaveBeenCalledOnce();
+  },
+);
+it('retains only the exact stop image across later paused settings acknowledgements', async () => {
+  const { session, proof } = await preparedFencedGroup();
+  session.apply(intent({ sequence: 3, rate: -2, presentationFence: proof }));
+  await tick();
+  session.observe(
+    observation({
+      sequence: 3,
+      revision: 3,
+      time: 2.9,
+      phase: 'preparing',
+      videoReady: false,
+      audioReady: false,
+    }),
+  );
+  session.apply(intent({ sequence: 4, rate: -2, muted: false }));
+  await tick();
+  session.observe(
+    observation({
+      sequence: 4,
+      revision: 4,
+      time: 2.9,
+      phase: 'preparing',
+      muted: false,
+      videoReady: false,
+      audioReady: false,
+    }),
+  );
+  expect((await session.close()).presentedStop).toEqual(proof);
+});
+
+it('publishes a verified group image time for tags while readiness remains buffering', async () => {
+  const { backend } = make();
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [1, -2],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: (value) => value.time === 3 || value.time === 2.9,
+      confirmsPresentedStop: () => false,
+    },
+  );
+  session.apply(intent());
+  await tick();
+  session.observe(observation());
+  session.apply(intent({ sequence: 2, playing: true, rate: -2 }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        sequence: 2,
+        revision: 2,
+        time: 2.9,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(2.9);
+  expect(session.snapshot().observation).toMatchObject({
+    phase: 'buffering',
+    videoReady: false,
+    audioReady: false,
+  });
+});
+
+it.each(['source-clock', 'drawn-pair'] as const)(
+  'keeps preview buffering clock authority consistent with normal controls: %s',
+  async (clockAuthority) => {
+    const { backend } = make();
+    const session = new NativePlaybackSession(
+      { owner, start: 0, end: 10, audioTracks: 1, rates: [1], clockAuthority },
+      { ...backend, confirmsPresentation: () => true, confirmsPresentedStop: () => false },
+    );
+    session.apply(intent({ seekMode: 'preview' }));
+    await tick();
+    expect(session.observe(observation({
+      phase: 'buffering', time: 2.9, videoReady: false, audioReady: false,
+    }))).toBe(true);
+    expect(session.snapshot().lastConfirmedTime).toBe(clockAuthority === 'drawn-pair' ? 2.9 : 0);
+    expect(session.snapshot().observation?.audioReady).toBe(false);
+  },
+);

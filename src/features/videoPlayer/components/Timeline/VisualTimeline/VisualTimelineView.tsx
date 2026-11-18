@@ -54,6 +54,7 @@ export interface VisualTimelineViewProps {
   handleItemClick: React.ComponentProps<typeof TimelineLane>['onItemClick'];
   onEditItem?: (id: string) => void;
   onSelectRowItems?: () => void;
+  onRowContextMenuExited?: (element: HTMLElement) => void;
   handleItemContextMenu: (event: React.MouseEvent, id: string) => void;
   firstTeamName?: string;
   onUpdateTimeRange?: (id: string, startTime: number, endTime: number) => void;
@@ -140,6 +141,7 @@ export const VisualTimelineView = ({
   handleItemContextMenu,
   onEditItem,
   onSelectRowItems,
+  onRowContextMenuExited,
   firstTeamName,
   onUpdateTimeRange,
   handleMoveItems,
@@ -346,6 +348,7 @@ export const VisualTimelineView = ({
         onCancelDeleteRows={onCancelDeleteRows}
         onConfirmDeleteRows={onConfirmDeleteRows}
         onSelectRowItems={onSelectRowItems}
+        onRowContextMenuExited={onRowContextMenuExited}
       />
     </Box>
   );

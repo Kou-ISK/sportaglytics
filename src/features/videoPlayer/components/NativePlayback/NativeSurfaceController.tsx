@@ -1,5 +1,7 @@
 import { registerNativeSurface } from '../../shared/nativePlayback/nativeSurfaceBinding';
-import { useEffect, useState } from 'react';
+import { useContext, useEffect, useState } from 'react';
+import { NativeGroupSurfaceContext } from './NativeGroupSurfaceContext';
+import { NativeGroupSurfaceController } from './NativeGroupSurfaceController';
 import type { ReactElement } from 'react';
 import { createPortal } from 'react-dom';
 import { NativeSurfaceView } from './NativeSurfaceView';
@@ -8,7 +10,7 @@ import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackReg
 import { resolveVideoSource } from '../Player/SingleVideo/utils';
 
 /** Controller owns the preload binding; the View receives only visual props. */
-export const NativeSurfaceController = ({
+const LegacyNativeSurfaceController = ({
   id,
   source,
   mount,
@@ -75,5 +77,19 @@ export const NativeSurfaceController = ({
       )}
     />,
     mount,
+  );
+};
+
+/** A pair boundary owns both bindings; never attach a legacy binding beside it. */
+export const NativeSurfaceController = (props: {
+  id: string;
+  source: string;
+  mount: Element;
+}): ReactElement | null => {
+  const pair = useContext(NativeGroupSurfaceContext);
+  return pair ? (
+    <NativeGroupSurfaceController {...props} />
+  ) : (
+    <LegacyNativeSurfaceController {...props} />
   );
 };

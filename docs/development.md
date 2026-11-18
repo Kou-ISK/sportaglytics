@@ -24,6 +24,8 @@ Timeline reviewを変更する場合は`Workspace/Timeline/Review` storiesと`no
 
 パッケージ互換を変更するときは、[互換・原本保護の仕様](package-compatibility.md)に従って既知構造と未知versionを分け、検証済みstagingから同じパスへ更新し、更新前の原本をjournal付きバックアップへ残す既存契約を維持してください。Mainのvalidation/staging/backup/復元とRendererのload-gated persistenceを別々に検証します。Sportscode XMLのDomain・Hook・View・Gatewayを分離し、通常TimelineへのJSON置換と混ぜません。`e2e-package-safety.mjs` / `e2e-sportscode-import.mjs`は合成データと独立profileだけを使います。重いbuild/Electron/full suiteは同じ端末で並列に起動しないでください。
 
+更新所有者の起動時刻照会はWindowsのPowerShell冷起動に10秒、既存POSIX経路に5秒の有限予算を使います。照会失敗/期限超過/空出力は所有者不在とみなさず、自動再試行しません。`packageUpdateOwner.test.ts`はexecutorを完全に模擬し、PID検証、予算、元エラー保持と実行一回を検査します。実Windows照会と移行/backupの結合は既存CIで別に検証し、拒否されたローカル照会をこの単体試験の名目で再実行しません。所有者確認が完了する前に更新用作業領域を作成/原本を移動しない境界は変更しません。
+
 ライブキャプチャの開発ではネットワーク有効の同梱FFmpegが必要です。`pnpm run media:build`後に`pnpm run e2e:prepare`、`node scripts/e2e-live-capture.mjs`で模擬カメラと合成IP映像を検証します。実カメラを自動テストで起動しません。[入力・保存契約](live-coding.md)。
 
 ライブ回帰では録画ウィンドウの非表示中・Code Windowのフォーカス中にコードを開始/終了し、タグ保存と映像要素の継続を確認します。連続再生用の録画は`playbackFormat: fragmented-mp4`付きで、既存MP4との互換性は通常再生・書き出し・再オープンでも検証します。
@@ -587,4 +589,70 @@ For held native publication changes, run the exportHeldPublish, exportHeldPublis
 
 独立タイムラインの複数選択は所有者のdocument世代・source連番・要求UUIDで確認します。読み込み成功時にloading leaseを失効し、履歴の新入力採用まで編集・行補完と項目の送信を停止します。描画の準備状態と操作受付のcommit状態を分け、同内容の再読み込みも空表示のまま残しません。旧同期で選択を戻さず、未確認が5秒続けば既知の選択へ戻して再同期します（編集の自動再送なし）。実装境界と未保証範囲は[ADR 0085](adr/0085-detached-selection-receipts.md)を参照してください。
 
-行内インスタンス選択のfocusは`useTimelineInstanceCommands`が閉鎖commitで復帰させます。メニューを閉じる前の即時focusだけではMUIの復元に上書きされるためです。待ち時間や後続timerを追加せず、選択を伴わない閉鎖・新しいメニュー・unmountに保留focusを持ち越しません。実MUI回帰とmacOS行操作E2Eを[検証手順](testing.md)で分けて確認します。
+行内インスタンス選択のfocusは`useTimelineRowSelectionFocus`がメニューの実際の終了に合わせて復帰させます。閉鎖commit直後でもMUIの遅延focusに上書きされるため、Viewが`onExited`を渡し、次の描画フレームでportalの切離しと現在のfocus所有を確認します。任意のsleepやtimerで待機せず、外部へ移したfocus、選択を伴わない閉鎖・新しいメニュー・unmountへ保留focusを持ち越しません。実MUI回帰とmacOS行操作E2Eを[検証手順](testing.md)で分けて確認します。
+
+### 共通再生セッションの開発
+
+[複数映像の設計・測定](multi-angle-playback.md)と[ADR 0086](adr/0086-common-native-playback-session.md)はProposedです。native所有部品のみの局所確認は `clang++ -std=c++17 -pthread native/macos/playback/apple-player/ReverseFrameCache.test.cpp -o /tmp/reverse-frame-cache-test` とその実行で可能です。CIでは既存`test:native-runtime`へ同じ回帰を含めます。局所回帰を全runtime/実表示/署名版の合格と扱わず、環境で拒否された検査を別経路で迂回しないでください。
+
+逆再生の進行監視は画像の変化だけでなく、現在操作のDrawnと実時計の差を要求倍率で換算して検査します。`PlayerObservation.test.cpp`で4倍率の同じ壁時計1秒の境界を確認し、Hostへの接続はmacOS native build/runtime CIで確認します。停止後の位置確認と既存の復旧・終了待ちは省略しません。
+
+cacheと転送で共有するlease/予算は`frame-ownership/FrameLease.hpp`に置きます。`ReverseFrameCache.test.cpp`のportable回帰に加え、macOSの`SurfaceSender.test.mm`で実CoreVideo/MachのReleasedまで同じ予算が維持されることを確認します。localで対象APIが拒否された場合は別IPCで代替せず、実行済みと未実行を分けてCIへ引き継ぎます。
+
+Mainの素材プランは`nativePackageSourcePlan.test.ts`と既存`nativeSourceAccess.test.ts`を合わせて確認します。合成の実filesystemでoffset/clip/空白と変更検出を検証し、decoderやWindow認証を模擬的に合格させる試験ではありません。通常の単一素材providerは同じfilesystem adapterを利用しますが、group backend/新IPCは未接続です。
+
+停止画像補正の所有は`StoppedImageSettlement.test.cpp`、120000Hz変換と終端直前の丸めは`SourceClockTicks.test.cpp`で確認します。後者はmacOSのCoreMediaをlinkします。両方を`test:native-runtime`に含めます。物理seekの完了と再押下を分離し、補正を通常シークや毎フレームの処理へ拡張しません。実session対照と署名済みsurface/音声の受入は別です。
+
+任意の読取専用比較は`scripts/testing/native-group-acquisition.mm`を`ApplePlayerSession.mm`とともにC++17/ARC、Foundation・AVFoundation・CoreMedia・CoreVideo・QuartzCoreでcompileして実行します。引数は`source players rate scheduled|independent offset repeats`、playersは1〜2、rateは1/-0.5/-2/-4/-6、offsetは±1秒、repeatsは1〜3です。開始はsource20秒付近固定で、短い素材はbaseline未確認として失敗します。UIを作らず取得画像/時計だけを観測し、現在のMain source資格検査や署名・実表示の合格にはなりません。出力は有界JSONでsourceパスやerror messageを含めませんが、利用素材の診断は非公開で保持してください。外側にも有限期限を設定し、実行中の子を放置しないでください。
+
+Group v2の転送は`test:native-runtime`内の`GroupSurface.test.mm`と、`native:build`後の`test:native-group-surface`で確認する。後者は実addon/CoreVideo/IOSurface/Machと短時間で終了する所有済み合成producerを用い、旧版との相互排他・owner token・遅いDrawnとReleasedを検査する。Mainのsurface adapter回帰は`node --test scripts/tests/native-group-surface-transport.cjs`、Main時間写像とpreload pair描画は`groupFrameAdmission.test.ts`・`nativeGroupPresenter.test.ts`・`nativeSurfaceBridge.test.ts`で確認する。Main試験のElectron/texture/windowとpreload試験のcanvas/RAFはmockであり、実GPU提示・音声・署名版の受入ではない。通常Controller/Hostへのgroup接続は引き続き未完である。
+
+surfaceのunbindは登録ごとのtokenに所属し、同じcanvasを再利用しても古いcleanupで新ownerを閉じない。v1/groupの同時bindを拒否し、documentのcloseは未提示group loanも解放する。`nativeSurfaceBridge.test.ts`と`nativeGroupPresenter.test.ts`で再bind・二重cleanup・close中の保留画像を確認する。
+
+`GroupSurface.test.mm`は送信側の停止fenceを、ACK到着前・Released後・64 pair履歴切れ・新しいDrawn後・改変した時刻/ID/controlで確認する。これは実Machを使うnative資源/metadata契約であり、Hostのgroup制御や物理描画の停止位置を合格とする試験ではない。
+
+`DecodedFrameWindow.test.mm`は自作JPEG passthrough素材で、実圧縮sampleから復号した画像のPTS/内容、VFR/coarse timebase、取消、素材差し替え、欠損、予算不足と実worker排出を検査する。`test:native-runtime`に含み、実装はhelperのsource/recipe hashへ含める。H.264 encoderの利用可能性、実画面、署名配布の受入とは別である。
+
+復号器はトラックの提示時刻で区間を選ぶ。圧縮サンプルの元時刻と提示時刻が異なる場合は、単一の空でない等速編集区間にサンプル全体が収まり、編集情報で計算した提示時刻と尺が正確に一致することを検査する。VTのコールバックも同じ提示時刻と尺を返す必要がある。自作の先頭トリム付きVFR素材で先頭画像を照合する。
+
+限定group Hostは`pnpm run native:build && pnpm run test:native-group-player-host`で確認する。Main manifest関数を実コンパイルし、既存のowned backendから実FIFOへ制御を送り、実helperと音声用AVPlayerと二つの圧縮reader/decoderからMach receiverへ画像を受け取る。両側のDrawnはsynthetic ACKであり、Electron画面や音声の合格とはしない。`test:native-runtime`は`GroupPlayerSource`/`GroupPlayerPair`の実AVPlayer・VFR区間/offset・旧seek完了・片側close・共有loan保持も含む。fixtureはImageIO JPEG passthroughでプロセス専用先に生成し、実worker/所有者の排出確認後にその所有物だけを削除する。原本や既存出力の削除を含まない。通常providerのgroup能力交渉・Controller・package clip切替は未接続のため、現行defaultを有効化しない。
+
+`DecodedFrameWindow.test.mm` also checks actual VFR cursor containment, exact boundaries and cancelled anchor lookup. `DecodeAnchor.hpp` bounds the reverse metadata walk at 512 samples and retains the prior reader fallback for unsupported metadata. Performance comparisons must keep the same requested windows and report source/GOP position, order, cache condition, pixel/PTS checks and producer-versus-display boundary.
+
+`GroupPlayerSource.test.mm` gates audio readiness and completion delivery around a real AVPlayer seek. It verifies independent pixel preparation, no premature source image, and close waiting for the held completion/decoder loans. This native lifecycle seam does not bypass product resource/signature/source verification or establish speaker acceptance.
+
+Windows CI runs `node scripts/windows/verify-package-owner.mjs` before the quality suite. It compares the same read-only own-process identity query with an open input pipe and the actual product implementation, recording elapsed time and numeric-output presence without publishing PID/start identity values. The product closes unused PowerShell stdin before awaiting exit; the query, 10-second bound and terminal-error behavior are unchanged. Complete-looking stdout from a failed command never grants an identity. The diagnostic uses the real Windows API path; mock unit tests separately cover EOF ordering, invalid PID, timeout/error propagation and unchanged POSIX behavior. It is not a workaround for denied process access and is not run on Mac as a substitute process-query path.
+
+The experimental `test:native-group-player-host` also runs `test-native-group-reverse.mjs`: four reverse rates, adjacent-bank crossing, complete-pair acknowledgement, release and real drain. `test:native-runtime` includes `GroupPlaybackClock` pending-target/re-press/range regressions and actual two-bank ownership. These tests do not activate the normal Controller or prove sustained heavy-media/display/audio performance; see [current limits](multi-angle-playback.md#bounded-prefetch-and-presentation-backpressure-experimental).
+
+The group Host regression now instantiates the ordinary `NativePlaybackController` and Main `NativePlaybackSession`, with the actual native FIFO/helper and a complete-pair ledger. IPC subscription/delivery, qualification/signature, Drawn and HTML restoration remain test adapters; this is not normal UI/provider activation or physical display acceptance. The Main-only `drawn-pair` clock requires a presentation verifier and exact complete Drawn history for observations and the separately tagged `presentedStop` receipt. Missing/old/unissued receipts cannot release recovery ownership; legacy source-clock mode rejects image receipts. Source clocks and canvas anchors remain distinct.
+
+The experimental group Controller regression also exercises synchronous preload release fences, serialized stop/re-press barriers and Main-ledger Host translation. `test:native-group-player-host` uses actual native samples/child close but synthetic Canvas acknowledgements and unsigned local helpers; it is not default-provider, speaker or signed-distribution acceptance.
+
+Native group source regressions distinguish actual image-worker drainage from readiness. They verify that a refill pause preserves one bounded adjacent request, that explicit pause starts none, and that a fixed target cannot walk prefetch through additional banks. Peak charged-image bytes in the final native result are an ownership diagnostic, not a process/OS/GPU memory measurement or a larger budget.
+
+The native group source regression also checks reversal while read-ahead is outstanding, preserving the current image until physical drain, prefetch from a retained interval and releasing distant images on a new seek. External image loans stay charged until their owner releases them.
+
+`test:native-group-player-host` also exercises Manager qualification/open/close and the Controller held-gesture stop/retire/normalization path. Group rates are advertised only with a Main-qualified presentation scope; missing verifier callbacks and the one-port gateway fail closed. Permit/retirement, source/signature qualification, Electron IPC, Canvas Drawn and HTML restoration in this non-GUI regression are adapters and must be reported separately from actual signed application acceptance.
+
+`groupCapability.test.ts` exercises exact ABI parsing, output/time bounds, malformed/old helpers, cancellation and physical-close waiting with an owned worker mock; `nativeResources.test.ts` ensures signature/hash validation precedes the query. `test:native-group-player-host` also probes the real locally built helper before the four-rate Manager/gesture test. Local unsigned helper ABI evidence does not validate signed distribution or enable the normal paired provider/UI.
+
+`nativeGroupBackend.test.ts` injects only filesystem/child/surface/activity boundaries to verify launch failure, uncertain factory ownership, receipt/hash/resource rejection and original-error preservation. The four-rate Host regression now uses this real Main backend and its real session-storage/result validation, with an explicit Electron surface/GPU/activity adapter. Separate group transport tests cover that adapter's contracts; only actual packaged Electron/Canvas execution can establish the missing GUI boundary.
+
+When an isolated group GUI test fails, distinguish the first surface/initialization error, native receipt failure, physical child closure and GPU drainage. The backend's termination promise is physical-only and must not turn abnormal playback into success. Diagnostic apps must retain bounded failure notes and provide a normal quit path after confirmed physical child exit, without force-killing helpers or changing security settings.
+
+Group shutdown regressions include a queued complete/half pair with no executed RAF, late imports, stale drain notifications and a later owner. `nativeSurfaceBridge.test.ts` connects the fixed Main drain channel to actual presenter cleanup. The Main transport test asserts one notification and still withholds native release until transfer, acknowledgement and actual GPU callback; no deadline or uncertain-release protection is weakened. Hidden-window Electron trials remain distinct from unit mocks and visible/signed application acceptance.
+
+`nativeGroupSourceProvider.test.ts`, `nativePlaybackGroup.test.ts`, manager/handler and preload bridge tests cover the typed selected-angle admission, same-URL independent slots, exact placement grid, signed-capability routing, profile/range rejection, stale package/source grants and idle-only selection replacement. Source/profile/signature/Electron dependencies are explicit mocks; no real signed-helper or ordinary paired UI acceptance is claimed. Source-profile synthetic headers are shared from `testing/nativeSourceProfileFixture.ts` without importing another test suite. Qualification never enumerates all packets/frames as a prerequisite.
+
+`NativeGroupPlaybackBoundary.test.tsx` connects the normal surface/panel, real Renderer Controller and package clock to two independently identified media-port mocks. It checks same-URL slots with different source offsets, one pair binding (no legacy binding), generation-fenced presentation, stale qualification, one-slot rejection, equivalent screen rerender and ambiguous audible sources. `nativeGroupPlaybackGateway.test.ts` / `nativeGroupOriginalRecovery.test.ts` exercise the real two-port transaction, peer failure, cancellation, timeout, replacement, retries, readiness and finite post-confirmation clocks. Native/Electron/HTML decoder and signed-resource acceptance are not established by those tests.
+
+The group session/Controller/boundary regressions distinguish Main-confirmed buffered image time from readiness: tags receive the global image time without applying an angle offset twice, a mismatched snapshot clock is rejected, and readiness deadlines remain finite. Preview and ordinary controls use the same qualified image-clock authority. Recovery tests include an initial audio seek which never became ready and a separately verified drained presentation stop, plus newer user-seek precedence. These tests mock native presentation/HTML media boundaries; real image cadence and speaker/signature acceptance remain separate.
+
+The macOS native runtime gate also creates a bounded two-second 64×64 H.264 fixture using the installed AVAssetWriter encoder. It compares requested image pixels and source intervals against ordinary full-window decoding and tests AVC preroll framing independently. Encoder creation failures are reported as test failures, with no fallback encoder/download. This gate does not establish heavy-source throughput or physical display/audio acceptance. See [multi-angle playback](multi-angle-playback.md#omitting-non-reference-avc-preroll).
+
+Use `scripts/testing/source-image-progress.mjs` for the bounded reverse diagnostic's source-image metrics: pair/global-clock movement is insufficient, both source-PTS streams and the trailing hold gap must be recorded. Its portable negative cases run in `test:native-build` and the full Node CI group. Keep these source-sample observations separate from physical presentation and audio acceptance.
+
+The macOS native source/pair runtime regressions cover stopped-publication loans after real bank eviction. Their control starts a replacement worker; the matched stop reuses its original image without one. Audio-completion delivery remains held until explicitly released by the fixture, and the Mach test verifies original IOSurface IDs/sample times and zero charge only after actual closure and receiver release. These tests do not replace real screen/audio or signed-bundle acceptance.
+
+The two-angle native path also accepts a same-size pair of 1280×720 H.264 sources at 30000/1001 fps with one 48 kHz stereo AAC track per source when both headers match the limited-range xvYCC709 profile and the verified group Host advertises that layout. Check the negotiated header profile, actual buffer attachments, IOSurface size and texture color metadata together. A successful Mach transfer measures frame delivery; display cadence and speaker output require separate acceptance.

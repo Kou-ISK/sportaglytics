@@ -1,47 +1,32 @@
 import { nativeHostConfiguration } from './nativeHostConfiguration';
 import { describe, expect, it } from 'vitest';
-import { parseNativeSourceProfile } from './nativeSourceProfile';
+import { parseNativeGroupSourceProfile, parseNativeSourceProfile } from './nativeSourceProfile';
 import {
   parseNativePlaybackPresentation,
   nativePresentationSupports,
 } from '../../../src/types/ipc/nativePlaybackPresentation';
 
-export const profileFixture = (): { streams: Record<string, unknown>[] } => ({
-  streams: [
-    {
-      index: 0,
-      id: '0x1',
-      codec_type: 'video',
-      codec_name: 'h264',
-      width: 1920,
-      height: 1080,
-      pix_fmt: 'yuv420p',
-      sample_aspect_ratio: '1:1',
-      color_range: 'tv',
-      color_space: 'bt709',
-      color_transfer: 'bt709',
-      color_primaries: 'bt709',
-      avg_frame_rate: '60000/1001',
-      r_frame_rate: '60000/1001',
-      time_base: '1/60000',
-      start_pts: 0,
-      duration_ts: 60060000,
-    },
-    ...[1, 2, 3].map((index) => ({
-      index,
-      id: `0x${index + 1}`,
-      codec_type: 'audio',
-      codec_name: 'aac',
-      sample_rate: '48000',
-      channels: 2,
-      channel_layout: 'stereo',
-      time_base: '1/48000',
-      start_pts: 0,
-      duration_ts: 48047900,
-    })),
-  ],
-});
+import { profileFixture } from '../testing/nativeSourceProfileFixture';
 describe('source profile boundaries', () => {
+  it('limits the 720p layout to untransformed progressive group tracks', () => {
+    const raw = profileFixture();
+    raw.streams.length = 2;
+    const video = raw.streams[0];
+    Object.assign(video, { width: 1280, height: 720, field_order: 'progressive',
+      r_frame_rate: '30000/1001', avg_frame_rate: '30000/1001', time_base: '1/30000',
+      color_transfer: 'iec61966-2-4' });
+    expect(() => parseNativeSourceProfile(raw)).toThrow();
+    expect(parseNativeGroupSourceProfile(raw, true).presentation.height).toBe(720);
+    for (const patch of [
+      { field_order: 'tt' }, { tags: { rotate: '90' } },
+      // A mirror may report zero rotation. Presence of the matrix is sufficient.
+      { side_data_list: [{ side_data_type: 'Display Matrix', rotation: 0 }] },
+      { side_data_list: [{ side_data_type: 'Display Matrix', rotation: 90 }] },
+      { side_data_list: 'unknown' },
+    ]) {
+      expect(() => parseNativeGroupSourceProfile({ streams: [{ ...video, ...patch }, raw.streams[1]] }, true)).toThrow();
+    }
+  });
   it('keeps native audio selection, volume and supported rate commands available', () => {
     const trial = parseNativeSourceProfile(profileFixture());
     const intent = {

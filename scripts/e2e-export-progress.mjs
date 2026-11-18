@@ -136,6 +136,12 @@ try {
   }
 
   await progressPage.getByText('書き出し完了').waitFor({ timeout: 5_000 });
+  // The completion render can land between the percentage read and the
+  // heading check above. Sample the real terminal value after that render.
+  const finalPercentText = await progressPage
+    .getByTestId('export-progress-percent')
+    .textContent();
+  observedPercentages.push(Number.parseInt(finalPercentText ?? '', 10));
   const closeButtonVisible = await progressPage
     .getByRole('button', { name: '閉じる', exact: true })
     .evaluate(

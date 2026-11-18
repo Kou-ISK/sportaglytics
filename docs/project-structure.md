@@ -463,8 +463,34 @@ Native再生の限定IPCは`src/renderer.d.ts`を正本とし、payload parser�
 
 Native再生のsource/profile/preview構成は`electron/src/nativePlayback`、sandbox canvasと画像所有は`electron/src/preload/nativeSurface*`へ置きます。読み出し・音声・共通時計はAVPlayerへ委譲します。私有の実媒体・測定結果・未配布helper binaryは公開ソースへ含めません。
 
-AVPlayer adapterは`native/macos/playback/apple-player`、画像所有と転送は`surface-transport`へ置きます。独自FFmpeg/PCM pipelineは使用しません。専用recipeは`scripts/native-playback/`、entryは`scripts/build-native-playback.mjs`と`scripts/package-native-playback-sources.mjs`です。生成library/binary/対応source archiveは`.cache`/`dist`へ分離し、repositoryへ追加しません。
+AVPlayer adapterと限定group Hostのprocess/control、pair barrier、source/sample所有は`native/macos/playback/apple-player`で別ファイルへ分離し、画像所有と転送は`surface-transport`へ置きます。独自FFmpeg/PCM pipelineは使用しません。専用recipeは`scripts/native-playback/`、entryは`scripts/build-native-playback.mjs`と`scripts/package-native-playback-sources.mjs`です。生成library/binary/対応source archiveは`.cache`/`dist`へ分離し、repositoryへ追加しません。
 
 `electron/src/nativePlayback/runtime`は資源・署名検査、session directory、surface転送、所有者終了を担当します。`nativeSignature.ts`の固定要件検証はcompiled Mainを配布hookからも利用し、二重定義しません。`support`内の明示CJSだけをMain buildへコピーします。`scripts/macos/{standard-after-pack,native-signing,native-after-sign}.mjs`が内側→manifest→外側の署名順序と検証を担います。
 
 長押し逆再生の表示完了待ちと1要求/最新希望のキューは`src/shared/media/`に置き、メイン画面・Playlistが各々のsource/clip解決を担当します。AVPlayerの操作所有権は既存videoPlayer controller/hostに閉じ込めます。実ブラウザ用fixtureは`scripts/testing/reverse-playback-browser.tsx`、起動・測定は`scripts/test-reverse-playback-browser.mjs`です。
+
+### 複数映像向け画像所有（未接続）
+
+`native/macos/playback/frame-ownership/FrameLease.hpp`はOS非依存の画像leaseと共通保持budgetを持ち、cacheと転送の共通資源層です。`apple-player/ReverseFrameCache.hpp`は世代付きcache選択を担当し、`surface-transport/SurfaceSender.hpp`は借用画像のleaseをReleased ACKまで保持できます。cacheへ転送・AVFoundation読取・Renderer依存を混在させません。groupの製品接続の未完は[共通再生セッション](multi-angle-playback.md)を参照してください。
+
+`electron/src/nativePlayback/nativeSourceFilesystem.ts`はpackage/sourceの検査、`nativePackageTimeline.ts`は配置の検証、`nativePackageSourcePlan.ts`は選択素材と共通時間モデルのMain内部の合成を担当します。従来の`nativeSourceAccess.ts`は単一素材の資格条件を維持して共通filesystem adapterを使います。素材プランをRendererのpath選択権限やgroup helper能力として扱いません。
+
+Group v2のwire/credit/native資源所有は`native/macos/playback/surface-transport/Group*`へ分離する。Mainの`runtime/groupSurfaceReceiver.ts`はaddon ABI、`groupFrameAdmission.ts`は素材プランと時刻写像、`groupSurfaceTransport.ts`はElectron転送とdrainを担当する。preloadの`nativeGroupPresenter.ts`はdocument内の2 canvasへのpair提示であり、素材path・資格検査・player時計を所有しない。`src/types/ipc/nativeGroupSurface.ts`にはhandleを含まないmetadataのみを置く。公開Renderer APIへのgroup有効化は別の未完工程である。
+
+Mainの`runtime/groupPresentationLedger.ts`は画像資源から独立した有界の発行・提示metadata台帳であり、停止fenceの照合を担当する。画像の借用寿命やsource配置の判定を重複実装せず、未発行時刻や古いseekを停止位置へ採用しない。
+
+`native/macos/playback/apple-player/DecodedFrameWindow`はsource別の有界圧縮reader/decoderと画像bankを所有する。`SourceFileRevision`はMain検査済みfile revisionとの通常差し替え照合に限定する。`GroupPlayerSource`はtimeline配置と音声用AVPlayer、`GroupPlayerPair`は二画像の共通anchorを担当する。旧metadata-only indexは元画像の証明にならないため削除した。
+
+`native/macos/playback/apple-player/DecodeAnchor.hpp` selects only bounded, full-sync compressed-reader anchors. It does not own clocks, images, surface loans or source qualification.
+
+`scripts/windows/verify-package-owner.mjs` is a read-only Windows CI contract for the existing Main package-lock identity primitive. It compiles that exact small TypeScript module for execution without importing Electron or adding a production process-control API.
+
+`features/videoPlayer/shared/nativePlayback/nativeClosedRecoveryTime.ts` keeps closed-receipt authority and recovery-anchor calculation separate from Controller IPC/lifecycle scheduling. Main independently checks group presentation receipts against complete Drawn history; the Renderer helper does not create that authority.
+
+`preload/nativeGroupControlBridge.ts` owns bounded document-local release receipts and pair admission; `nativePlayback/nativeGroupControl.ts` validates the typed intent with Main's ledger before translating it to the Host wire format. Neither owns source qualification or permits Renderer handles/paths. Controller keeps command scheduling separate from this preload presentation authority.
+
+`nativePlayback/runtime/nativeGroupBackend.ts` composes group process/surface/session-storage ownership; `groupCapability.ts` parses and probes only the bounded ABI declaration. They do not select Renderer angles or replace package qualification. `nativeResources.ts` keeps signature/hash-before-probe policy at the trusted Main boundary.
+
+`nativePlayback/nativeGroupSourceProvider.ts` composes authenticated selected-angle qualification; `types/ipc/nativePlaybackGroup.ts` owns the narrow ID selection and Main-qualified binding schema. This does not replace the Renderer pair gateway/recovery. Shared synthetic Main header data belongs in `electron/src/testing/nativeSourceProfileFixture.ts`, which the existing build config excludes, rather than importing a test suite or emitting fixtures under production nativePlayback modules.
+
+Renderer `NativeGroupPlaybackBoundary` composes the paired surface registration hook, the group qualification/control hook and existing props-only Views. `nativeGroupTimeline` contains the restricted static timeline contract; `nativeGroupPlaybackGateway` and `nativeGroupOriginalRecovery` own the two-port transaction outside React. The shared playback registry associates the qualified group binding with its Controller for package-clock validation. The single-port gateway and legacy surface route remain separate.

@@ -484,4 +484,44 @@ The native v2 single-cut candidate can transfer its qualified descriptor directl
 
 独立タイムラインの複数選択は所有者のdocument世代・source連番・要求UUIDで確認します。読み込み成功時にloading leaseを失効し、履歴の新入力採用まで編集・行補完と項目の送信を停止します。描画の準備状態と操作受付のcommit状態を分け、同内容の再読み込みも空表示のまま残しません。旧同期で選択を戻さず、未確認が5秒続けば既知の選択へ戻して再同期します（編集の自動再送なし）。実装境界と未保証範囲は[ADR 0085](adr/0085-detached-selection-receipts.md)を参照してください。
 
-行メニューでインスタンスを選択した場合は、メニューのfocus復元が終わったcommitでタイムラインへfocusを戻します。閉じただけの場合のMUI標準動作や、編集Dialogのfocus管理は変更しません。
+行メニューでインスタンスを選択した場合は、閉鎖commitでのfocus復帰に加え、メニュー終了後の描画フレームでportalの切離しとfocus所有を確認してタイムラインへ戻します。新しいメニュー・外部へのfocus移動・unmountでは保留を失効します。閉じただけの場合のMUI標準動作や、編集Dialogのfocus管理は変更しません。
+
+## 複数映像native再生の検証中設計
+
+[共通再生セッション](multi-angle-playback.md)は方式比較中です。操作/source世代付き画像leaseと共通保持budgetをnative部品として分離しますが、現行の単一surface/資格条件を解除せず、公開版の操作・IPC契約は変更しません。取得画像と実表示、共通clockとdecoder供給を区別して受入を進めます。
+
+単一native経路の停止確認も、seek完了/nonnull画像だけでは成功にしません。実停止時計とPTSが不一致なら、その時計への一回のoutput更新・補正と現在操作のDrawnを要求します。補正の有限期限と媒体/物理seek所有を維持し、過去の表示位置を保存時計へ流用しません。
+
+Main内部の複数素材プランは、現在のpackageに記録された選択angleの配置・同期offsetと検証済みlocal参照を束ねます。既存の単一素材経路とfilesystem検査を共有し、複数angleを単一URLとして公開しません。group backend/IPC接続と実表示受入は引き続き未完です。
+
+Group v2のnative転送とMain adapterはsource/操作世代・pair単位のmetadata、共有credit/画像lease、importとGPU解放を分ける。preloadは既存の唯一のtexture receiverから2 canvasのpair提示へ分岐する。限定placed-pair HostはMain manifest関数と既存owned backend/FIFOから実行できるが、通常providerの能力交渉・Controllerとpackage clip切替は未接続であり、公開版の単一素材条件を解除しない。実装段階と未保証の表示・音声・継続逆再生は[設計記録](multi-angle-playback.md#group-v2-の転送提示接続開発中)を参照。
+
+限定group Hostの画像供給は圧縮sampleと復号callbackを直接対応させる`DecodedFrameWindow`へ置換した。Mainの検査済みfile revisionを伝え、通常の素材差し替えと旧worker採用を拒否する。共有512MiBは二bankの保持画像/loanのbudgetでありOS全体の予約ではない。音声はAVPlayer、元画像時刻はdecoder由来に分け、限定Hostでは共通host時計・先読み・完全提示pairへのbackpressureを試験し、通常Controllerの能力は有効化しない。重い素材の名目倍率・滑らかさは未達。
+
+圧縮readerの開始は有界なfull-sync sample探索で選び、一律paddingによる余分なGOP復号を避ける。未知のcursor情報では従来の保守的開始位置を使い、画像時刻の検査や取消・排出条件は維持する。通常Controllerや実表示の速度達成とは分けて検証する。
+
+限定group sourceは画像windowと音声用AVPlayerを独立に準備し、実seek成功と検査済み画像が両方そろうまで提示側へreadyを渡さない。未完の音声を準備済みと偽装せず、取消後も実callback/workerの終了を待つ。
+
+限定groupの通常Controllerクラス/Mainセッション結合では、Main所有の完全Drawn履歴で観測を検証し、終了後の`presentedStop`をsource clockの`stopped`と分離する。通常UI/providerの能力交渉と二canvas/HTML復旧への接続は未完であり、試験用IPC/Drawn/復旧adapterを本番受入としない。
+
+Experimental group playback separates release image authority from command intent: preload freezes the submitted complete pair synchronously, Main validates its bounded receipt, and the Controller sends a stop barrier before a later re-press. The legacy source-clock path and default native provider eligibility remain unchanged; signed multi-angle screen/audio acceptance is not established by the native contract regression.
+
+The experimental group Host distinguishes a fixed-target refill pause from a user stop: output stays paused while one bounded adjacent image read may finish. Explicit pause/seek/close still stop further prefetch. The final internal result reports peak charged image bytes separately from OS/decoder/GPU memory; this neither raises the existing image limit nor establishes high-rate screen acceptance.
+
+Group availability now identifies Main's image-clock authority and qualified rates. The Main Manager forwards complete-pair verifiers, and both Main and Renderer writers preserve a fenced stop before re-press. Legacy source-clock behavior remains separate. The one-player gateway rejects group availability rather than restoring only one angle; normal group provider/resource qualification and paired UI/recovery remain outstanding.
+
+Group playback negotiation uses a separate finite helper capability query after signed native resources are verified. The response is a limited ABI declaration, not a source/performance or display guarantee. Legacy playback stays selected while the paired provider/UI recovery is unfinished; export revision and receiver method presence cannot enable it.
+
+Main's group backend now composes the placed-pair helper, pair transport and session receipt lifecycle. It exposes ledger verifiers and a separate presented-stop receipt after physical drainage; it does not fabricate an AVPlayer source clock. The standard source provider and paired UI recovery still require explicit connection and acceptance.
+
+Native group qualification has a separate fixed IPC endpoint for two package angle IDs and an audio owner. Main authenticates the window/Package Session, resolves selected local sources and verifies signed group capability before returning pointer-free angle/clip/file-URL/placement bindings and common presentation scope. It does not accept Renderer paths or replace active ownership when selection changes. The standard single-source route remains separate; ordinary paired UI and two-port original-player recovery are not enabled by this admission alone. See [group playback](multi-angle-playback.md).
+
+The restricted ordinary group candidate now connects two complete-package single-clip angles to one preload pair binding and a two-port Controller gateway. Explicit slot IDs distinguish equal sources. Main-qualified placement metadata validates the package clock, and both original players must confirm mapped paused images after native drainage before releasing playback authority. Partial overlap, clip/gap timelines, unsupported signed capability or ambiguous audio remain on HTML playback. This connection does not resolve measured sustained reverse starvation or establish signed display/audio acceptance.
+
+For a Main-qualified drawn-pair owner, tagging and the package clock follow the separately verified visible image during buffering, independently of audio readiness. Verified drained-image recovery also uses that image when initial audio readiness never arrived; newer explicit user seeks retain priority. Source-clock owners retain their existing ready-clock contract.
+
+The decoded-sample group producer can omit verified non-reference AVC pictures outside the requested image window. Required pictures, original sample timestamps, source identity, finite decode bounds and physical drain remain authoritative; unknown/state-bearing packets decode normally. The [preroll optimization](multi-angle-playback.md#omitting-non-reference-avc-preroll) reduces measured window-fill work but does not establish nominal high-rate smoothness.
+
+For a validated group stop, each source can reuse its own recent successfully published image even if decode banks have evicted it. Four fixed publication pins preserve the original sample interval and shared image charge; source identity, complete-pair stop authority, real audio readiness and physical drain remain mandatory. Missing pins keep finite normal seeking. See [stopped-picture ownership](multi-angle-playback.md#keeping-the-proven-stopped-picture-through-cache-eviction).
+
+Two-angle native playback negotiates matching source profiles with the verified local Host. Compatible pairs include the existing 1080p profile and a 720p29.97 H.264 limited-range xvYCC709 profile with stereo AAC. Other combinations retain the existing playback route.

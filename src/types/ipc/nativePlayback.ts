@@ -1,3 +1,7 @@
+import { parseNativePlaybackGroupBinding } from './nativePlaybackGroup';
+import type { NativePlaybackGroupBinding } from './nativePlaybackGroup';
+import { parseNativeGroupPresentation } from './nativeGroupSurface';
+import type { NativeGroupPresentation } from './nativeGroupSurface';
 import { isPlaybackRate } from '../../shared/media/playbackRate';
 import { parseNativePlaybackPresentation } from './nativePlaybackPresentation';
 import type { NativePlaybackPresentation } from './nativePlaybackPresentation';
@@ -22,6 +26,8 @@ export interface NativePlaybackIntent extends NativePlaybackOwner {
   targetTime: number;
   /** Omission is exact. Preview is held; scrub commits its measured image time. */
   seekMode?: 'preview' | 'scrub';
+  /** Added by preload from its last complete canvas pair, never a requested clock. */
+  presentationFence?: NativeGroupPresentation;
   playing: boolean;
   rate: number;
   audioTrack: number;
@@ -54,6 +60,10 @@ export interface NativePlaybackObservation extends NativePlaybackOwner {
   error: 'media' | 'protocol' | 'timeout' | 'owner' | 'cleanup' | null;
 }
 export interface NativePlaybackAvailability {
+  group?: NativePlaybackGroupBinding;
+  /** Omission retains legacy AVPlayer source-clock authority. Group authority
+   * is advertised only with Main's qualified presentation/rate scope. */
+  clockAuthority?: 'drawn-pair';
   /** Current package endpoint; distinct from the qualified video field end. */
   sourceEnd: number | null;
   presentation: NativePlaybackPresentation | null;
@@ -70,6 +80,8 @@ export interface NativePlaybackClosed {
   pipesClosed: boolean;
   /** Measured stopped source clock, retained before renderer disposal. */
   stopped: NativePlaybackStopped | null;
+  /** Complete-pair canvas receipt after drain; never an AVPlayer stopped clock. */
+  presentedStop?: NativeGroupPresentation;
 }
 export interface NativePlaybackStopped extends NativePlaybackOwner {
   sequence: number;
@@ -143,13 +155,14 @@ export const parseNativePlaybackIntent = (
     'seekId',
     'targetTime',
     'seekMode',
+    'presentationFence',
     'playing',
     'rate',
     'audioTrack',
     'volume',
     'muted',
   ]);
-  return {
+  const value: NativePlaybackIntent = {
     ...ownerValue(v),
     sequence: integerValue(v.sequence, 1),
     seekId: integerValue(v.seekId, 1),
@@ -162,7 +175,22 @@ export const parseNativePlaybackIntent = (
     audioTrack: integerValue(v.audioTrack, 0, 7),
     volume: numberValue(v.volume, 0, 1),
     muted: booleanValue(v.muted),
+    ...(v.presentationFence === undefined
+      ? {}
+      : {
+          presentationFence: parseNativeGroupPresentation(v.presentationFence),
+        }),
   };
+  const fence = value.presentationFence;
+  if (
+    fence &&
+    (value.playing ||
+      fence.generation !== value.generation ||
+      fence.operation >= value.sequence ||
+      fence.seekId !== value.seekId)
+  )
+    throw Error('NATIVE_GROUP_STOP_FENCE_OWNER');
+  return value;
 };
 export const parseNativePlaybackObservation = (
   raw: unknown,
@@ -245,6 +273,7 @@ export const parseNativePlaybackClosed = (
     'processExited',
     'pipesClosed',
     'stopped',
+    'presentedStop',
   ]);
   let stopped: NativePlaybackStopped | null = null;
   if (v.stopped !== null) {
@@ -274,7 +303,19 @@ export const parseNativePlaybackClosed = (
     )
       throw Error('NATIVE_STOP_OWNER_CHANGED');
   }
+  const presentedStop =
+    v.presentedStop === undefined
+      ? undefined
+      : parseNativeGroupPresentation(v.presentedStop);
+  if (
+    presentedStop &&
+    (stopped ||
+      presentedStop.generation !== v.generation ||
+      presentedStop.seekId > presentedStop.operation)
+  )
+    throw Error('NATIVE_STOP_AUTHORITY');
   return {
+    ...(presentedStop === undefined ? {} : { presentedStop }),
     generation: stringValue(v.generation, 1, 128),
     nativeDrained: booleanValue(v.nativeDrained),
     processStarted: booleanValue(v.processStarted),
@@ -294,6 +335,8 @@ export const parseNativePlaybackAvailability = (
     'sourceEnd',
     'reason',
     'presentation',
+    'clockAuthority',
+    'group',
   ]);
   const presentation =
     v.presentation === null
@@ -326,10 +369,21 @@ export const parseNativePlaybackAvailability = (
         sourceEnd !== null
   )
     throw Error('NATIVE_INVALID_AVAILABILITY');
-  return { available, owner, sourceUrl, sourceEnd, reason, presentation };
+  const clockAuthority = v.clockAuthority === undefined ? undefined :
+    enumValue(v.clockAuthority, ['drawn-pair']);
+  if (clockAuthority && (!available || !presentation))
+    throw Error('NATIVE_GROUP_PRESENTATION_SCOPE');
+  const group = v.group === undefined ? undefined : parseNativePlaybackGroupBinding(v.group);
+  if (group && (!available || clockAuthority !== 'drawn-pair' || !presentation ||
+      group.angles.some((angle) => angle.globalStart > presentation.start || angle.globalEnd < presentation.end) ||
+      group.angles.find((angle) => angle.angleId === group.audioAngleId)?.audioTracks !== presentation.audioTracks))
+    throw Error('NATIVE_GROUP_BINDING_SCOPE');
+  return { available, owner, sourceUrl, sourceEnd, reason, presentation,
+    ...(clockAuthority ? { clockAuthority } : {}), ...(group ? { group } : {}) };
 };
 export const nativePlaybackChannels = {
   inspect: 'native-playback:inspect',
+  inspectGroup: 'native-playback:inspect-group',
   open: 'native-playback:open',
   apply: 'native-playback:apply',
   observe: 'native-playback:observe',

@@ -117,6 +117,7 @@ const make = (
   presentation:
     | import('../../../../types/ipc/nativePlaybackPresentation').NativePlaybackPresentation
     | null = null,
+  clockAuthority: 'source-clock' | 'drawn-pair' = 'source-clock',
 ) => {
   let listener: ((value: NativePlaybackSnapshot | null) => void) | null = null;
   const unsubscribe = vi.fn(() => {
@@ -139,21 +140,24 @@ const make = (
     ),
     reportFailure: vi.fn(async () => {}),
     inspect: vi.fn(),
+    freezePresentation: vi.fn(),
     open: vi.fn(async () => {}),
     apply: vi.fn(async (_v: NativePlaybackIntent) => {}),
     observe: vi.fn(async () => snapshot),
-    close: vi.fn(async () => ({
-      ...drained,
-      stopped: snapshot.observation
-        ? {
-            ...owner,
-            sequence: snapshot.observation.sequence,
-            seekId: snapshot.observation.seekId,
-            time: snapshot.lastConfirmedTime,
-            rate: 0 as const,
-          }
-        : null,
-    })),
+    close: vi.fn(
+      async (): Promise<NativePlaybackClosed> => ({
+        ...drained,
+        stopped: snapshot.observation
+          ? {
+              ...owner,
+              sequence: snapshot.observation.sequence,
+              seekId: snapshot.observation.seekId,
+              time: snapshot.lastConfirmedTime,
+              rate: 0 as const,
+            }
+          : null,
+      }),
+    ),
   };
   const original = {
     pause: vi.fn(),
@@ -175,6 +179,7 @@ const make = (
     { playing: false, rate: 1, audioTrack: 0, volume: 0.5, muted: true },
     original,
     presentation,
+    clockAuthority,
   );
   return {
     controller,
@@ -187,10 +192,12 @@ const make = (
       seekId: number,
       time: number,
       revision: number,
+      confirmedTime = snapshot.lastConfirmedTime,
     ) => {
       if (!snapshot.observation) throw Error('ready observation required');
       snapshot = {
         ...snapshot,
+        lastConfirmedTime: confirmedTime,
         observation: {
           ...snapshot.observation,
           sequence,
@@ -231,7 +238,9 @@ const make = (
           videoReady: ready,
           audioReady: ready,
           error: null,
-          ...(reverse ? { reverseCapabilities: { slow: true, fast: true } } : {}),
+          ...(reverse
+            ? { reverseCapabilities: { slow: true, fast: true } }
+            : {}),
         },
       };
       listener?.(snapshot);
@@ -247,96 +256,148 @@ it('carries an interrupting seek through drain and revocation without sending it
   const f = make();
   await vi.advanceTimersByTimeAsync(1);
   f.reply(1, 1, 3, 1, false, true, true);
-  const sent = deferred<void>(); const revoked = deferred<void>();
+  const sent = deferred<void>();
+  const revoked = deferred<void>();
   const send = vi.fn(() => sent.promise);
   const revoke = vi.fn(() => revoked.promise);
   const reservation = f.controller.reserveCommandGesture(6, revoke);
   if (reservation === null) throw Error('missing reservation');
   const starting = f.controller.startCommandGesture(reservation, send);
   await vi.advanceTimersByTimeAsync(1);
-  expect(send).toHaveBeenCalledWith(expect.objectContaining({ sequence: 2, playing: true, rate: -6 }));
+  expect(send).toHaveBeenCalledWith(
+    expect.objectContaining({ sequence: 2, playing: true, rate: -6 }),
+  );
   f.controller.seek(9);
-  const rejected = expect(starting).rejects.toThrow('NATIVE_GESTURE_SUPERSEDED');
-  sent.resolve(); await rejected;
+  const rejected = expect(starting).rejects.toThrow(
+    'NATIVE_GESTURE_SUPERSEDED',
+  );
+  sent.resolve();
+  await rejected;
   await vi.advanceTimersByTimeAsync(1);
   expect(revoke).toHaveBeenCalledOnce();
   expect(f.original.restore).not.toHaveBeenCalled();
-  expect(f.api.apply).not.toHaveBeenCalledWith(expect.objectContaining({ targetTime: 9 }));
+  expect(f.api.apply).not.toHaveBeenCalledWith(
+    expect.objectContaining({ targetTime: 9 }),
+  );
   revoked.resolve();
   await f.controller.returnToOriginal();
-  expect(f.original.restored).toHaveBeenCalledWith(9, expect.objectContaining({ playing: false }));
+  expect(f.original.restored).toHaveBeenCalledWith(
+    9,
+    expect.objectContaining({ playing: false }),
+  );
 });
 it('waits through a second coalesced writer before allowing the next Main capture', async () => {
   vi.useFakeTimers();
-  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  const f = make();
+  await vi.advanceTimersByTimeAsync(1);
   f.reply(1, 1, 3, 1, false, true, true);
-  const first = deferred<void>(), second = deferred<void>();
-  f.api.apply.mockReturnValueOnce(first.promise).mockReturnValueOnce(second.promise);
-  f.controller.controls({ volume: 0.6 }); await vi.advanceTimersByTimeAsync(1);
+  const first = deferred<void>(),
+    second = deferred<void>();
+  f.api.apply
+    .mockReturnValueOnce(first.promise)
+    .mockReturnValueOnce(second.promise);
+  f.controller.controls({ volume: 0.6 });
+  await vi.advanceTimersByTimeAsync(1);
   f.controller.controls({ volume: 0.7 });
   let resolved = false;
-  const ready = f.controller.prepareCommandGesture(6).then((value) => { resolved = true; return value; });
-  first.resolve(); await vi.advanceTimersByTimeAsync(1);
+  const ready = f.controller.prepareCommandGesture(6).then((value) => {
+    resolved = true;
+    return value;
+  });
+  first.resolve();
+  await vi.advanceTimersByTimeAsync(1);
   expect(f.api.apply).toHaveBeenCalledTimes(3); // initial + two changes
   expect(resolved).toBe(false);
-  second.resolve(); await expect(ready).resolves.toBe(true);
+  second.resolve();
+  await expect(ready).resolves.toBe(true);
   await f.controller.returnToOriginal();
 });
 it('carries an interrupting forward-play request from the confirmed stopped clock', async () => {
   vi.useFakeTimers();
-  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  const f = make();
+  await vi.advanceTimersByTimeAsync(1);
   f.reply(1, 1, 3, 1, false, true, true);
-  const sent = deferred<void>(); const revoked = deferred<void>();
-  const reservation = f.controller.reserveCommandGesture(6, () => revoked.promise);
+  const sent = deferred<void>();
+  const revoked = deferred<void>();
+  const reservation = f.controller.reserveCommandGesture(
+    6,
+    () => revoked.promise,
+  );
   if (reservation === null) throw Error('missing reservation');
-  const starting = f.controller.startCommandGesture(reservation, () => sent.promise);
+  const starting = f.controller.startCommandGesture(
+    reservation,
+    () => sent.promise,
+  );
   await vi.advanceTimersByTimeAsync(1);
   f.controller.controls({ playing: true, rate: 1 });
-  const rejected = expect(starting).rejects.toThrow('NATIVE_GESTURE_SUPERSEDED');
-  sent.resolve(); await rejected;
+  const rejected = expect(starting).rejects.toThrow(
+    'NATIVE_GESTURE_SUPERSEDED',
+  );
+  sent.resolve();
+  await rejected;
   await vi.advanceTimersByTimeAsync(1);
   expect(f.original.restore).not.toHaveBeenCalled();
-  revoked.resolve(); await f.controller.returnToOriginal();
-  expect(f.original.restored).toHaveBeenCalledWith(3, expect.objectContaining({ playing: true, rate: 1 }));
+  revoked.resolve();
+  await f.controller.returnToOriginal();
+  expect(f.original.restored).toHaveBeenCalledWith(
+    3,
+    expect.objectContaining({ playing: true, rate: 1 }),
+  );
 });
 it('preserves a forward request while the Main gesture claim is still pending', async () => {
   vi.useFakeTimers();
-  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  const f = make();
+  await vi.advanceTimersByTimeAsync(1);
   f.reply(1, 1, 3, 1, false, true, true);
   const revoke = vi.fn(async () => {});
   const reservation = f.controller.reserveCommandGesture(6, revoke);
   if (reservation === null) throw Error('missing reservation');
   f.controller.controls({ playing: true, rate: 1 });
-  expect(await f.controller.startCommandGesture(reservation, async () => {})).toBeNull();
+  expect(
+    await f.controller.startCommandGesture(reservation, async () => {}),
+  ).toBeNull();
   await f.controller.returnToOriginal();
   expect(revoke).toHaveBeenCalledOnce();
-  expect(f.original.restored).toHaveBeenCalledWith(3, expect.objectContaining({ playing: true, rate: 1 }));
+  expect(f.original.restored).toHaveBeenCalledWith(
+    3,
+    expect.objectContaining({ playing: true, rate: 1 }),
+  );
 });
 it('sends one gesture start through its dedicated transport and accepts only its token for stop', async () => {
   vi.useFakeTimers();
-  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  const f = make();
+  await vi.advanceTimersByTimeAsync(1);
   f.reply(1, 1, 3, 1, false, true, true);
-  const send = vi.fn(async () => {}); const revoke = vi.fn(async () => {});
+  const send = vi.fn(async () => {});
+  const revoke = vi.fn(async () => {});
   const reservation = f.controller.reserveCommandGesture(6, revoke);
   if (reservation === null) throw Error('missing reservation');
   const token = await f.controller.startCommandGesture(reservation, send);
   if (token === null) throw Error('missing token');
   expect(send).toHaveBeenCalledOnce();
-  expect(f.api.apply).not.toHaveBeenCalledWith(expect.objectContaining({ sequence: 2 }));
+  expect(f.api.apply).not.toHaveBeenCalledWith(
+    expect.objectContaining({ sequence: 2 }),
+  );
   expect(f.controller.stopCommandGesture(token + 1)).toBeNull();
-  expect(f.controller.stopCommandGesture(token)).toBe(f.controller.commandRevision);
+  expect(f.controller.stopCommandGesture(token)).toBe(
+    f.controller.commandRevision,
+  );
   expect(revoke).not.toHaveBeenCalled();
   await f.controller.returnToOriginal();
   expect(revoke).toHaveBeenCalledOnce();
 });
 it('treats reentrant forward play during gesture stop as a new operation', async () => {
   vi.useFakeTimers();
-  const f = make(); await vi.advanceTimersByTimeAsync(1);
+  const f = make();
+  await vi.advanceTimersByTimeAsync(1);
   f.reply(1, 1, 3, 1, false, true, true);
   const revoke = vi.fn(async () => {});
   const reservation = f.controller.reserveCommandGesture(6, revoke);
   if (reservation === null) throw Error('missing reservation');
-  const token = await f.controller.startCommandGesture(reservation, async () => {});
+  const token = await f.controller.startCommandGesture(
+    reservation,
+    async () => {},
+  );
   if (token === null) throw Error('missing token');
   let triggered = false;
   const unsubscribe = f.controller.subscribe(() => {
@@ -349,7 +410,10 @@ it('treats reentrant forward play during gesture stop as a new operation', async
   expect(f.controller.stopCommandGesture(token)).toBeNull();
   await f.controller.returnToOriginal();
   expect(revoke).toHaveBeenCalledOnce();
-  expect(f.original.restored).toHaveBeenCalledWith(3, expect.objectContaining({ playing: true, rate: 1 }));
+  expect(f.original.restored).toHaveBeenCalledWith(
+    3,
+    expect.objectContaining({ playing: true, rate: 1 }),
+  );
   unsubscribe();
 });
 it('commits an exact seek at the same pending preview target and ignores its stale completion', async () => {
@@ -1343,4 +1407,216 @@ it('forwards numeric duration evidence from the failed recovery snapshot', async
     expect.objectContaining({ recovery: failure.recovery }),
   );
   expect(original.release).not.toHaveBeenCalled();
+});
+
+const drawnClose = (): NativePlaybackClosed => ({
+  ...drained,
+  stopped: null,
+  presentedStop: {
+    document: 'doc',
+    generation: owner.generation,
+    operation: 1,
+    seekId: 1,
+    pair: 1,
+    globalTicks: 360000,
+    ids: [1, 2],
+  },
+});
+it('recovers from a separately tagged drawn-pair anchor without claiming a stopped source clock', async () => {
+  vi.useFakeTimers();
+  const f = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3, 1);
+  f.api.close.mockResolvedValue(drawnClose());
+  await f.controller.returnToOriginal();
+  expect(f.original.restore).toHaveBeenCalledWith(
+    3,
+    expect.anything(),
+    expect.any(AbortSignal),
+  );
+  expect(f.original.release).toHaveBeenCalledOnce();
+});
+it.each([
+  'missing',
+  'future',
+  'old-time',
+  'wrong-owner',
+  'not-exited',
+] as const)(
+  'keeps group ownership on an unconfirmed closed presentation: %s',
+  async (kind) => {
+    vi.useFakeTimers();
+    const f = make(null, 'drawn-pair');
+    await vi.advanceTimersByTimeAsync(1);
+    f.reply(1, 1, 3, 1);
+    const closed = drawnClose();
+    if (kind === 'missing') delete closed.presentedStop;
+    else if (kind === 'not-exited') closed.processExited = false;
+    else if (closed.presentedStop) {
+      if (kind === 'future') closed.presentedStop.operation = 2;
+      if (kind === 'old-time') closed.presentedStop.globalTicks = 359000;
+      if (kind === 'wrong-owner') closed.presentedStop.generation = 'other';
+    }
+    f.api.close.mockResolvedValue(closed);
+    await expect(f.controller.returnToOriginal()).rejects.toThrow(
+      'RECOVERY_UNCONFIRMED',
+    );
+    expect(f.original.release).not.toHaveBeenCalled();
+    expect(f.original.restore).not.toHaveBeenCalled();
+  },
+);
+it('does not accept a drawn-pair receipt in the legacy source-clock mode', async () => {
+  vi.useFakeTimers();
+  const f = make();
+  await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3, 1);
+  f.api.close.mockResolvedValue(drawnClose());
+  await expect(f.controller.returnToOriginal()).rejects.toThrow(
+    'RECOVERY_UNCONFIRMED',
+  );
+  expect(f.original.release).not.toHaveBeenCalled();
+});
+
+it('freezes at release and sends its barrier before a re-press behind a pending writer', async () => {
+  vi.useFakeTimers();
+  const f = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3);
+  const writing = deferred<void>();
+  f.api.apply.mockReturnValueOnce(writing.promise);
+  f.controller.controls({ playing: true });
+  await vi.advanceTimersByTimeAsync(0);
+  f.controller.controls({ playing: false });
+  expect(f.api.freezePresentation).toHaveBeenCalledExactlyOnceWith(
+    expect.objectContaining({ sequence: 3, playing: false }),
+  );
+  f.controller.controls({ playing: true });
+  expect(f.api.apply.mock.calls.map(([v]) => v.sequence)).toEqual([1, 2]);
+  writing.resolve();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(f.api.apply.mock.calls.map(([v]) => v.sequence)).toEqual([1, 2, 3, 4]);
+  f.controller.fail('test cleanup');
+  await vi.advanceTimersByTimeAsync(0);
+});
+it('coalesces unsent release barriers while preserving the selected writer and final short stop', async () => {
+  vi.useFakeTimers();
+  const f = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3);
+  f.controller.controls({ playing: true });
+  await vi.advanceTimersByTimeAsync(0);
+  f.controller.controls({ playing: false }); // writer selected, prepare not entered
+  f.controller.controls({ playing: true });
+  f.controller.controls({ playing: false });
+  f.controller.controls({ playing: true });
+  f.controller.controls({ playing: false });
+  expect(f.api.freezePresentation.mock.calls.map(([v]) => v.sequence)).toEqual([
+    3, 5, 7,
+  ]);
+  await vi.advanceTimersByTimeAsync(0);
+  expect(f.api.apply.mock.calls.map(([v]) => v.sequence)).toEqual([1, 2, 3, 7]);
+  f.controller.fail('test cleanup');
+  await vi.advanceTimersByTimeAsync(0);
+});
+it('fails closed if the synchronous release fence cannot be captured', async () => {
+  vi.useFakeTimers();
+  const f = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3);
+  f.controller.controls({ playing: true });
+  await vi.advanceTimersByTimeAsync(0);
+  f.api.freezePresentation.mockImplementation(() => {
+    throw Error('no pair');
+  });
+  f.controller.controls({ playing: false });
+  await vi.advanceTimersByTimeAsync(0);
+  expect(f.controller.snapshot().error).toBe(
+    'NATIVE_PRESENTATION_FENCE_FAILED',
+  );
+  expect(f.api.close).toHaveBeenCalledOnce();
+  expect(f.original.release).not.toHaveBeenCalled();
+});
+
+it('arms group reverse from its qualified image scope, not the audio AVPlayer capability', async () => {
+  vi.useFakeTimers();
+  const f = make({ ...presentation, rates: [1, -2, -4], seekGrid: null }, 'drawn-pair');
+  expect(f.controller.supportsReverse(2)).toBe(false);
+  await vi.advanceTimersByTimeAsync(1); f.reply(1, 1, 3);
+  expect(f.controller.supportsReverse(2)).toBe(true);
+  expect(await f.controller.prepareCommandGesture(4)).toBe(true);
+  expect(f.controller.supportsReverse(.5)).toBe(false);
+  expect(f.controller.supportsReverse(6)).toBe(false);
+  f.controller.fail('test cleanup');
+});
+it('does not infer unknown group rates or bypass legacy measured reverse capability', async () => {
+  vi.useFakeTimers();
+  const unknown = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1); unknown.reply(1, 1, 3);
+  expect(unknown.controller.supportsReverse(2)).toBe(false); unknown.controller.fail('test cleanup');
+  const legacy = make({ ...presentation, rates: [1, -2], seekGrid: null });
+  await vi.advanceTimersByTimeAsync(1); legacy.reply(1, 1, 3);
+  expect(legacy.controller.supportsReverse(2)).toBe(false);
+  legacy.reply(1, 1, 3, 2, false, true, true);
+  expect(legacy.controller.supportsReverse(2)).toBe(true); legacy.controller.fail('test cleanup');
+});
+
+it.each(['source-clock', 'drawn-pair'] as const)(
+  'uses only the qualified clock authority during buffering: %s',
+  async (authority) => {
+    vi.useFakeTimers();
+    const f = make(null, authority);
+    await vi.advanceTimersByTimeAsync(1);
+    f.reply(1, 1, 3);
+    f.buffering(1, 1, 2.9, 2, authority === 'drawn-pair' ? 2.9 : 3);
+    expect(f.controller.snapshot().time).toBe(authority === 'drawn-pair' ? 2.9 : 3);
+    expect(f.controller.snapshot().observation).toMatchObject({
+      phase: 'buffering', videoReady: false, audioReady: false,
+    });
+    expect(f.controller.hasConfirmedSeek).toBe(true);
+    // A confirmed image does not extend the five-second refill deadline.
+    await vi.advanceTimersByTimeAsync(5250);
+    expect(f.controller.snapshot().phase).toBe('failed');
+    if (authority === 'drawn-pair') {
+      f.api.close.mockResolvedValue(drawnClose());
+      await f.controller.returnToOriginal().catch(() => {});
+    } else await f.controller.returnToOriginal();
+  },
+);
+it('rejects a mismatched group image clock before adopting its observation or tag time', async () => {
+  vi.useFakeTimers();
+  const f = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1);
+  f.reply(1, 1, 3);
+  f.api.close.mockResolvedValue(drawnClose());
+  f.buffering(1, 1, 2.9, 2, 8);
+  expect(f.controller.snapshot()).toMatchObject({
+    phase: 'failed', time: 3, error: 'NATIVE_OBSERVATION_FAILED',
+    observation: null,
+  });
+  expect(f.original.release).not.toHaveBeenCalled();
+  f.api.close.mockResolvedValue(drawnClose());
+  await f.controller.returnToOriginal();
+});
+
+it('restores the drained group image before audio has ever acknowledged the current seek', async () => {
+  vi.useFakeTimers();
+  const f = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1);
+  // A first confirmed buffering image precedes the initial audio-ready ACK.
+  f.reply(1, 1, 3, 1, false, false);
+  f.controller.controls({ playing: true, rate: -2 });
+  await vi.advanceTimersByTimeAsync(1);
+  f.buffering(2, 1, 3, 2, 3);
+  expect(f.controller.hasConfirmedSeek).toBe(false);
+  const closed = drawnClose();
+  if (!closed.presentedStop) throw Error('missing test stop');
+  closed.presentedStop.operation = 2;
+  closed.presentedStop.globalTicks = 354000;
+  f.api.close.mockResolvedValue(closed);
+  await f.controller.returnToOriginal();
+  expect(f.original.restore).toHaveBeenCalledWith(
+    2.95, expect.anything(), expect.any(AbortSignal),
+  );
+  expect(f.controller.snapshot()).toMatchObject({ phase: 'original', time: 2.95 });
+  expect(f.original.release).toHaveBeenCalledOnce();
 });

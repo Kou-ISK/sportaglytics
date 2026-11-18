@@ -29,6 +29,7 @@ export const useVideoJsPlayer = ({
     playerRef,
     videoSrc,
     isReady,
+    id,
   );
   const reportOriginalDuration = useCallback(
     (value: number): void => {

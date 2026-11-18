@@ -15,14 +15,29 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, readonly) AVPlayerTimeControlStatus timeControlStatus;
 @property(nonatomic, readonly) NSUInteger audioTrackCount;
 - (BOOL)selectAudioTrack:(NSUInteger)index;
+/// Group mode obtains timestamped pixels from its own bounded decoder. Remove
+/// this output and disable video tracks when audio is present, avoiding a second
+/// live video decoder. A silent item stays paused and is not a group clock.
+- (BOOL)prepareAudioOnly;
 - (BOOL)supportsRate:(float)rate;
 - (void)setVolume:(float)volume muted:(BOOL)muted;
 - (void)setRate:(float)rate;
+/// Schedule a ready, seek-settled source on the shared host clock. This does not
+/// establish a group ready barrier, guarantee decoded data, or confirm display.
+/// A future host anchor is not a delayed-action timer: the AVPlayer timebase may
+/// run before it. The group must gate publication against its canonical clock.
+/// The caller must pause all members if any member rejects the same operation.
+- (BOOL)scheduleRate:(float)rate fromTime:(CMTime)time atHostTime:(CMTime)hostTime;
 - (void)pause;
 /// approximate is only for transient scrubbing. The returned position must not
 /// be reported as an exact requested time or used to mutate annotation ranges.
 - (void)seekToTime:(CMTime)time approximate:(BOOL)approximate
         completion:(void (^)(BOOL finished))completion;
+/// One owned correction after a stale stopped image: refresh the output queue
+/// and seek to the actual paused clock. Completion still requires PTS/display
+/// validation by the caller. Never use this while playing or already seeking.
+- (void)settleStoppedImageAtTime:(CMTime)time
+                    completion:(void (^)(BOOL finished))completion;
 - (nullable CVPixelBufferRef)copyCurrentImage:(CMTime *)presentationTime
                                     force:(BOOL)force CF_RETURNS_RETAINED;
 - (void)close;

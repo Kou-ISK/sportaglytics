@@ -1,4 +1,4 @@
-import { clockMovedAgainstRate } from '../../../../shared/media/playbackRate';
+import { nativeClosedRecoveryTime } from './nativeClosedRecoveryTime';
 import { createCommandGestureIntent } from './commandGestureIntent';
 import { reportNativeFailure } from './nativeFailureReport';
 import type { VideoSeekMode } from '../../../../types/video/seek';
@@ -11,7 +11,6 @@ import type {
   NativePlaybackSnapshot,
 } from '../../../../types/ipc/nativePlayback';
 import {
-  parseNativePlaybackClosed,
   parseNativePlaybackIntent,
   parseNativePlaybackSnapshot,
 } from '../../../../types/ipc/nativePlayback';
@@ -56,6 +55,7 @@ export class NativePlaybackController {
   private state: NativePlaybackState;
   private listeners = new Set<() => void>();
   private pending: NativePlaybackIntent | null = null;
+  private pendingPresentationStop: NativePlaybackIntent | null = null;
   private writer: Promise<void> | null = null;
   private opened: Promise<void>;
   private closeWork: Promise<void> | null = null;
@@ -90,7 +90,15 @@ export class NativePlaybackController {
     controls: NativePlaybackControls,
     private readonly original: NativeOriginalRecovery,
     private readonly presentation: NativePlaybackPresentation | null = null,
+    private readonly clockAuthority:
+      | 'source-clock'
+      | 'drawn-pair' = 'source-clock',
   ) {
+    if (
+      clockAuthority === 'drawn-pair' &&
+      typeof api.freezePresentation !== 'function'
+    )
+      throw Error('NATIVE_GROUP_CONTROL_UNAVAILABLE');
     this.intent = {
       ...owner,
       ...controls,
@@ -157,7 +165,10 @@ export class NativePlaybackController {
   controls(value: Partial<NativePlaybackControls>): void {
     this.applyControls(value, false);
   }
-  private applyControls(value: Partial<NativePlaybackControls>, internalGesture: boolean): void {
+  private applyControls(
+    value: Partial<NativePlaybackControls>,
+    internalGesture: boolean,
+  ): void {
     if (!this.acceptsOperation()) return;
     const changed = Object.entries(value).some(
       ([key, next]) =>
@@ -176,9 +187,20 @@ export class NativePlaybackController {
       next.seekMode = 'scrub';
       next.seekId++;
     }
-    const interrupted = this.commandGesture && !internalGesture &&
-      (this.commandGesture.starting || next.playing !== this.intent.playing || next.rate !== this.intent.rate);
+    const interrupted =
+      this.commandGesture &&
+      !internalGesture &&
+      (this.commandGesture.starting ||
+        next.playing !== this.intent.playing ||
+        next.rate !== this.intent.rate);
     if (this.routeToOriginal(next, false, !!interrupted)) return;
+    if (
+      this.clockAuthority === 'drawn-pair' &&
+      this.intent.playing &&
+      !next.playing &&
+      this.intent.seekId === next.seekId
+    )
+      this.pendingPresentationStop = { ...next };
     this.intent = next;
     this.readyDeadline = Math.min(
       performance.now() + 5000,
@@ -202,7 +224,8 @@ export class NativePlaybackController {
     if (
       this.state.phase === 'active' &&
       !this.fallingBack &&
-      !this.commandGesture && !this.intent.playing &&
+      !this.commandGesture &&
+      !this.intent.playing &&
       !this.hasConfirmedSeek &&
       time === this.intent.targetTime &&
       (this.intent.seekMode ?? 'exact') === mode
@@ -217,6 +240,7 @@ export class NativePlaybackController {
     if (mode !== 'exact') next.seekMode = mode;
     else delete next.seekMode;
     if (this.routeToOriginal(next, true, !!this.commandGesture)) return;
+    this.pendingPresentationStop = null; // explicit new seek supersedes an unsent stop barrier
     this.intent = next;
     this.bufferingDeadline = null;
     this.bufferedStop = null;
@@ -233,12 +257,16 @@ export class NativePlaybackController {
       : this.intent.targetTime;
   }
   supportsReverse(rate: number): boolean {
+    // Eligibility is not a cadence guarantee. Group pixels use Main's qualified
+    // rate scope, not the reverse capability of their audio-only AVPlayer.
     return (
       this.state.phase === 'active' &&
       this.hasConfirmedSeek &&
-      (rate === 0.5
-        ? this.reverseCapabilities.slow
-        : this.reverseCapabilities.fast) &&
+      (this.clockAuthority === 'drawn-pair'
+        ? this.presentation !== null
+        : rate === 0.5
+          ? this.reverseCapabilities.slow
+          : this.reverseCapabilities.fast) &&
       (!this.presentation || this.presentation.rates.includes(-rate))
     );
   }
@@ -249,13 +277,32 @@ export class NativePlaybackController {
       const writer = this.writer;
       await writer;
     }
-    return this.operationRevision === revision && !this.writer && !this.pending &&
-      !this.commandGesture && this.supportsReverse(rate);
+    return (
+      this.operationRevision === revision &&
+      !this.writer &&
+      !this.pending &&
+      !this.commandGesture &&
+      this.supportsReverse(rate)
+    );
   }
-  reserveCommandGesture(rate: number, revoke: () => Promise<void>): number | null {
-    if (this.writer || this.pending || this.commandGesture || !this.supportsReverse(rate)) return null;
-    const gesture: CommandGesture = { id: ++this.nextCommandGesture, rate, revoke,
-      starting: true, reservationRevision: this.operationRevision };
+  reserveCommandGesture(
+    rate: number,
+    revoke: () => Promise<void>,
+  ): number | null {
+    if (
+      this.writer ||
+      this.pending ||
+      this.commandGesture ||
+      !this.supportsReverse(rate)
+    )
+      return null;
+    const gesture: CommandGesture = {
+      id: ++this.nextCommandGesture,
+      rate,
+      revoke,
+      starting: true,
+      reservationRevision: this.operationRevision,
+    };
     this.commandGesture = gesture;
     return gesture.id;
   }
@@ -265,10 +312,21 @@ export class NativePlaybackController {
     send: (intent: NativePlaybackIntent) => Promise<void>,
   ): Promise<number | null> {
     const gesture = this.commandGesture;
-    if (!gesture || gesture.id !== id || !gesture.starting ||
-        this.operationRevision !== gesture.reservationRevision || this.writer || this.pending ||
-        !this.supportsReverse(gesture.rate)) return null;
-    const next = createCommandGestureIntent(this.intent, gesture.rate, this.presentation);
+    if (
+      !gesture ||
+      gesture.id !== id ||
+      !gesture.starting ||
+      this.operationRevision !== gesture.reservationRevision ||
+      this.writer ||
+      this.pending ||
+      !this.supportsReverse(gesture.rate)
+    )
+      return null;
+    const next = createCommandGestureIntent(
+      this.intent,
+      gesture.rate,
+      this.presentation,
+    );
     if (!next) return null;
     this.operationRevision++;
     this.intent = next;
@@ -278,9 +336,14 @@ export class NativePlaybackController {
         throw Error('NATIVE_GESTURE_SUPERSEDED');
       return send({ ...next });
     });
-    this.writer = sending.catch(() => {
-      if (this.commandGesture === gesture) this.fail('NATIVE_COMMAND_FAILED');
-    }).finally(() => { this.writer = null; this.flush(); });
+    this.writer = sending
+      .catch(() => {
+        if (this.commandGesture === gesture) this.fail('NATIVE_COMMAND_FAILED');
+      })
+      .finally(() => {
+        this.writer = null;
+        this.flush();
+      });
     this.update({ observation: null });
     await sending;
     if (this.commandGesture !== gesture || this.state.phase !== 'active')
@@ -301,17 +364,26 @@ export class NativePlaybackController {
   interruptCommandGesture(): void {
     if (!this.commandGesture || !this.acceptsOperation()) return;
     this.operationRevision++;
-    const next: NativePlaybackIntent = { ...this.intent,
-      sequence: this.intent.sequence + 1, playing: false, rate: 1 };
+    const next: NativePlaybackIntent = {
+      ...this.intent,
+      sequence: this.intent.sequence + 1,
+      playing: false,
+      rate: 1,
+    };
     this.routeToOriginal(next, false, true);
   }
   normalizeCommandGesture(id: number, revision: number): boolean {
     const gesture = this.commandGesture;
-    if (!gesture || gesture.id !== id || this.operationRevision !== revision) return false;
+    if (!gesture || gesture.id !== id || this.operationRevision !== revision)
+      return false;
     this.commandGesture = null;
     this.controls({ playing: false, rate: 1 });
-    return this.state.phase === 'active' && this.operationRevision === revision + 1 &&
-      !this.intent.playing && this.intent.rate === 1;
+    return (
+      this.state.phase === 'active' &&
+      this.operationRevision === revision + 1 &&
+      !this.intent.playing &&
+      this.intent.rate === 1
+    );
   }
   get seekRevision(): number {
     return this.positionRevision;
@@ -358,7 +430,23 @@ export class NativePlaybackController {
       return true;
     }
     if (
-      !force && !this.fallingBack &&
+      this.clockAuthority === 'drawn-pair' &&
+      this.intent.playing &&
+      !next.playing &&
+      this.intent.seekId === next.seekId
+    ) {
+      try {
+        if (typeof this.api.freezePresentation !== 'function')
+          throw Error('NATIVE_GROUP_CONTROL_UNAVAILABLE');
+        this.api.freezePresentation(next);
+      } catch {
+        this.fail('NATIVE_PRESENTATION_FENCE_FAILED');
+        return true;
+      }
+    }
+    if (
+      !force &&
+      !this.fallingBack &&
       (!this.presentation ||
         nativePresentationSupports(
           this.presentation,
@@ -393,9 +481,16 @@ export class NativePlaybackController {
     void work.catch(() => this.fail('NATIVE_RECOVERY_UNCONFIRMED'));
   }
   private flush(): void {
-    if (this.writer || !this.pending || this.state.phase !== 'active') return;
-    const value = this.pending;
-    this.pending = null;
+    if (
+      this.writer ||
+      (!this.pending && !this.pendingPresentationStop) ||
+      this.state.phase !== 'active'
+    )
+      return;
+    const value = this.pendingPresentationStop ?? this.pending;
+    if (!value) return;
+    this.pendingPresentationStop = null;
+    if (this.pending?.sequence === value.sequence) this.pending = null;
     this.writer = Promise.resolve()
       .then(() => {
         if (this.state.phase === 'active' && this.checkDeadline())
@@ -456,6 +551,16 @@ export class NativePlaybackController {
         observation.revision <= this.lastRevision
       )
         return;
+      const confirmedBufferedImage =
+        this.clockAuthority === 'drawn-pair' &&
+        observation.phase === 'buffering';
+      // Main has already checked the complete-pair ledger. Do not substitute
+      // the requested target or an unrelated snapshot clock for that image.
+      if (
+        confirmedBufferedImage &&
+        value.lastConfirmedTime !== observation.time
+      )
+        throw Error('NATIVE_IMAGE_CLOCK_MISMATCH');
       this.lastResponse = performance.now();
       this.lastRevision = observation.revision;
       if (observation.reverseCapabilities)
@@ -497,7 +602,9 @@ export class NativePlaybackController {
       }
       this.update({
         observation,
-        ...(ready ? { time: value.lastConfirmedTime } : {}),
+        ...(ready || confirmedBufferedImage
+          ? { time: value.lastConfirmedTime }
+          : {}),
       });
       if (
         ready &&
@@ -544,6 +651,7 @@ export class NativePlaybackController {
     this.recoveryAbort?.abort();
     this.pauseOriginal();
     this.pending = null;
+    this.pendingPresentationStop = null;
     this.disconnectObserver();
     clearInterval(this.watchdog);
     this.update({ phase: 'failed', observation: null, error: reason });
@@ -573,48 +681,25 @@ export class NativePlaybackController {
     this.revokeCommandGesture();
     if (this.closeWork) return this.closeWork;
     this.pending = null;
+    this.pendingPresentationStop = null;
     this.disconnectObserver();
     clearInterval(this.watchdog);
     this.closeWork = (async () => {
-      const result = parseNativePlaybackClosed(
-        await this.api.close({ ...this.owner }),
-      );
+      const result = await this.api.close({ ...this.owner });
       await this.opened;
       await this.writer;
       await this.gestureRevocation;
-      if (
-        result.generation !== this.owner.generation ||
-        !result.nativeDrained ||
-        !result.processExited ||
-        !result.pipesClosed
-      )
-        throw Error('NATIVE_CLEANUP_UNCONFIRMED');
-      const stopped = result.stopped;
-      if (stopped) {
-        if (
-          stopped.sourceKey !== this.owner.sourceKey ||
-          stopped.sequence > this.intent.sequence ||
-          stopped.seekId > this.intent.seekId ||
-          (stopped.seekId === this.lastReadySeek &&
-            Math.sign(this.intent.rate) === Math.sign(this.clockRate) &&
-            clockMovedAgainstRate(
-              stopped.time,
-              this.state.time,
-              this.clockRate,
-            )) ||
-          (stopped.seekId === this.bufferedStop?.seekId &&
-            Math.sign(this.intent.rate) === Math.sign(this.clockRate) &&
-            clockMovedAgainstRate(
-              stopped.time,
-              this.bufferedStop.time,
-              this.clockRate,
-            ))
-        )
-          throw Error('NATIVE_STOP_CLOCK_UNCONFIRMED');
-        this.stoppedTime = stopped.time;
-      } else if (this.lastReadySeek > 0) {
-        throw Error('NATIVE_STOP_CLOCK_MISSING');
-      }
+      this.stoppedTime = nativeClosedRecoveryTime(result, {
+        owner: this.owner,
+        sequence: this.intent.sequence,
+        seekId: this.intent.seekId,
+        lastReadySeek: this.lastReadySeek,
+        time: this.state.time,
+        intentRate: this.intent.rate,
+        clockRate: this.clockRate,
+        bufferedStop: this.bufferedStop,
+        clockAuthority: this.clockAuthority,
+      });
     })();
     return this.closeWork;
   }
@@ -700,9 +785,11 @@ export class NativePlaybackController {
         const revision = this.recoveryRevision;
         restoredTime =
           this.recoveryTime ??
-          (this.lastReadySeek !== this.intent.seekId
-            ? this.intent.targetTime
-            : (this.stoppedTime ?? this.state.time));
+          (this.clockAuthority === 'drawn-pair' && this.stoppedTime !== null
+            ? this.stoppedTime
+            : this.lastReadySeek !== this.intent.seekId
+              ? this.intent.targetTime
+              : (this.stoppedTime ?? this.state.time));
         restoredControls = {
           playing:
             this.fallingBack &&

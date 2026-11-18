@@ -160,3 +160,5 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 - [ADR 0084: Held-descriptor publication for native exports](0084-held-export-publication.md) — Proposed
 
 - [ADR 0085: Detached Selection Receipts](0085-detached-selection-receipts.md)
+
+- [0086 Common native playback session](0086-common-native-playback-session.md) — Proposed（共通時計・有界画像所有の比較、製品group経路は未接続）

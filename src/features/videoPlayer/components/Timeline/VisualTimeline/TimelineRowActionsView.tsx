@@ -29,6 +29,7 @@ type Props = Pick<
   | 'onCancelDeleteRows'
   | 'onConfirmDeleteRows'
   | 'onSelectRowItems'
+  | 'onRowContextMenuExited'
 >;
 
 export const TimelineRowActionsView = ({
@@ -42,11 +43,13 @@ export const TimelineRowActionsView = ({
   onCancelDeleteRows,
   onConfirmDeleteRows,
   onSelectRowItems,
+  onRowContextMenuExited,
 }: Props): ReactElement => (
   <>
     <Menu
       open={rowContextMenu !== null}
       onClose={onCloseRowContextMenu}
+      slotProps={{ transition: { onExited: onRowContextMenuExited } }}
       anchorReference="anchorPosition"
       anchorPosition={
         rowContextMenu

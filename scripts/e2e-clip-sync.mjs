@@ -243,6 +243,12 @@ try {
 
   await page.getByRole('button', { name: 'パッケージを作成…' }).click();
   await page.locator('#video_0').waitFor({ timeout: 30_000 });
+  await (await electronApp.browserWindow(page)).evaluate((window) => window.focus());
+  await page.waitForFunction(() => document.hasFocus());
+  assert.equal(await electronApp.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getFocusedWindow();
+    return window ? new URL(window.webContents.getURL()).hash : null;
+  }), '', 'manual-sync shortcut targets the focused main player');
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
   await page
     .getByLabel('アングル同期ワークスペース', { exact: true })
@@ -411,10 +417,36 @@ try {
   await page.locator('iframe[src*="dQw4w9WgXcQ"]').waitFor({
     timeout: 30_000,
   });
+  await (await electronApp.browserWindow(page)).evaluate((window) => window.focus());
+  await page.waitForFunction(() => document.hasFocus());
+  assert.equal(await electronApp.evaluate(({ BrowserWindow }) => {
+    const window = BrowserWindow.getFocusedWindow();
+    return window ? new URL(window.webContents.getURL()).hash : null;
+  }), '', 'manual-sync shortcut targets the focused main player');
+  // A focused native window may still route CDP keys into a cross-origin
+  // YouTube frame. This scenario verifies the application's DOM shortcut,
+  // not OS accelerator delivery, so establish the top-document input target.
+  await page.evaluate(() => {
+    const active = document.activeElement;
+    if (active instanceof HTMLElement && active !== document.body) active.blur();
+    window.__clipSyncKeyTrace = [];
+    const collect = (event) => {
+      if (event.key.toLowerCase() !== 't') return;
+      window.__clipSyncKeyTrace.push({ key: event.key, control: event.ctrlKey,
+        meta: event.metaKey, shift: event.shiftKey, target: event.target?.tagName });
+      document.removeEventListener('keydown', collect, true);
+    };
+    document.addEventListener('keydown', collect, true);
+  });
+  assert.equal(await page.evaluate(() => document.activeElement?.tagName), 'BODY',
+    'application shortcut must start in its top document, not the media iframe');
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
-  await page
-    .getByLabel('アングル同期ワークスペース', { exact: true })
-    .waitFor();
+  try {
+    await page.getByLabel('アングル同期ワークスペース', { exact: true }).waitFor();
+  } finally {
+    console.log('Manual sync DOM key trace', await page.evaluate(() => window.__clipSyncKeyTrace));
+    console.log('Manual sync focus', await page.evaluate(() => ({ focused: document.hasFocus(), active: document.activeElement?.tagName })));
+  }
   assert.equal(await page.getByRole('combobox').count(), 0);
 
   console.log(`Electron E2E passed: ${packagePath}`);

@@ -268,6 +268,7 @@ export const useVisualTimelineController = ({
     handleDeleteSelectedItems,
     clearSelection,
     selectAllItems,
+    rowMenuExited,
   } = useTimelineInstanceCommands({
     timeline,
     rows,
@@ -459,6 +460,7 @@ export const useVisualTimelineController = ({
     },
     onEditItem: openDraftFromItemId,
     onSelectRowItems: selectAllItems,
+    onRowContextMenuExited: rowMenuExited,
     firstTeamName,
     onUpdateTimeRange,
     handleMoveItems,

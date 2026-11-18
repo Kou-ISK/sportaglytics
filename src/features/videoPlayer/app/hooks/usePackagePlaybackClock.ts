@@ -1,7 +1,22 @@
+import {
+  resolveNativeGroupTimeline,
+  nativeGroupTimelineMatches,
+} from '../../shared/nativePlayback/nativeGroupTimeline';
 import { formatSource } from '../../../../shared/media/videoSource';
 import { useNativePackageClock } from './useNativePackageClock';
-import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  getNativePlaybackGroup,
+  subscribeNativePlayback,
+  getNativePlayback,
+} from '../../shared/nativePlayback/nativePlaybackRegistry';
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { Dispatch, SetStateAction } from 'react';
 import type { PackageMediaAngle } from '../../../../types/package/media';
 import type { VideoSyncData } from '../../../../types/video/sync';
@@ -50,14 +65,29 @@ export const usePackagePlaybackClock = ({
     mediaAngles.length === 1 && mediaAngles[0].clips.length === 1
       ? mediaAngles[0].clips[0]
       : null;
+  const activeNative = useSyncExternalStore(
+    subscribeNativePlayback,
+    getNativePlayback,
+    getNativePlayback,
+  );
+  const groupTimeline = resolveNativeGroupTimeline(mediaAngles, syncData);
+  const groupBinding = getNativePlaybackGroup();
+  const groupSource =
+    groupTimeline &&
+    groupBinding &&
+    nativeGroupTimelineMatches(groupTimeline, groupBinding)
+      ? (activeNative?.sourceUrl ?? null)
+      : null;
   const nativeOwned = useNativePackageClock(
-    syncMode === 'auto' &&
-      livePlaybackEnd === undefined &&
-      soleClip?.sourceKind === 'local' &&
-      soleClip.timelineStartSeconds === 0 &&
-      getAngleOffset(syncData, 0) === 0
-      ? formatSource(soleClip.source)
-      : null,
+    syncMode === 'auto' && livePlaybackEnd === undefined && groupSource
+      ? groupSource
+      : syncMode === 'auto' &&
+          livePlaybackEnd === undefined &&
+          soleClip?.sourceKind === 'local' &&
+          soleClip.timelineStartSeconds === 0 &&
+          getAngleOffset(syncData, 0) === 0
+        ? formatSource(soleClip.source)
+        : null,
     isVideoPlaying,
     videoPlayBackRate,
     setCurrentTime,

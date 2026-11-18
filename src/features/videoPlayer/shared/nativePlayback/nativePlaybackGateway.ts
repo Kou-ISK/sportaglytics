@@ -24,6 +24,8 @@ export const openQualifiedNativePlayback = (
   const api = window.electronAPI?.nativePlayback;
   if (!api) throw Error('NATIVE_API_UNAVAILABLE');
   const availability = parseNativePlaybackAvailability(raw);
+  if (availability.clockAuthority === 'drawn-pair')
+    throw Error('NATIVE_GROUP_GATEWAY_REQUIRED'); // one HTML port cannot restore a group
   if (
     !availability.available ||
     !availability.owner ||

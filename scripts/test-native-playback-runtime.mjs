@@ -5,11 +5,83 @@ import { run } from './media-tools/process.mjs';
 
 const directory = await mkdtemp(join(tmpdir(), 'native-runtime-test-'));
 try {
-  // AVPlayer owns decoding/PCM. Test only our bounded IPC and surface adapters.
-  for (const [name, source, libraries] of [
+  // Test bounded IPC/surface adapters and image leases, not decoder/display fidelity.
+  for (const [name, source, libraries, additional = []] of [
+    ...[
+      'DecodedFrameWindow',
+      'DiscardableAvcSample',
+      'GroupPlayerSource',
+      'GroupPlayerPair',
+    ].map((name) => [
+      name,
+      `apple-player/${name}.test.mm`,
+      [
+        '-fobjc-arc',
+        '-framework',
+        'Foundation',
+        '-framework',
+        'AVFoundation',
+        '-framework',
+        'CoreMedia',
+        '-framework',
+        'CoreGraphics',
+        '-framework',
+        'CoreVideo',
+        '-framework',
+        'VideoToolbox',
+        '-framework',
+        'IOSurface',
+        '-framework',
+        'ImageIO',
+        '-framework',
+        'QuartzCore',
+        '-lbsm',
+      ],
+      [
+        'apple-player/ApplePlayerSession.mm',
+        'apple-player/DecodedFrameWindow.mm',
+        'apple-player/GroupPlayerSource.mm',
+        'apple-player/GroupPlayerPair.mm',
+      ],
+    ]),
+    [
+      'DiscardableAvcPreroll',
+      'apple-player/DiscardableAvcPreroll.test.cpp',
+      [],
+    ],
+    ['GroupPlaybackClock', 'apple-player/GroupPlaybackClock.test.cpp', []],
     ['ControlOutput', 'apple-player/ControlOutput.test.cpp', []],
+    [
+      'ReverseFrameCache',
+      'apple-player/ReverseFrameCache.test.cpp',
+      ['-pthread'],
+    ],
     ['PlayerObservation', 'apple-player/PlayerObservation.test.cpp', []],
+    [
+      'StoppedImageSettlement',
+      'apple-player/StoppedImageSettlement.test.cpp',
+      [],
+    ],
+    [
+      'SourceClockTicks',
+      'apple-player/SourceClockTicks.test.cpp',
+      ['-framework', 'CoreMedia'],
+    ],
     ['ReplyQueue', 'surface-transport/ReplyQueue.test.cpp', ['-lbsm']],
+    [
+      'GroupSurface',
+      'surface-transport/GroupSurface.test.mm',
+      [
+        '-fobjc-arc',
+        '-framework',
+        'Foundation',
+        '-framework',
+        'CoreVideo',
+        '-framework',
+        'IOSurface',
+        '-lbsm',
+      ],
+    ],
     [
       'SurfaceSender',
       'surface-transport/SurfaceSender.test.mm',
@@ -31,12 +103,28 @@ try {
       '-std=c++17',
       '-O2',
       join('native/macos/playback', source),
+      ...additional.map((file) => join('native/macos/playback', file)),
       ...libraries,
       '-o',
       binary,
     ]);
     await run(binary, []);
   }
+  const digestTest = join(directory, 'ActiveNV12Digest');
+  await run('xcrun', [
+    'clang++',
+    '-std=c++17',
+    '-O2',
+    '-fobjc-arc',
+    'scripts/testing/active-nv12-digest.test.mm',
+    '-framework',
+    'Foundation',
+    '-framework',
+    'CoreVideo',
+    '-o',
+    digestTest,
+  ]);
+  await run(digestTest, []);
   const probe = join(directory, 'ControlPipeProbe');
   await run('xcrun', [
     'clang',

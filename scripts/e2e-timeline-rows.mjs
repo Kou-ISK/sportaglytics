@@ -896,6 +896,15 @@ try {
     await page
       .getByRole('menuitem', { name: '行内のインスタンスを選択' })
       .click();
+    // MUI can remove its exiting menu from the accessibility tree before the
+    // portal/focus trap is detached. Wait for that real lifecycle boundary,
+    // rather than sending shortcuts into the closing modal or adding a sleep.
+    await page.locator('[role="menu"]').waitFor({ state: 'detached' });
+    await page.waitForFunction(
+      () =>
+        document.activeElement ===
+        document.querySelector('[role="region"][aria-label="タイムライン"]'),
+    );
     await page.waitForFunction(
       () =>
         document.querySelectorAll(

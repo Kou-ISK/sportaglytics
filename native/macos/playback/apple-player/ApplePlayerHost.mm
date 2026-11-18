@@ -1,7 +1,10 @@
 #import "ApplePlayerSession.hpp"
+#import "GroupPlayerHost.hpp"
 #include "../apple-export/AppleClipExport.hpp"
 #include "ControlOutput.hpp"
 #include "PlayerObservation.hpp"
+#include "StoppedImageSettlement.hpp"
+#include "SourceClockTicks.hpp"
 #include "ExclusivePublish.hpp"
 #import <AppKit/AppKit.h>
 #import <CommonCrypto/CommonDigest.h>
@@ -31,6 +34,7 @@ bool numeric(id value) {
   return [value isKindOfClass:NSNumber.class] && CFGetTypeID((__bridge CFTypeRef)value) != CFBooleanGetTypeID() && std::isfinite([value doubleValue]);
 }
 struct OutputDisconnected {};
+using appleplayback::sourceTicks;
 }
 
 /// Process/IPC adapter only. AVPlayerSession owns the entire media pipeline.
@@ -49,6 +53,8 @@ struct OutputDisconnected {};
   BOOL _seeking, _seekCompleted, _imageSent, _ready, _closing, _persisted, _engineClosed, _atStart;
   double _openedAt, _closeAt, _observedAt;
   appleplayback::ReversePresentationProgress _reverseProgress;
+  appleplayback::StoppedImageSettlement _settlement;
+  appleplayback::StoppedImageWait _imageWait;
 }
 - (instancetype)initWithManifest:(NSDictionary *)manifest result:(NSString *)result {
   if ((self = [super init])) {
@@ -83,6 +89,9 @@ struct OutputDisconnected {};
   require(((rate >= .25 && rate <= 6) || rate == -.5 || rate == -2 || rate == -4 || rate == -6) && [value[@"volume"] doubleValue] >= 0 && [value[@"volume"] doubleValue] <= 1, @"playback controls range");
   if (_intent) require(seq > [_intent[@"sequence"] doubleValue] && seek >= [_intent[@"seekId"] doubleValue] && (seek != [_intent[@"seekId"] doubleValue] || (target == [_intent[@"targetTime"] doubleValue] && [(value[@"seekMode"] ?: @"exact") isEqual:(_intent[@"seekMode"] ?: @"exact")])), @"playback command order");
   else require(seek == 1 && ![value[@"playing"] boolValue], @"initial playback command");
+  require(_settlement.accept(static_cast<uint64_t>(seek),
+      [value[@"playing"] boolValue] && ![value[@"seekMode"] isEqual:@"preview"], rate),
+      @"playback image owner");
   _intent = [value copy];
   if (![value[@"playing"] boolValue]) [_engine pause];
 }
@@ -130,6 +139,20 @@ struct OutputDisconnected {};
   [self observe:{"failed", 0, false}];
   [self close];
 }
+- (void)seekImage:(CMTime)time approximate:(BOOL)approximate newRequest:(BOOL)newRequest {
+  [_engine pause];
+  _ready = NO; _imageSent = NO; _seekCompleted = NO; _seeking = YES; _rateSequence = 0;
+  _imageWait.begin(CACurrentMediaTime(), newRequest);
+  uint64_t seek = _seek, token = _settlement.beginSeek();
+  require(token != 0, @"playback image seek owner");
+  void (^completion)(BOOL) = ^(BOOL finished) {
+    if (!self->_closing && self->_seek == seek && self->_settlement.acceptsCompletion(token)) {
+      self->_seekCompleted = finished; self->_seeking = NO;
+    }
+  };
+  if (newRequest) [_engine seekToTime:time approximate:approximate completion:completion];
+  else [_engine settleStoppedImageAtTime:time completion:completion];
+}
 - (void)updatePlayer {
   if (_engine.status == AVPlayerItemStatusFailed) {
     [self failMedia:_engine.error.localizedDescription ?: @"Apple player failed"]; return;
@@ -138,6 +161,13 @@ struct OutputDisconnected {};
     require(CACurrentMediaTime() - _openedAt < 15, @"Apple player open timeout"); return;
   }
   if (!_intent) return;
+  // preview/scrub deliberately allow a nearby seek result. Preserve that
+  // existing contract; this correction applies to exact seeks/held release.
+  const BOOL exactImage = _intent[@"seekMode"] == nil;
+  const auto sourceEnd = sourceTicks(_engine.duration);
+  if (!sourceEnd || !*sourceEnd) {
+    [self failMedia:@"source duration unavailable"]; return;
+  }
   require([_intent[@"targetTime"] doubleValue] < CMTimeGetSeconds(_engine.duration), @"seek outside media");
   if (_controlSequence != [_intent[@"sequence"] unsignedLongLongValue]) {
     if (![_engine supportsRate:[_intent[@"rate"] floatValue]]) {
@@ -151,26 +181,49 @@ struct OutputDisconnected {};
     // A control epoch needs its own image. Release confirms a stopped image,
     // not the last image drawn while the timebase was still running.
     _imageSent = NO; _atStart = NO;
-    _reverseProgress.reset(CACurrentMediaTime());
+    require(_reverseProgress.controls(CACurrentMediaTime(),
+        [_intent[@"seekId"] unsignedLongLongValue],
+        [_intent[@"playing"] boolValue] && ![_intent[@"seekMode"] isEqual:@"preview"],
+        [_intent[@"rate"] doubleValue]), @"reverse progress owner");
     if (![_intent[@"playing"] boolValue] || [_intent[@"seekMode"] isEqual:@"preview"]) {
-      [_engine pause]; _ready = NO;
+      [_engine pause];
+      _imageWait.begin(CACurrentMediaTime(), _ready);
+      _ready = NO;
     }
   }
   uint64_t seek = [_intent[@"seekId"] unsignedLongLongValue];
   if (_seek != seek) {
-    [_engine pause]; _seek = seek; _ready = NO; _imageSent = NO; _seekCompleted = NO; _seeking = YES; _rateSequence = 0;
+    _seek = seek;
     double target = [_intent[@"targetTime"] doubleValue];
     CMTime time = CMTimeMakeWithSeconds(target, 1000000000);
-    [_engine seekToTime:time approximate:_intent[@"seekMode"] != nil completion:^(BOOL finished) {
-      if (!self->_closing && self->_seek == seek) { self->_seekCompleted = finished; self->_seeking = NO; }
-    }];
+    [self seekImage:time approximate:_intent[@"seekMode"] != nil newRequest:YES];
   }
   if ([_intent[@"rate"] doubleValue] < 0 && [_intent[@"playing"] boolValue] &&
       _ready && !_atStart && CMTimeCompare(_engine.currentTime, kCMTimeZero) <= 0) {
     [_engine pause]; _atStart = YES; _imageSent = NO; _ready = NO;
+    _imageWait.begin(CACurrentMediaTime(), true);
+  }
+  const BOOL atEnd = CMTimeCompare(_engine.currentTime, _engine.duration) == 0;
+  if (_ready && _engine.rate != 0) _imageWait.moving();
+  if (exactImage && _ready && _engine.rate == 0 && (_atStart || atEnd ||
+      ![_intent[@"playing"] boolValue] || [_intent[@"seekMode"] isEqual:@"preview"]) &&
+      _surfaces.hasDrawn(_controlSequence)) {
+    const auto clock = sourceTicks(_engine.currentTime, kCMTimeRoundingMethod_RoundTowardNegativeInfinity);
+    if (!clock || !appleplayback::v1StoppedImageMatches(*clock, _surfaces.drawnPTS(), *sourceEnd)) {
+      _ready = NO; _imageSent = NO;
+      _imageWait.begin(CACurrentMediaTime());
+    }
+  }
+  if (exactImage && !_ready && _imageWait.expired(CACurrentMediaTime())) {
+    [self failMedia:@"stopped image qualification timeout"]; return;
   }
   if (!_seeking && _seekCompleted && !_ready && _engine.rate == 0 && _imageSent && _surfaces.drawn(_controlSequence, _imagePTS)) {
-    _ready = YES; [self observe:{"paused", 0, true}];
+    const auto clock = sourceTicks(_engine.currentTime, kCMTimeRoundingMethod_RoundTowardNegativeInfinity);
+    if (!exactImage || (clock && appleplayback::v1StoppedImageMatches(*clock, _imagePTS, *sourceEnd))) {
+      _ready = YES; [self observe:{"paused", 0, true}];
+    } else {
+      _imageSent = NO;
+    }
   }
   if (_ready && !_atStart && _rateSequence != [_intent[@"sequence"] unsignedLongLongValue]) {
     [_engine setRate:![_intent[@"seekMode"] isEqual:@"preview"] && [_intent[@"playing"] boolValue] ? [_intent[@"rate"] floatValue] : 0];
@@ -182,13 +235,31 @@ struct OutputDisconnected {};
     CMTime pts = kCMTimeInvalid; CVPixelBufferRef image = [_engine copyCurrentImage:&pts force:!_imageSent];
     if (image) {
       auto imageOwner = PixelReference::adopt(image);
-      require(CMTIME_IS_NUMERIC(pts) && CMTimeCompare(pts, kCMTimeZero) >= 0, @"Apple image timestamp");
-      uint64_t ticks = CMTimeConvertScale(pts, 120000, kCMTimeRoundingMethod_Default).value;
-      uint64_t id = _surfaces.nextID();
-      BOOL sent = _surfaces.send(image, _controlSequence, _seek, ticks);
-      if (sent) {
-        _imagePTS = ticks; _imageSent = YES; _surfaces.consumedDemand();
-        [self enqueue:@{@"type":@"surface-ready", @"generation":_manifest[@"owner"][@"generation"], @"id":@(id)}];
+      const auto ticks = sourceTicks(pts);
+      require(ticks.has_value() && *ticks < *sourceEnd, @"Apple image timestamp");
+      const BOOL stopped = exactImage && _engine.rate == 0 && (!_ready || _atStart || atEnd ||
+        ![_intent[@"playing"] boolValue] || [_intent[@"seekMode"] isEqual:@"preview"]);
+      const CMTime pausedTime = stopped ? _engine.currentTime : kCMTimeInvalid;
+      const auto clock = sourceTicks(pausedTime, kCMTimeRoundingMethod_RoundTowardNegativeInfinity);
+      if (stopped && (!clock || !appleplayback::v1StoppedImageMatches(*clock, *ticks, *sourceEnd))) {
+        _ready = NO; _imageSent = NO;
+        _imageWait.begin(CACurrentMediaTime());
+        if (clock && _settlement.takeCorrection()) {
+          // Correct to the actual paused clock, never to an old drawn image.
+          // Re-press preserves this physical completion; new seek invalidates it.
+          [self seekImage:pausedTime approximate:NO newRequest:NO];
+        }
+      } else {
+        uint64_t id = _surfaces.nextID();
+        BOOL sent = NO;
+        try { sent = _surfaces.send(image, _controlSequence, _seek, *ticks); }
+        catch (const SurfaceBudgetUnavailable &) {
+          [self failMedia:@"frame transfer budget unavailable"]; return;
+        }
+        if (sent) {
+          _imagePTS = *ticks; _imageSent = YES; _surfaces.consumedDemand();
+          [self enqueue:@{@"type":@"surface-ready", @"generation":_manifest[@"owner"][@"generation"], @"id":@(id)}];
+        }
       }
     }
   }
@@ -196,7 +267,9 @@ struct OutputDisconnected {};
     // Capability and a running timebase do not prove reverse presentation.
     std::optional<uint64_t> drawnPTS;
     if (_surfaces.hasDrawn(_controlSequence)) drawnPTS = _surfaces.drawnPTS();
-    if (_reverseProgress.stalled(CACurrentMediaTime(), drawnPTS)) {
+    const auto clockPTS = sourceTicks(_engine.currentTime, kCMTimeRoundingMethod_RoundTowardNegativeInfinity);
+    if (_reverseProgress.stalled(CACurrentMediaTime(), drawnPTS, clockPTS,
+        [_intent[@"rate"] doubleValue])) {
       [self failMedia:@"reverse image progress unavailable"]; return;
     }
   }
@@ -210,7 +283,7 @@ struct OutputDisconnected {};
 }
 - (void)close {
   if (_closing) return;
-  _closing = YES; _closeAt = CACurrentMediaTime(); [_engine pause];
+  _closing = YES; _closeAt = CACurrentMediaTime(); _settlement.close(); [_engine pause];
   // The timebase can settle asynchronously after pause. The run loop records
   // the actual clock only once rate is observed at zero.
 }
@@ -259,6 +332,12 @@ struct OutputDisconnected {};
 
 int main(int argc, const char **argv) {
   @autoreleasepool {
+    if (argc == 2 && !strcmp(argv[1], "--group-playback-capabilities")) {
+      // A protocol declaration, not a throughput, source qualification or
+      // signed-distribution receipt. This path creates no app/player/session.
+      const char *capabilities = "{\"version\":1,\"transport\":2,\"mode\":\"placed-pair-decoded-samples\",\"angles\":2,\"clipsPerAngle\":1,\"timescale\":120000,\"imageBudgetBytes\":536870912,\"stopAuthority\":\"submitted-pair-v1\",\"additionalLayout\":\"nv12-720-xvycc709\"}\n";
+      return fputs(capabilities, stdout) >= 0 ? 0 : 1;
+    }
     if (argc == 2 && !strcmp(argv[1], "--clip-export-capabilities")) {
       const char *capabilities = "{\"version\":2,\"protocols\":[1,2],\"budgetFields\":[\"maxOutputBytes\",\"deadlineSeconds\"],\"publication\":\"held-clone-v1\"}\n";
       return fputs(capabilities, stdout) >= 0 ? 0 : 1;
@@ -278,12 +357,15 @@ int main(int argc, const char **argv) {
     NSData *data = [NSData dataWithContentsOfFile:@(argv[1])];
     if (!data || data.length > 65536) return 65;
     NSDictionary *manifest = [NSJSONSerialization JSONObjectWithData:data options:0 error:nil];
-    if (![manifest isKindOfClass:NSDictionary.class] || ![manifest[@"source"] isKindOfClass:NSString.class] || [manifest[@"version"] intValue] != 1) return 65;
+    if (![manifest isKindOfClass:NSDictionary.class] || ([manifest[@"version"] intValue] != 2 && (![manifest[@"source"] isKindOfClass:NSString.class] || [manifest[@"version"] intValue] != 1))) return 65;
     NSString *expected = [[[@(argv[1]) stringByDeletingLastPathComponent] stringByAppendingPathComponent:@"native-run-1"] stringByAppendingPathComponent:@"native-result.json"];
     if (![[expected stringByStandardizingPath] isEqualToString:[@(argv[2]) stringByStandardizingPath]] || [[NSFileManager defaultManager] fileExistsAtPath:expected]) return 65;
     [NSApplication sharedApplication]; [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
     @try {
-      try { return [[[STApplePlayerHost alloc] initWithManifest:manifest result:expected] run]; }
+      try {
+        if ([manifest[@"version"] intValue] == 2) return runAppleGroupHost(manifest, expected, &interrupted);
+        return [[[STApplePlayerHost alloc] initWithManifest:manifest result:expected] run];
+      }
       catch (...) { return 1; }
     } @catch (NSException *) { return 1; }
   }

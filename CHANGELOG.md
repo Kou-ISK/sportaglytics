@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+- macOS native画像転送へ共有予算leaseを接続。通常の3画像枠も実サイズで有限計上し、借用画像はDrawnではなくReleasedまで保持する。cache消去・送信失敗・別予算・移動済みleaseを回帰し、複数映像の継続供給完成とは区別する。
+
+- macOS native逆再生で画像が少しずつ後退していても実時計から大きく遅れる状態を検知し、正常再生扱いを続けず既存の失敗停止・復旧へ渡す。4倍率の換算境界を回帰し、復号速度の改善とは区別する。
+
+- Windowsのパッケージ移行時、PowerShell冷起動で所有者照会が5秒を超える場合に備え、有限予算を10秒へ調整。失敗/不明を所有者不在と扱わず、元エラーを保持して停止する契約は維持。
+
+- macOS nativeの停止画像が停止時計より古い場合にreadyと誤認しないよう、PTS確認と一回のoutput更新・実停止位置への補正を追加。期限/媒体所有/描画ACKを維持し、押下中の滑らかさや複数映像対応の完成とは扱わない。
+
+- 複数映像の共通再生について公開根拠・実decoder比較とProposed設計を追加。有界画像lease/保持budgetとMain内部の素材・時間プランを実装し、公開版の単一native経路の条件は変更しない。[検証範囲と未完](docs/multi-angle-playback.md)。
+
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
 
 ## [0.17.31]
