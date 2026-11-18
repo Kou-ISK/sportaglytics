@@ -334,6 +334,24 @@ test('unnoticed frames are drained after producer exit without texture imports',
   assert.deepEqual(f.releases, [1, 2]);
   assert.equal(f.imports.length, 0);
 });
+test('requests document-scoped preload drainage once, but still waits for actual ACK/transfer/GPU milestones', async () => {
+  const f = fixture();
+  f.transport.start(); f.transport.intent(intent());
+  f.transport.ready(1); f.transport.ready(2);
+  f.transport.stopRequests(); f.transport.stopRequests();
+  const requests = f.blank.filter((value) => value.channel === 'native-group-surface-drain');
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].meta.document, f.sent[0].document);
+  assert.equal(requests[0].meta.generation, owner.generation);
+  assert.equal(f.releases.length, 0); // Main's notification is not physical release.
+  for (const meta of f.sent) f.ack(meta, false);
+  await flush(); assert.equal(f.releases.length, 0);
+  for (const entry of f.imports) entry.options.allReferencesReleased();
+  await flush(); assert.deepEqual(f.releases, [1, 2]);
+  assert.equal(f.draws.length, 0);
+  await f.transport.drain(true); f.transport.close();
+  assert.equal(f.blank.filter((value) => value.channel === 'native-group-surface-drain').length, 1);
+});
 test('release uncertainty retains ownership, its cause and exactly one attempt', async () => {
   const cause = Error('original native release');
   const f = fixture({ packets: [packet()], releaseError: cause });

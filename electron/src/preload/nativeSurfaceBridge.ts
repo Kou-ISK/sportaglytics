@@ -62,6 +62,9 @@ export function createSurfaceBridge(): {
   ipcRenderer.on(nativeGroupSurfaceChannels.blank, (_event, raw: unknown) =>
     group.receive(raw, null),
   );
+  ipcRenderer.on(nativeGroupSurfaceChannels.drain, (_event, raw: unknown) =>
+    group.drain(raw),
+  );
   let canvas: HTMLCanvasElement | null = null,
     binding: object | null = null,
     callback: ((meta: Metadata) => void) | null = null,

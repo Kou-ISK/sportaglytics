@@ -85,6 +85,7 @@ export const createGroupSurfaceTransport = (
     originalError: unknown,
     demandPending = false,
     lastNotice = 0;
+  let drainSent = false;
   let cleanup: ReturnType<typeof setInterval> | undefined;
   const fail = (reason: string, cause: unknown = new Error(reason)): void => {
     if (failed) return;
@@ -295,6 +296,14 @@ export const createGroupSurfaceTransport = (
   };
   const stopRequests = (): void => {
     stopped = true;
+    if (opened && !drainSent) {
+      drainSent = true;
+      const window = getWindow();
+      if (window && !window.isDestroyed()) {
+        try { window.webContents.send(channels.drain, { document, generation: owner.generation }); }
+        catch (error) { fail('group surface drain request failed', error); }
+      }
+    }
     if (!opened || cleanup !== undefined) return;
     const end = performance.now() + 15000;
     cleanup = setInterval(() => {

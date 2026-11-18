@@ -1,5 +1,5 @@
 /// <reference lib="dom" />
-import { parseNativeGroupSurfaceMetadata } from '../../../src/types/ipc/nativeGroupSurface';
+import { parseNativeGroupDrain, parseNativeGroupSurfaceMetadata } from '../../../src/types/ipc/nativeGroupSurface';
 import type {
   NativeGroupPresentation as GroupPresentation,
   NativeGroupSurfaceMetadata,
@@ -30,6 +30,7 @@ export const createNativeGroupPresenter = (
   ): () => void;
   expect(generation: string, operation: number, seekId: number): void;
   receive(raw: unknown, texture: Electron.SharedTextureImported | null): void;
+  drain(raw: unknown): boolean;
   close(): void;
   freeze(): GroupPresentation | null;
   current(): GroupPresentation | null;
@@ -49,6 +50,7 @@ export const createNativeGroupPresenter = (
   let current: GroupPresentation | null = null;
   let failedGeneration: string | null = null;
   let lastGeneration: string | null = null;
+  let drainedGeneration: string | null = null;
   const pending = new Map<number, Pair>();
   const epochs = [0, 0];
   const finish = (item: Item, drawn: boolean): void => {
@@ -245,6 +247,8 @@ export const createNativeGroupPresenter = (
         throw Error('GROUP_PRESENTATION_OWNER');
       if (failed && failedGeneration === generation)
         throw Error('GROUP_PRESENTATION_FAILED');
+      if (drainedGeneration === generation)
+        throw Error('GROUP_PRESENTATION_DRAINED');
       if (
         owner?.generation === generation &&
         (operation < owner.operation || seekId < owner.seekId)
@@ -263,6 +267,17 @@ export const createNativeGroupPresenter = (
       lastGeneration = generation;
       stopped = false;
       if (!demand) demand = requestAnimationFrame(request);
+    },
+    drain: (raw) => {
+      let value;
+      try { value = parseNativeGroupDrain(raw); } catch { return false; }
+      if (!owner || value.generation !== owner.generation ||
+          (documentKey !== null && value.document !== documentKey)) return false;
+      // A hidden/occluded window may not run another RAF. Release pending
+      // imports now, without declaring them Drawn or fabricating GPU release.
+      drainedGeneration = owner.generation;
+      close();
+      return true;
     },
     receive: (raw, texture) => {
       let meta: NativeGroupSurfaceMetadata;

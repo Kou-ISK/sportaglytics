@@ -80,3 +80,6 @@ Group protocol capability is an explicit fixed helper query after signed-set/has
 
 
 Compose group process/storage/transfer lifecycle in a Main-only backend, separately from source qualification and Renderer controls. A physical termination proof may authorize resource drainage after an abnormal child result; it cannot authorize recovery success. Validate group receipt and charged-image release before removing only the owned session. Preserve original errors if activity cleanup also fails. This composition alone does not change default provider selection or qualify a signed paired UI.
+
+
+Main-driven close must not depend on a future Renderer animation frame. Use one scoped group drain notification to dispose pending imports without Drawn acknowledgement and fence that generation against later controls. Keep the actual transfer/GPU-release and child/native drain barriers; a notification cannot fabricate resource release. Stale document/generation notifications are ignored so old cleanup cannot close a new playback owner.

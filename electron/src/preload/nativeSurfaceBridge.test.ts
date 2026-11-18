@@ -18,6 +18,34 @@ afterEach(() => {
   vi.clearAllMocks();
 });
 
+it('connects Main drainage to pending group texture release even when RAF never runs', async () => {
+  vi.stubGlobal('requestAnimationFrame', () => 1);
+  vi.stubGlobal('cancelAnimationFrame', vi.fn());
+  for (const id of ['left', 'right']) {
+    const canvas = document.createElement('canvas'); canvas.id = id;
+    canvas.width = 1920; canvas.height = 1080; document.body.append(canvas);
+  }
+  const surface = createSurfaceBridge();
+  surface.group.bind(['left', 'right'], vi.fn());
+  surface.group.expect('owner', 1, 1);
+  const receive = electron.receive.mock.calls[0][0];
+  const drain = electron.on.mock.calls.find(([channel]) => channel === 'native-group-surface-drain')?.[1];
+  if (typeof receive !== 'function' || typeof drain !== 'function') throw Error('drain not connected');
+  const texture = { release: vi.fn(), getVideoFrame: vi.fn() };
+  await receive({ importedSharedTexture: texture }, { version: 2, document: 'doc', generation: 'owner',
+    operation: 1, seekId: 1, pair: 1, id: 1, angle: 0, sourceEpoch: 1, sourceIndex: 0,
+    sourcePTS: 600000, sourceEndPTS: 602002, globalTicks: 600000,
+    globalStart: 600000, globalEnd: 602002, content: 'image' });
+  expect(texture.release).not.toHaveBeenCalled();
+  drain({}, { generation: 'foreign', document: 'doc' });
+  expect(texture.release).not.toHaveBeenCalled();
+  drain({}, { generation: 'owner', document: 'doc' });
+  expect(texture.release).toHaveBeenCalledOnce();
+  expect(texture.getVideoFrame).not.toHaveBeenCalled();
+  expect(electron.send).toHaveBeenCalledWith('native-group-surface-drawn', { document: 'doc', id: 1, drawn: false });
+  surface.close(); expect(texture.release).toHaveBeenCalledOnce();
+});
+
 it('routes group and blank delivery through the same global texture receiver without legacy ACKs', async () => {
   const callbacks = new Map<number, FrameRequestCallback>();
   let serial = 0;

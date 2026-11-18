@@ -642,3 +642,6 @@ Native group source regressions distinguish actual image-worker drainage from re
 
 
 When an isolated group GUI test fails, distinguish the first surface/initialization error, native receipt failure, physical child closure and GPU drainage. The backend's termination promise is physical-only and must not turn abnormal playback into success. Diagnostic apps must retain bounded failure notes and provide a normal quit path after confirmed physical child exit, without force-killing helpers or changing security settings.
+
+
+Group shutdown regressions include a queued complete/half pair with no executed RAF, late imports, stale drain notifications and a later owner. `nativeSurfaceBridge.test.ts` connects the fixed Main drain channel to actual presenter cleanup. The Main transport test asserts one notification and still withholds native release until transfer, acknowledgement and actual GPU callback; no deadline or uncertain-release protection is weakened. Hidden-window Electron trials remain distinct from unit mocks and visible/signed application acceptance.

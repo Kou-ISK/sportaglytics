@@ -14,7 +14,22 @@ export const nativeGroupSurfaceChannels = {
   request: 'native-group-surface-request',
   error: 'native-group-surface-error',
   blank: 'native-group-surface-blank',
+  drain: 'native-group-surface-drain',
 } as const;
+export interface NativeGroupDrain {
+  document: string;
+  generation: string;
+}
+/** Main-to-preload only: no resource handle, clock or cleanup-success claim. */
+export const parseNativeGroupDrain = (raw: unknown): NativeGroupDrain => {
+  const value = objectValue(raw);
+  exactKeys(value, ['document', 'generation']);
+  const document = stringValue(value.document, 1, 128),
+    generation = stringValue(value.generation, 1, 128);
+  if (!/^[\w-]+$/.test(document) || !/^[\w-]+$/.test(generation))
+    throw Error('NATIVE_GROUP_DRAIN_OWNER');
+  return { document, generation };
+};
 export interface NativeGroupFrameIdentity {
   id: number;
   operation: number;

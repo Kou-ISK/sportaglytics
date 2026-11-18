@@ -281,3 +281,10 @@ Successful close requires native drain, physical child/pipe exit, surface/GPU lo
 
 
 The Main group backend also exposes a separate physical-termination promise. It checks generation, actual exit/pipe closure and launch status, and returns only those fields. A failed native receipt can coexist with a known exited child. That fact may support an isolated diagnostic app's normal process teardown, but never HTML recovery success, native/GPU-drain acceptance or deletion of retained session data. A timeout or uncertain factory cannot provide this proof.
+
+
+## Drain pending presentation without an animation frame
+
+Main sends one document/generation-scoped group drain notification when stopping demand. Preload discards pending complete or half pairs immediately, cancels RAF/demand callbacks and rejects later controls for that drained generation. A stale/foreign document or generation cannot close the current owner; a later valid owner remains usable. Last submitted stop metadata is retained independently of the discarded imports. This message is Main-to-preload only and carries no native handle, time target or successful-cleanup claim.
+
+This covers a lifecycle gap when a hidden/occluded document cannot run its queued animation callback. Returning imports still requires real transfer/acknowledgement/GPU release milestones in Main. Sending the notification does not authorize producer drain or release uncertain ownership; the existing deadlines and physical-close checks remain unchanged. It is not by itself a diagnosis of the earlier black-screen trial or proof of sustained cadence.

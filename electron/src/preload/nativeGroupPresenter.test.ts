@@ -363,3 +363,50 @@ it('freezes the actual submitted pair synchronously and discards pending old pai
   expect(a.release).toHaveBeenCalledOnce();
   expect(b.release).toHaveBeenCalledOnce();
 });
+
+it('drains a complete pending pair without another RAF or a fabricated Drawn acknowledgement', () => {
+  const s = setup(), a = s.texture(), b = s.texture();
+  s.presenter.receive(meta(0), a); s.presenter.receive(meta(1), b);
+  expect(s.presenter.drain({ generation: 'owner', document: 'document' })).toBe(true);
+  expect(a.release).toHaveBeenCalledOnce(); expect(b.release).toHaveBeenCalledOnce();
+  expect(s.output.acknowledge.mock.calls.map(([, drawn]) => drawn)).toEqual([false, false]);
+  expect(a.getVideoFrame).not.toHaveBeenCalled(); expect(b.getVideoFrame).not.toHaveBeenCalled();
+  s.paint(); expect(s.shown).not.toHaveBeenCalled(); expect(s.output.request).not.toHaveBeenCalled();
+  const late = s.texture(); s.presenter.receive(meta(0, 2), late);
+  expect(late.release).toHaveBeenCalledOnce();
+  expect(() => s.presenter.expect('owner', 2, 1)).toThrow('DRAINED');
+  expect(s.presenter.drain({ generation: 'owner', document: 'document' })).toBe(false);
+  expect(a.release).toHaveBeenCalledOnce(); s.unbind();
+});
+
+it('rejects foreign/malformed drain messages without releasing the active pair', () => {
+  const s = setup(), a = s.texture(), b = s.texture();
+  s.presenter.receive(meta(0), a); s.presenter.receive(meta(1), b);
+  for (const raw of [null, {}, { generation: 'owner', document: 'other' },
+    { generation: 'other', document: 'document' },
+    { generation: 'owner', document: 'document', success: true }])
+    expect(s.presenter.drain(raw)).toBe(false);
+  expect(a.release).not.toHaveBeenCalled(); s.paint(); expect(s.shown).toHaveBeenCalledOnce();
+  s.unbind();
+});
+
+it('drains before first metadata and never lets an old document close a new owner', () => {
+  const s = setup();
+  expect(s.presenter.drain({ generation: 'owner', document: 'document' })).toBe(true);
+  s.presenter.expect('new-owner', 1, 1);
+  const a = s.texture(), b = s.texture();
+  s.presenter.receive({ ...meta(0), generation: 'new-owner', document: 'new-document' }, a);
+  s.presenter.receive({ ...meta(1), generation: 'new-owner', document: 'new-document' }, b);
+  expect(s.presenter.drain({ generation: 'owner', document: 'document' })).toBe(false);
+  s.paint(); expect(s.shown).toHaveBeenCalledOnce(); s.unbind();
+});
+
+it('retains the last submitted stop metadata while discarding a hidden pending half-pair', () => {
+  const s = setup(); s.presenter.receive(meta(0), s.texture());
+  s.presenter.receive(meta(1), s.texture()); s.paint();
+  const shown = s.presenter.current(), pending = s.texture();
+  s.presenter.receive(meta(0, 2), pending);
+  expect(s.presenter.drain({ generation: 'owner', document: 'document' })).toBe(true);
+  expect(s.presenter.current()).toEqual(shown); expect(pending.release).toHaveBeenCalledOnce();
+  s.paint(); expect(s.shown).toHaveBeenCalledOnce(); s.unbind();
+});
