@@ -66,6 +66,9 @@ int main() {
     valid.push_back(*budget.retain(image(7), 2, 11, 1.2, 1.3, 20));
     assert(left.publish(std::move(valid)));
     assert(!left.select(1.15, 2) && !left.select(1.2, 1));
+    assert((left.contiguousSpan(1, 2) == std::pair<double,double>{1,1.1}));
+    assert(!left.contiguousSpan(1.15, 2));
+    assert((left.contiguousSpan(1.2, 2) == std::pair<double,double>{1.2,1.3}));
     assert(left.select(1.2, 2)->image()->id == 7);
   }
   // Invalid replacement cannot displace a valid current bank.

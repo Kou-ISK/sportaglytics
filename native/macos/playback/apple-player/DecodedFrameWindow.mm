@@ -308,6 +308,29 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
   auto frame = _cache.select(double(time) / 120000, _request);
   return frame ? frame : _previousCache.select(double(time) / 120000, _previousRequest);
 }
+- (std::optional<std::pair<uint64_t,uint64_t>>)retainedSpanForReadAhead:(uint64_t)time {
+  NSParameterAssert(NSThread.isMainThread);
+  if (_busy || _closed || _failed) return std::nullopt;
+  const double seconds = double(time) / 120000;
+  auto span = _cache.contiguousSpan(seconds, _request);
+  if (!span) {
+    span = _previousCache.contiguousSpan(seconds, _previousRequest);
+    if (!span) return std::nullopt;
+    // requestStart must retain the bank which actually serves the anchor.
+    _cache.clear(); _hasCache = NO;
+  }
+  return std::pair{uint64_t(llround(span->first * 120000)), uint64_t(llround(span->second * 120000))};
+}
+- (BOOL)retireReadAtSourceTime:(uint64_t)time {
+  NSParameterAssert(NSThread.isMainThread);
+  if (time >= 86400ULL * 120000 || ![self sourceCurrent]) return NO;
+  [self invalidate];
+  const double start = double(time > 30000 ? time - 30000 : 0) / 120000;
+  const double end = double(time + 30000) / 120000;
+  _hasCache = _cache.retainIntersecting(start, end);
+  _previousCache.retainIntersecting(start, end);
+  return YES;
+}
 - (void)invalidate {
   NSParameterAssert(NSThread.isMainThread);
   if (_work) _work->cancelled.store(true);

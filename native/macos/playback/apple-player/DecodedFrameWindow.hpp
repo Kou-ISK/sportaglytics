@@ -23,6 +23,11 @@ NS_ASSUME_NONNULL_BEGIN
 - (std::optional<appleplayback::DecodedFrame>)select:(uint64_t)sourceTime;
 /// Revalidate the owned file without requiring a retained cache hit.
 - (BOOL)sourceCurrent;
+/// Select the bank containing this actual tick for the next read-ahead.
+- (std::optional<std::pair<uint64_t,uint64_t>>)retainedSpanForReadAhead:(uint64_t)time;
+/// Retire the producer. Only completed intervals near the next demand stay in
+/// the banks; submitted images and in-flight workers retain their own loans.
+- (BOOL)retireReadAtSourceTime:(uint64_t)time;
 - (void)invalidate;
 - (void)close;
 @property(nonatomic, readonly) BOOL failed;

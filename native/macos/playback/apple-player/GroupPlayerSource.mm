@@ -22,6 +22,7 @@ static_assert(std::is_nothrow_copy_constructible_v<appleplayback::GroupSourceFra
   int64_t _offset;
   double _deadline;
   float _supplyRate;
+  int _readAheadDirection;
   BOOL _closed, _failed, _seekStarted, _seekCompleted, _initialReady, _windowRequested, _audioConfigured, _audioAbsent;
   NSError *_failure;
 }
@@ -61,11 +62,20 @@ static_assert(std::is_nothrow_copy_constructible_v<appleplayback::GroupSourceFra
     userInfo:underlying ? @{NSUnderlyingErrorKey:underlying} : @{}];
   [_player pause]; _frame.reset(); _confirmedStopFrame.reset(); _publishedFrames = {}; _publishedCursor = 0; [_decoder close];
 }
+- (BOOL)retireReadAround:(uint64_t)ticks {
+  if (![_decoder retireReadAtSourceTime:uint64_t(int64_t(ticks) + _offset)]) {
+    [self fail:2 underlying:_decoder.error]; return NO;
+  }
+  _windowRequested = NO;
+  _readAheadDirection = 0;
+  return YES;
+}
 - (BOOL)seek:(uint64_t)ticks operation:(uint64_t)operation {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || _failed || !operation || operation <= _operation || ticks < _start || ticks >= _end) return NO;
   [_player pause]; _supplyRate = 0; _frame.reset(); _confirmedStopFrame.reset(); _publishedFrames = {}; _publishedCursor = 0;
-  [_decoder invalidate]; _windowRequested = NO;
+  if (_operation && ![self retireReadAround:ticks]) return NO;
+  _windowRequested = NO;
   ++_seekRevision;
   _operation = operation; _target = ticks; _seekStarted = NO; _seekCompleted = NO; _initialReady = NO;
   _deadline = CACurrentMediaTime() + 10;
@@ -131,6 +141,7 @@ static_assert(std::is_nothrow_copy_constructible_v<appleplayback::GroupSourceFra
       const uint64_t sourceEnd = uint64_t(int64_t(_end) + _offset);
       _windowStart = std::max<uint64_t>(uint64_t(int64_t(_start) + _offset), query > 30000 ? query - 30000 : 0);
       _windowEnd = std::min(sourceEnd, query + 30000);
+      _readAheadDirection = 0;
       _windowRequested = [_decoder requestStart:_windowStart end:_windowEnd];
       if (!_windowRequested) [self fail:2 underlying:_decoder.error];
     }
@@ -172,11 +183,20 @@ static_assert(std::is_nothrow_copy_constructible_v<appleplayback::GroupSourceFra
   _frame = appleplayback::GroupSourceFrame{frame->imageLease(), sourceStart, sourceEnd,
     uint64_t(start), uint64_t(end)};
   if (_frame->covers(_target)) _initialReady = YES;
+  if (!_windowRequested && _supplyRate && _decoder.drained) {
+    auto span = [_decoder retainedSpanForReadAhead:query];
+    if (span) {
+      _windowStart = std::max(span->first, uint64_t(int64_t(_start) + _offset));
+      _windowEnd = std::min(span->second, uint64_t(int64_t(_end) + _offset));
+      _windowRequested = YES;
+    }
+  }
   if (_decoder.drained && _windowRequested) {
     auto next = appleplayback::nextGroupDecodeWindow(query, _windowStart, _windowEnd,
       uint64_t(int64_t(_start) + _offset), uint64_t(int64_t(_end) + _offset), _supplyRate);
     if (next) {
       _windowStart = next->first; _windowEnd = next->second;
+      _readAheadDirection = _supplyRate < 0 ? -1 : 1;
       _windowRequested = [_decoder requestStart:_windowStart end:_windowEnd];
       if (!_windowRequested) [self fail:2 underlying:_decoder.error];
     }
@@ -192,6 +212,10 @@ static_assert(std::is_nothrow_copy_constructible_v<appleplayback::GroupSourceFra
   if (_closed || _failed || !_seekCompleted || !_frame || !_frame->covers(ticks) ||
       !appleplayback::supportedGroupRate(rate) || !CMTIME_IS_NUMERIC(hostTime) ||
       CMTimeCompare(hostTime, CMClockGetTime(CMClockGetHostTimeClock())) <= 0) return NO;
+  // A control ACK pauses audio before adopting the new operation, so its
+  // requested direction can differ from that of a still-running prefetch.
+  if (_readAheadDirection && _readAheadDirection != (rate < 0 ? -1 : 1) &&
+      ![self retireReadAround:ticks]) return NO;
   if (rate < 0) {
     if (!(rate == -.5 || rate == -2 || rate == -4 || rate == -6)) return NO;
     // Reverse pixels come from exact samples in the bounded banks. Audio stays

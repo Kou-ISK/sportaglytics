@@ -62,8 +62,28 @@ public:
     return sourceTime < frame.end() ? std::optional<RetainedFrame<Image>>(frame)
                                     : std::nullopt;
   }
+  // Published intervals are sorted and non-overlapping. A sampled hole
+  // splits the usable span, even if later frames are already present.
+  std::optional<std::pair<double, double>> contiguousSpan(double time, uint64_t request) const {
+    if (!select(time, request)) return std::nullopt;
+    double start = frames.front().pts(), end = start;
+    for (const auto &frame : frames) {
+      if (frame.pts() != end) {
+        if (time < end) break;
+        start = frame.pts();
+      }
+      end = frame.end();
+    }
+    return std::pair{start, end};
+  }
   // Eviction only. Cancellation must carry the matching request identity;
   // an old cancellation cannot revoke a new request's publication authority.
+  bool retainIntersecting(double start, double end) {
+    frames.erase(std::remove_if(frames.begin(), frames.end(), [start, end](const auto &frame) {
+      return frame.end() <= start || frame.pts() >= end;
+    }), frames.end());
+    return !frames.empty();
+  }
   void clear() { frames.clear(); }
 };
 } // namespace appleplayback

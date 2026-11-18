@@ -96,6 +96,63 @@ void publishedStopSurvivesBankEviction(NSURL *url, appleplayback::FrameBudget &b
   assert(![source seek:4004 operation:4 publishedPair:6]);
   closeAndDrain(source);
 }
+void oldPrefetchOnRateChange(NSURL *url, appleplayback::FrameBudget &budget,
+                             int initialDirection, bool reverse, bool checkReadAhead = false, bool completedBeforeTurn = false) {
+  auto source = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:240240 sourceOffset:0
+    budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
+  const uint64_t anchor = 120000;
+  assert([source seek:anchor operation:1]); waitAtAndDrain(source, anchor);
+  const auto start = [] { return CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTimeMake(1,10)); };
+  assert([source scheduleRate:(initialDirection < 0 ? -2 : 1) globalTicks:anchor hostTime:start()]);
+  [source poll]; assert(source.imageReadInProgress);
+  if (completedBeforeTurn) {
+    const double deadline = CACurrentMediaTime() + 8;
+    while (source.imageReadInProgress && CACurrentMediaTime() < deadline) pump();
+    assert(!source.imageReadInProgress && !source.failed);
+  }
+  // Otherwise do not deliver old main-queue callbacks before the new control.
+  [source pause]; assert([source adoptOperation:2]);
+  assert([source scheduleRate:((reverse ? -initialDirection : initialDirection) < 0 ? -2 : 1) globalTicks:anchor hostTime:start()]);
+  assert(source.imageReadInProgress == !completedBeforeTurn); // retirement cannot grant physical drain
+  if (!checkReadAhead) [source pause];
+  double deadline = CACurrentMediaTime() + 8;
+  while (source.imageReadInProgress && CACurrentMediaTime() < deadline) pump();
+  assert(!source.imageReadInProgress && !source.failed);
+  if (checkReadAhead) {
+    assert(reverse);
+    [source pollAtGlobalTime:anchor];
+    assert(source.imageReadInProgress && [source frame]->covers(anchor));
+    [source pause];
+    deadline = CACurrentMediaTime() + 8;
+    while (source.imageReadInProgress && CACurrentMediaTime() < deadline) pump();
+    assert(!source.imageReadInProgress && !source.failed);
+    const uint64_t ahead = int64_t(anchor) - initialDirection * 48000;
+    [source pollAtGlobalTime:ahead];
+    assert(!source.imageReadInProgress && [source frame]->covers(ahead));
+    closeAndDrain(source); assert(!budget.usedBytes());
+    return;
+  }
+  uint64_t previouslyPrefetched = int64_t(anchor) + initialDirection * 48000;
+  [source pollAtGlobalTime:previouslyPrefetched];
+  assert(source.imageReadInProgress == reverse);
+  waitAtAndDrain(source, previouslyPrefetched);
+  closeAndDrain(source); assert(!budget.usedBytes());
+}
+
+void seekEvictsOnlyDistantImages(NSURL *url, appleplayback::FrameBudget &budget) {
+  auto source = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:240240 sourceOffset:2002
+    budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
+  assert([source seek:120000 operation:1]); waitAtAndDrain(source, 120000);
+  auto external = [source frame]; assert(external);
+  const uint64_t retained = budget.usedBytes();
+  assert([source seek:120001 operation:2]); waitAtAndDrain(source,120001);
+  assert([source frame]->image.image() == external->image.image());
+  assert([source seek:20000 operation:3]);
+  assert(budget.usedBytes() > 0 && budget.usedBytes() < retained);
+  assert(![source frame] && external->covers(120000));
+  external.reset(); assert(budget.usedBytes() == 0);
+  waitAtAndDrain(source, 20000); closeAndDrain(source); assert(!budget.usedBytes());
+}
 int main() { @autoreleasepool {
   NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:
     [@"sportag-group-source-" stringByAppendingString:NSUUID.UUID.UUIDString]];
@@ -185,6 +242,13 @@ int main() { @autoreleasepool {
   // fixed target just crossed the previous bank while its worker was draining.
   auto longURL = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"refill.mov"]];
   fixture(longURL, true, 16, 16, -1, false, 80);
+  seekEvictsOnlyDistantImages(longURL,budget);
+  for (int direction : {-1, 1})
+    for (bool reverse : {false, true})
+      oldPrefetchOnRateChange(longURL,budget,direction,reverse);
+  for (int direction : {-1, 1})
+    for (bool completed : {false,true})
+      oldPrefetchOnRateChange(longURL,budget,direction,true,true,completed);
   for (int mode = 0; mode < 2; ++mode) {
     auto refill = [[STGroupPlayerSource alloc] initWithURL:longURL globalStart:0 globalEnd:240240 sourceOffset:0
       budget:budget sourceRevision:*appleplayback::sourceFileRevision(longURL)];
