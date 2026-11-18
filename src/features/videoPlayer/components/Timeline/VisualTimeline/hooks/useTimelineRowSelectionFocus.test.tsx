@@ -19,8 +19,9 @@ const setup = () => {
     callbacks.set(++serial, callback); return serial;
   });
   const cancel = vi.fn(); vi.stubGlobal('cancelAnimationFrame', cancel);
+  const initialProps: { value: Menu } = { value: menu };
   const hook = renderHook(({ value }: { value: Menu }) =>
-    useTimelineRowSelectionFocus(value, targetRef), { initialProps: { value: menu } });
+    useTimelineRowSelectionFocus(value, targetRef), { initialProps });
   const select = (): void => {
     act(() => hook.result.current.select()); hook.rerender({ value: null });
   };
