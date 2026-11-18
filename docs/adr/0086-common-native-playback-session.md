@@ -96,3 +96,5 @@ New automatic pair qualification/open waits for a visible document. Real paired 
 
 
 If a newly opened pair becomes hidden before its first complete presentation, request normal drainage and two-port original recovery instead of waiting for a throttled animation-frame callback. A later visible attempt needs confirmed recovery and fresh Main qualification; a failed/uncertain recovery retains its lease and cannot auto-retry. This exception does not reinterpret an already presented session as unstarted or change its existing close/failure contract.
+
+A physically drained, ledger-confirmed group stop also takes precedence over an unacknowledged initial audio seek during original-player recovery. Otherwise a pair displayed while audio was preparing could return to the requested start instead of the visible stopped image. Explicit newer user seeks still take priority; legacy source-clock recovery is unchanged.

@@ -1597,3 +1597,26 @@ it('rejects a mismatched group image clock before adopting its observation or ta
   f.api.close.mockResolvedValue(drawnClose());
   await f.controller.returnToOriginal();
 });
+
+it('restores the drained group image before audio has ever acknowledged the current seek', async () => {
+  vi.useFakeTimers();
+  const f = make(null, 'drawn-pair');
+  await vi.advanceTimersByTimeAsync(1);
+  // A first confirmed buffering image precedes the initial audio-ready ACK.
+  f.reply(1, 1, 3, 1, false, false);
+  f.controller.controls({ playing: true, rate: -2 });
+  await vi.advanceTimersByTimeAsync(1);
+  f.buffering(2, 1, 3, 2, 3);
+  expect(f.controller.hasConfirmedSeek).toBe(false);
+  const closed = drawnClose();
+  if (!closed.presentedStop) throw Error('missing test stop');
+  closed.presentedStop.operation = 2;
+  closed.presentedStop.globalTicks = 354000;
+  f.api.close.mockResolvedValue(closed);
+  await f.controller.returnToOriginal();
+  expect(f.original.restore).toHaveBeenCalledWith(
+    2.95, expect.anything(), expect.any(AbortSignal),
+  );
+  expect(f.controller.snapshot()).toMatchObject({ phase: 'original', time: 2.95 });
+  expect(f.original.release).toHaveBeenCalledOnce();
+});

@@ -785,9 +785,11 @@ export class NativePlaybackController {
         const revision = this.recoveryRevision;
         restoredTime =
           this.recoveryTime ??
-          (this.lastReadySeek !== this.intent.seekId
-            ? this.intent.targetTime
-            : (this.stoppedTime ?? this.state.time));
+          (this.clockAuthority === 'drawn-pair' && this.stoppedTime !== null
+            ? this.stoppedTime
+            : this.lastReadySeek !== this.intent.seekId
+              ? this.intent.targetTime
+              : (this.stoppedTime ?? this.state.time));
         restoredControls = {
           playing:
             this.fallingBack &&
