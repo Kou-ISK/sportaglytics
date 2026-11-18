@@ -896,10 +896,10 @@ try {
     await page
       .getByRole('menuitem', { name: '行内のインスタンスを選択' })
       .click();
-    // Selection can render before MUI's closing menu releases keyboard focus.
-    // Observe the actual editing boundary instead of sending shortcuts into
-    // the still-closing modal (or adding an arbitrary animation delay).
-    await page.getByRole('menu').waitFor({ state: 'hidden' });
+    // MUI can remove its exiting menu from the accessibility tree before the
+    // portal/focus trap is detached. Wait for that real lifecycle boundary,
+    // rather than sending shortcuts into the closing modal or adding a sleep.
+    await page.locator('[role="menu"]').waitFor({ state: 'detached' });
     await page.waitForFunction(
       () =>
         document.activeElement ===
