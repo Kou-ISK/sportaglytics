@@ -285,14 +285,19 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
   }];
   return YES;
 }
-- (std::optional<Frame>)select:(uint64_t)time {
+- (BOOL)sourceCurrent {
   NSParameterAssert(NSThread.isMainThread);
-  if (_closed || self.failed) return std::nullopt;
+  if (_closed || self.failed) return NO;
   if (!appleplayback::sourceFileMatches(_url, _revision)) {
     _failed = YES; [self invalidate]; _cache.clear(); _previousCache.clear(); _hasCache = NO;
     _error = [NSError errorWithDomain:@"SportagDecodeWindow" code:SourceChanged userInfo:nil];
-    return std::nullopt;
+    return NO;
   }
+  return YES;
+}
+- (std::optional<Frame>)select:(uint64_t)time {
+  NSParameterAssert(NSThread.isMainThread);
+  if (![self sourceCurrent]) return std::nullopt;
   auto frame = _cache.select(double(time) / 120000, _request);
   return frame ? frame : _previousCache.select(double(time) / 120000, _previousRequest);
 }

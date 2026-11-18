@@ -36,6 +36,21 @@
     if (![source seek:ticks operation:operation]) { _failed = YES; [self pause]; return NO; }
   return YES;
 }
+- (BOOL)seek:(uint64_t)ticks operation:(uint64_t)operation publishedPair:(uint64_t)pair {
+  NSParameterAssert(NSThread.isMainThread);
+  if (_closed || _failed || !pair || operation <= _operation || operation > groupsurfacewire::MaximumSequence) return NO;
+  for (const auto &p : _placements) if (ticks < p.globalStart || ticks >= p.globalEnd) return NO;
+  BOOL available = YES;
+  for (STGroupPlayerSource *source in _sources) {
+    if (![source hasPublishedPair:pair covering:ticks]) available = NO;
+    if (source.failed) { _failed = YES; [self pause]; return NO; }
+  }
+  if (!available) return [self seek:ticks operation:operation];
+  [self pause]; _operation = operation; _target = ticks;
+  for (STGroupPlayerSource *source in _sources)
+    if (![source seek:ticks operation:operation publishedPair:pair]) { _failed = YES; [self pause]; return NO; }
+  return YES;
+}
 - (BOOL)adoptOperation:(uint64_t)operation {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || _failed || !_operation || operation <= _operation || operation > groupsurfacewire::MaximumSequence) return NO;
@@ -82,7 +97,11 @@
       f.globalStart, f.globalEnd, groupsurfacewire::Content::Image};
   }
   const BOOL sent = sender.sendPair({frames[0]->image, frames[1]->image}, identities);
-  if (sent) { _publishedOperation = owner.operation; _publishedSamples = samples; }
+  if (sent) {
+    for (STGroupPlayerSource *source in _sources)
+      if (![source rememberPublishedPair:owner.pair]) throw std::runtime_error("group published image retention failed");
+    _publishedOperation = owner.operation; _publishedSamples = samples;
+  }
   return sent;
 }
 - (BOOL)scheduleRate:(float)rate globalTicks:(uint64_t)ticks hostTime:(CMTime)hostTime {

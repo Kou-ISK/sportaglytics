@@ -21,6 +21,9 @@ NS_ASSUME_NONNULL_BEGIN
                  placements:(std::array<appleplayback::GroupClipPlacement, 2>)placements
                      budget:(appleplayback::FrameBudget)budget;
 - (BOOL)seek:(uint64_t)globalTicks operation:(uint64_t)operation;
+/// Reuse only this source pair's own recent successful publication after the
+/// sender's stop-proof validation; unavailable pins retain normal seek behavior.
+- (BOOL)seek:(uint64_t)globalTicks operation:(uint64_t)operation publishedPair:(uint64_t)pair;
 - (BOOL)adoptOperation:(uint64_t)operation;
 - (void)poll;
 - (void)pollAtGlobalTime:(uint64_t)ticks;

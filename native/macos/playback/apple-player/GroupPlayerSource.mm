@@ -4,12 +4,19 @@
 #import <QuartzCore/QuartzCore.h>
 #include <algorithm>
 #include <cmath>
+#include <array>
+
+static_assert(std::is_nothrow_copy_constructible_v<appleplayback::GroupSourceFrame>,
+  "post-publication image pins must not allocate during copy");
 
 @implementation STGroupPlayerSource {
   STApplePlayerSession *_player;
   STDecodedFrameWindow *_decoder;
   std::optional<appleplayback::FrameBudget> _budget;
-  std::optional<appleplayback::GroupSourceFrame> _frame;
+  std::optional<appleplayback::GroupSourceFrame> _frame, _confirmedStopFrame;
+  struct PublishedFrame { uint64_t pair; appleplayback::GroupSourceFrame frame; };
+  std::array<std::optional<PublishedFrame>, 4> _publishedFrames;
+  size_t _publishedCursor;
   uint64_t _start, _end, _operation, _target, _windowStart, _windowEnd;
   NSUInteger _activeSeeks, _seekRevision;
   int64_t _offset;
@@ -52,15 +59,46 @@
   _failed = YES;
   _failure = [NSError errorWithDomain:@"SportagGroupSource" code:code
     userInfo:underlying ? @{NSUnderlyingErrorKey:underlying} : @{}];
-  [_player pause]; _frame.reset(); [_decoder close];
+  [_player pause]; _frame.reset(); _confirmedStopFrame.reset(); _publishedFrames = {}; _publishedCursor = 0; [_decoder close];
 }
 - (BOOL)seek:(uint64_t)ticks operation:(uint64_t)operation {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed || _failed || !operation || operation <= _operation || ticks < _start || ticks >= _end) return NO;
-  [_player pause]; _supplyRate = 0; _frame.reset(); [_decoder invalidate]; _windowRequested = NO;
+  [_player pause]; _supplyRate = 0; _frame.reset(); _confirmedStopFrame.reset(); _publishedFrames = {}; _publishedCursor = 0;
+  [_decoder invalidate]; _windowRequested = NO;
   ++_seekRevision;
   _operation = operation; _target = ticks; _seekStarted = NO; _seekCompleted = NO; _initialReady = NO;
   _deadline = CACurrentMediaTime() + 10;
+  return YES;
+}
+- (BOOL)rememberPublishedPair:(uint64_t)pair {
+  NSParameterAssert(NSThread.isMainThread);
+  if (_closed || _failed || !_frame || !pair || pair > 9007199254740991ULL ||
+      std::any_of(_publishedFrames.begin(), _publishedFrames.end(), [pair](const auto &pin) {
+        return pin && pair <= pin->pair;
+      })) return NO;
+  // Fixed slots avoid allocating after the complete pair has already been
+  // sent. Shared loans retain their existing charge; no pixels are copied.
+  _publishedFrames[_publishedCursor].emplace(PublishedFrame{pair, *_frame});
+  _publishedCursor = (_publishedCursor + 1) % _publishedFrames.size();
+  return YES;
+}
+- (BOOL)hasPublishedPair:(uint64_t)pair covering:(uint64_t)ticks {
+  NSParameterAssert(NSThread.isMainThread);
+  if (_closed || _failed || !pair || pair > 9007199254740991ULL || ticks < _start || ticks >= _end) return NO;
+  if (![_decoder sourceCurrent]) { [self fail:2 underlying:_decoder.error]; return NO; }
+  return std::any_of(_publishedFrames.begin(), _publishedFrames.end(), [pair, ticks](const auto &pin) {
+    return pin && pin->pair == pair && pin->frame.covers(ticks);
+  });
+}
+- (BOOL)seek:(uint64_t)ticks operation:(uint64_t)operation publishedPair:(uint64_t)pair {
+  NSParameterAssert(NSThread.isMainThread);
+  if (![self hasPublishedPair:pair covering:ticks]) return NO;
+  auto found = std::find_if(_publishedFrames.begin(), _publishedFrames.end(),
+    [pair](const auto &pin) { return pin && pin->pair == pair; });
+  const auto stopped = found->value().frame;
+  if (![self seek:ticks operation:operation]) return NO;
+  _confirmedStopFrame = stopped;
   return YES;
 }
 - (BOOL)adoptOperation:(uint64_t)operation {
@@ -80,7 +118,10 @@
   // No image becomes a ready group member before the audio barrier below.
   const uint64_t query = uint64_t(int64_t(wanted) + _offset);
   auto frame = [_decoder select:query];
-  if (!frame) {
+  if (_decoder.failed) { [self fail:2 underlying:_decoder.error]; return; }
+  const auto stopped = _confirmedStopFrame && _confirmedStopFrame->covers(wanted) ?
+    _confirmedStopFrame : std::nullopt;
+  if (!frame && !stopped) {
     if (_decoder.failed) { [self fail:2 underlying:_decoder.error]; return; }
     if (_decoder.drained) {
       if (_windowRequested && query >= _windowStart && query < _windowEnd) {
@@ -117,7 +158,12 @@
       else source->_seekCompleted = YES;
     }];
   }
-  if (!_seekCompleted || !frame) return;
+  if (!_seekCompleted || (!frame && !stopped)) return;
+  if (stopped) {
+    _frame = stopped;
+    if (_frame->covers(_target)) _initialReady = YES;
+    return; // no new decode or fabricated audio readiness for a proven stop
+  }
   const uint64_t sourceStart = uint64_t(llround(frame->pts() * 120000));
   const uint64_t sourceEnd = uint64_t(llround(frame->end() * 120000));
   const int64_t start = std::max<int64_t>(int64_t(sourceStart) - _offset, _start);
@@ -150,12 +196,12 @@
     if (!(rate == -.5 || rate == -2 || rate == -4 || rate == -6)) return NO;
     // Reverse pixels come from exact samples in the bounded banks. Audio stays
     // paused; its AVPlayer clock must not masquerade as the group clock.
-    [_player pause]; _supplyRate = rate; return YES;
+    [_player pause]; _supplyRate = rate; _confirmedStopFrame.reset(); return YES;
   }
   const BOOL scheduled = _audioAbsent ?
     (CMTIME_IS_NUMERIC(hostTime) && CMTimeCompare(hostTime, CMClockGetTime(CMClockGetHostTimeClock())) > 0) :
     [_player scheduleRate:rate fromTime:CMTimeMake(int64_t(ticks) + _offset, 120000) atHostTime:hostTime];
-  if (scheduled) _supplyRate = rate;
+  if (scheduled) { _supplyRate = rate; _confirmedStopFrame.reset(); }
   return scheduled;
 }
 - (BOOL)selectAudioTrack:(NSUInteger)track volume:(float)volume muted:(BOOL)muted {
@@ -173,7 +219,8 @@
 - (void)close {
   NSParameterAssert(NSThread.isMainThread);
   if (_closed) return;
-  _closed = YES; _frame.reset(); [_decoder close]; [_player close];
+  _closed = YES; _frame.reset(); _confirmedStopFrame.reset(); _publishedFrames = {}; _publishedCursor = 0;
+  [_decoder close]; [_player close];
 }
 - (BOOL)failed { return _failed; }
 - (BOOL)imageReadInProgress { return !_decoder.drained; }

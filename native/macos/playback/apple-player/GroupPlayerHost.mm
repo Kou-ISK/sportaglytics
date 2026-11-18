@@ -136,6 +136,7 @@ void opaque(id value) {
     ticks = _scheduled ? _clock->sample(groupHostNow()).ticks : _anchor;
   }
   [_players pause];
+  uint64_t confirmedPair = 0;
   if (v[@"stopProof"]) {
     check(!playing && _intent != nil);
     NSDictionary *p = v[@"stopProof"];
@@ -143,11 +144,16 @@ void opaque(id value) {
     groupsurfacewire::StopProof proof{integer(p[@"operation"]), integer(p[@"seek"]), integer(p[@"pair"]),
       integer(p[@"globalTicks"], groupsurfacewire::MaximumTicks), integer(p[@"firstID"]), integer(p[@"secondID"])};
     ticks = _sender->stopAnchor(proof, op, seek);
+    confirmedPair = proof.pair;
   } else if (_intent && !playing && boolean(_intent[@"playing"]) && seek == integer(_intent[@"seekId"])) {
     check(false); // held release requires the actual complete canvas pair
   }
   check(ticks >= _start && ticks < _end);
-  check(physicalSeek ? [_players seek:ticks operation:op] : [_players adoptOperation:op]);
+  BOOL accepted;
+  if (confirmedPair) accepted = [_players seek:ticks operation:op publishedPair:confirmedPair];
+  else if (physicalSeek) accepted = [_players seek:ticks operation:op];
+  else accepted = [_players adoptOperation:op];
+  check(accepted);
   _clock->pauseAt(ticks);
   _intent = [v copy]; _anchor = ticks; _scheduled = NO; _ready = NO; _audioValidated = NO;
   _lastSentPair = 0; _waitingPair = 0; _waitBeganAt = 0; _lastProgress = CACurrentMediaTime();

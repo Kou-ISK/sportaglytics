@@ -33,6 +33,13 @@ NS_ASSUME_NONNULL_BEGIN
             sourceRevision:(std::string)revision audioSession:(STApplePlayerSession *)audio;
 /// New commands revoke callbacks/images, not other sources. Must increase.
 - (BOOL)seek:(uint64_t)globalTicks operation:(uint64_t)operation;
+/// Internal publication pins: at most four recent successful pair publications,
+/// sharing the existing image charge. No caller-supplied pixels are accepted.
+- (BOOL)rememberPublishedPair:(uint64_t)pair;
+- (BOOL)hasPublishedPair:(uint64_t)pair covering:(uint64_t)globalTicks;
+/// Called only after the group sender validates the exact complete stop proof.
+/// Audio readiness and physical worker drainage remain separate requirements.
+- (BOOL)seek:(uint64_t)globalTicks operation:(uint64_t)operation publishedPair:(uint64_t)pair;
 /// Same source/physical seek, new control owner. Completed immutable samples
 /// remain usable; this never grants a different seek or source epoch.
 - (BOOL)adoptOperation:(uint64_t)operation;

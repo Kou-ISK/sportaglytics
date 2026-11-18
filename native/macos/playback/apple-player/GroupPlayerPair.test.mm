@@ -3,6 +3,55 @@
 #include "../surface-transport/GroupSurfaceReceiver.hpp"
 #include <unistd.h>
 
+void waitPairAt(STGroupPlayerPair *pair, uint64_t ticks) {
+  const double deadline = CACurrentMediaTime() + 8;
+  while (CACurrentMediaTime() < deadline && !pair.failed) {
+    [pair pollAtGlobalTime:ticks];
+    auto available = [pair availableAnchor:ticks];
+    if (available && *available == ticks) return;
+    pump();
+  }
+  assert(false);
+}
+void stoppedPublicationKeepsItsActualSurface(NSString *directory) {
+  auto url = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"published-stop-pair.mov"]];
+  fixture(url, true, 1920, 1080, -1, false, 80);
+  const auto revision = *appleplayback::sourceFileRevision(url);
+  appleplayback::FrameBudget budget(512ULL * 1024 * 1024);
+  auto service = [@"local.sportaglytics.surface.pinned-" stringByAppendingString:NSUUID.UUID.UUIDString];
+  GroupSurfaceReceiver receiver; receiver.open(service.UTF8String); receiver.setPeer(getpid());
+  GroupSurfaceSender sender(budget); sender.open(service.UTF8String, getpid());
+  auto pair = [[STGroupPlayerPair alloc] initWithURLs:@[url, url] placements:
+    (std::array<appleplayback::GroupClipPlacement, 2>{{{0, 1, 0, 240240, 0, revision}, {1, 1, 0, 238238, 2002, revision}}}) budget:budget];
+  assert([pair seek:180000 operation:1]); waitPairAt(pair, 180000);
+  assert(([pair publish:{1, 1, 1, 180000} sender:sender]));
+  auto a = receiver.poll(), b = receiver.poll(); assert(a && b);
+  const auto firstSurface = IOSurfaceGetID(a->surface), secondSurface = IOSurfaceGetID(b->surface);
+  const auto firstIdentity = a->identity, secondIdentity = b->identity;
+  receiver.drawn(firstIdentity.id); receiver.drawn(secondIdentity.id); sender.poll();
+  // Keep the real receiver loans until comparison, preventing allocator reuse
+  // of an old surface ID from making a new decode look like the same image.
+  waitPairAt(pair, 4004); waitPairAt(pair, 90000); // three disjoint real image banks
+  const groupsurfacewire::StopProof proof{1, 1, 1, 180000, firstIdentity.id, secondIdentity.id};
+  const auto stopped = sender.stopAnchor(proof, 2, 1);
+  assert([pair seek:stopped operation:2 publishedPair:proof.pair]); waitPairAt(pair, stopped);
+  assert(([pair publish:{2, 1, 2, stopped} sender:sender]));
+  auto stoppedA = receiver.poll(), stoppedB = receiver.poll(); assert(stoppedA && stoppedB);
+  assert(IOSurfaceGetID(stoppedA->surface) == firstSurface && IOSurfaceGetID(stoppedB->surface) == secondSurface);
+  assert(stoppedA->identity.sourcePTS == firstIdentity.sourcePTS && stoppedA->identity.sourceEndPTS == firstIdentity.sourceEndPTS);
+  assert(stoppedB->identity.sourcePTS == secondIdentity.sourcePTS && stoppedB->identity.sourceEndPTS == secondIdentity.sourceEndPTS);
+  assert(stoppedA->identity.globalTicks == stopped && stoppedB->identity.globalTicks == stopped);
+  receiver.drawn(stoppedA->identity.id); receiver.drawn(stoppedB->identity.id); sender.poll();
+  [pair close]; const double deadline = CACurrentMediaTime() + 4;
+  while (!pair.drained && CACurrentMediaTime() < deadline) pump();
+  assert(pair.drained && sender.pending() == 4 && budget.usedBytes() > 0);
+  const auto retained = budget.usedBytes();
+  receiver.release(firstIdentity.id); receiver.release(secondIdentity.id); sender.poll();
+  assert(sender.pending() == 2 && budget.usedBytes() == retained); // shared, not double charged/refunded
+  receiver.release(stoppedA->identity.id); receiver.release(stoppedB->identity.id); sender.poll();
+  assert(!sender.pending() && !budget.usedBytes() && !budget.quarantinedBytes());
+  receiver.close();
+}
 int main() { @autoreleasepool {
   NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:
     [@"sportag-group-pair-" stringByAppendingString:NSUUID.UUID.UUIDString]];
@@ -60,6 +109,7 @@ int main() { @autoreleasepool {
   receiver.release(a->identity.id); receiver.release(b->identity.id); sender.poll();
   assert(sender.pending() == 0 && budget.usedBytes() == 0 && !budget.quarantinedBytes());
   receiver.close();
+  stoppedPublicationKeepsItsActualSurface(directory);
   assert([[NSFileManager defaultManager] removeItemAtPath:directory error:nil]);
   puts("real AVPlayer -> actual sample intervals -> shared lease -> group Mach pair -> stop fence -> release passed");
 } }

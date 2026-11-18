@@ -36,6 +36,66 @@ void closeAndDrain(STGroupPlayerSource *source) {
   while (!source.drained && CACurrentMediaTime() < deadline) pump();
   assert(source.drained && ![source frame]);
 }
+void waitAtAndDrain(STGroupPlayerSource *source, uint64_t ticks) {
+  const double deadline = CACurrentMediaTime() + 8;
+  do {
+    [source pollAtGlobalTime:ticks];
+    auto frame = [source frame];
+    if (frame && frame->covers(ticks) && !source.imageReadInProgress) return;
+    assert(!source.failed); pump();
+  } while (CACurrentMediaTime() < deadline);
+  assert(false);
+}
+void publishedStopSurvivesBankEviction(NSURL *url, appleplayback::FrameBudget &budget, bool reuse, bool closeBeforeCompletion = false, int64_t offset = 0) {
+  auto audio = [[STHeldGroupAudio alloc] initWithURL:url];
+  auto source = [[STGroupPlayerSource alloc] initWithURL:url globalStart:0 globalEnd:240240 - offset sourceOffset:offset
+    budget:budget sourceRevision:*appleplayback::sourceFileRevision(url) audioSession:audio];
+  assert([source seek:4004 operation:1]);
+  double deadline = CACurrentMediaTime() + 8;
+  while (!audio.heldCompletion && CACurrentMediaTime() < deadline) { [source poll]; pump(); }
+  assert(audio.heldCompletion); [audio releaseCompletion]; waitAtAndDrain(source, 4004);
+  auto published = [source frame]; assert(published);
+  assert(![source rememberPublishedPair:0] && ![source rememberPublishedPair:9007199254740992ULL]);
+  for (uint64_t pair = 1; pair <= 5; ++pair) assert([source rememberPublishedPair:pair]);
+  assert(![source hasPublishedPair:1 covering:4004] && [source hasPublishedPair:2 covering:4004]);
+  assert(![source hasPublishedPair:5 covering:90000] && !source.failed);
+  // Three actual decoded banks evict the first picture; its published loan
+  // remains owned independently, without creating new pixels or charge.
+  waitAtAndDrain(source, 90000); waitAtAndDrain(source, 180000);
+  assert([source hasPublishedPair:5 covering:4004]);
+  assert(![source seek:4004 operation:1 publishedPair:5]);
+  assert(![source seek:90000 operation:2 publishedPair:5]); // wrong interval changes nothing
+  assert(reuse ? [source seek:4004 operation:2 publishedPair:5] : [source seek:4004 operation:2]);
+  assert(![source hasPublishedPair:5 covering:4004] && ![source frame]);
+  [source poll];
+  // Deterministic ownership observation, not a sleep/latency threshold: the
+  // control launches a re-decode, while the confirmed stop launches no worker.
+  assert(source.imageReadInProgress == !reuse);
+  deadline = CACurrentMediaTime() + 8;
+  while (!audio.heldCompletion && CACurrentMediaTime() < deadline) { [source poll]; pump(); }
+  assert(audio.heldCompletion && !source.seekCompleted && ![source frame]);
+  if (reuse) assert(!source.imageReadInProgress);
+  if (closeBeforeCompletion) {
+    [source close]; assert(!source.drained && ![source frame]);
+    [audio releaseCompletion]; closeAndDrain(source); return;
+  }
+  [audio releaseCompletion]; waitAtAndDrain(source, 4004);
+  auto stopped = [source frame]; assert(stopped && stopped->sourceStart == published->sourceStart);
+  if (reuse) {
+    assert(stopped->image.image() == published->image.image());
+    assert(!source.imageReadInProgress);
+    const auto host = CMTimeAdd(CMClockGetTime(CMClockGetHostTimeClock()), CMTimeMake(1, 10));
+    assert([source scheduleRate:-2 globalTicks:4004 hostTime:host]);
+    [source poll];
+    assert(source.imageReadInProgress && [source frame] && [source frame]->covers(4004));
+    [source pause]; // only the new press starts a new bounded read
+  }
+  assert([source rememberPublishedPair:6]);
+  assert([source seek:90000 operation:3]);
+  assert(![source frame] && ![source hasPublishedPair:6 covering:4004]);
+  assert(![source seek:4004 operation:4 publishedPair:6]);
+  closeAndDrain(source);
+}
 int main() { @autoreleasepool {
   NSString *directory = [NSTemporaryDirectory() stringByAppendingPathComponent:
     [@"sportag-group-source-" stringByAppendingString:NSUUID.UUID.UUIDString]];
@@ -151,6 +211,26 @@ int main() { @autoreleasepool {
     assert(!refill.imageReadInProgress); // no second bank beyond one fixed target
     [refill pause]; closeAndDrain(refill); assert(!budget.usedBytes());
   }
+  auto stopURL = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"published-stop.mov"]];
+  fixture(stopURL, true, 16, 16, -1, true, 80);
+  publishedStopSurvivesBankEviction(stopURL, budget, false); assert(!budget.usedBytes());
+  publishedStopSurvivesBankEviction(stopURL, budget, true); assert(!budget.usedBytes());
+  publishedStopSurvivesBankEviction(stopURL, budget, true, true); assert(!budget.usedBytes());
+  publishedStopSurvivesBankEviction(stopURL, budget, true, false, 2002); assert(!budget.usedBytes());
+  // A pin never grants access to a replaced source, even while its old image
+  // loan still exists. Only this test's generated fixtures are renamed.
+  auto pinURL = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"pin-source.mov"]];
+  fixture(pinURL, true);
+  auto changedPin = [[STGroupPlayerSource alloc] initWithURL:pinURL globalStart:0 globalEnd:24024 sourceOffset:0
+    budget:budget sourceRevision:*appleplayback::sourceFileRevision(pinURL)];
+  assert([changedPin seek:4004 operation:1]); waitFor(changedPin, 4004);
+  assert([changedPin rememberPublishedPair:1]);
+  auto movedPin = [directory stringByAppendingPathComponent:@"pin-before-replacement.mov"];
+  assert([[NSFileManager defaultManager] moveItemAtPath:pinURL.path toPath:movedPin error:nil]);
+  fixture(pinURL, true);
+  assert(![changedPin hasPublishedPair:1 covering:4004] && changedPin.failed && ![changedPin frame]);
+  assert(changedPin.error.code == 2 && [changedPin.error.userInfo[NSUnderlyingErrorKey] code] == 10);
+  closeAndDrain(changedPin); assert(!budget.usedBytes());
   // Remove only this fixture owned by this process, after actual index drainage.
   assert([[NSFileManager defaultManager] removeItemAtPath:directory error:nil]);
   puts("group real-player source intervals/offsets/ownership passed");

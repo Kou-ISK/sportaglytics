@@ -21,6 +21,8 @@ NS_ASSUME_NONNULL_BEGIN
 /// Invalidated workers must physically drain before another request starts.
 - (BOOL)requestStart:(uint64_t)start end:(uint64_t)end;
 - (std::optional<appleplayback::DecodedFrame>)select:(uint64_t)sourceTime;
+/// Revalidate the owned file without requiring a retained cache hit.
+- (BOOL)sourceCurrent;
 - (void)invalidate;
 - (void)close;
 @property(nonatomic, readonly) BOOL failed;
