@@ -13,7 +13,10 @@ import { nativeGroupTimelineMatches } from '../../shared/nativePlayback/nativeGr
 import { openQualifiedNativeGroupPlayback } from '../../shared/nativePlayback/nativeGroupPlaybackGateway';
 import { useNativePlaybackState } from '../../shared/nativePlayback/useNativePlaybackState';
 import { nativeStartUnavailableReason } from '../../shared/nativePlayback/nativeStartAvailability';
-import type { NativePlaybackControls } from '../../shared/nativePlayback/nativePlaybackController';
+import type {
+  NativePlaybackController,
+  NativePlaybackControls,
+} from '../../shared/nativePlayback/nativePlaybackController';
 import type { NativePlaybackPanelViewProps } from './NativePlaybackPanelView';
 
 const subscribeVisibility = (listener: () => void): (() => void) => {
@@ -29,7 +32,11 @@ export const useNativeGroupPlaybackPanel = (
   time: number,
   pause: () => void,
   restored: (time: number, controls: NativePlaybackControls) => void,
-  surfaces: { ready: boolean; assertCurrent: () => void },
+  surfaces: {
+    ready: boolean;
+    assertCurrent: () => void;
+    hasPresented: (generation: string) => boolean;
+  },
 ): {
   register: (player: CachePlayerRegistration) => () => void;
   view: NativePlaybackPanelViewProps | null;
@@ -50,6 +57,7 @@ export const useNativeGroupPlaybackPanel = (
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const attempted = useRef(new WeakSet<CachePlayerRegistration>());
+  const visibilityRecovery = useRef(new WeakSet<NativePlaybackController>());
   const { controller, state } = useNativePlaybackState();
   const current = useRef({ timeline, time, pause, restored, surfaces });
   current.current = { timeline, time, pause, restored, surfaces };
@@ -228,6 +236,40 @@ export const useNativeGroupPlaybackPanel = (
     time,
     audioId,
   ]);
+  useEffect(() => {
+    if (
+      visible ||
+      !controller ||
+      !qualification ||
+      (state.phase !== 'opening' && state.phase !== 'active') ||
+      surfaces.hasPresented(controller.owner.generation) ||
+      visibilityRecovery.current.has(controller)
+    )
+      return;
+    // A transiently visible opening window may become occluded before its first
+    // pair. Drain normally instead of waiting for a throttled rAF to time out.
+    // Never reuse the native grant or reset an uncertain recovery attempt.
+    visibilityRecovery.current.add(controller);
+    const captured = qualification;
+    current.current.pause();
+    void controller
+      .returnToOriginal()
+      .then(() => {
+        if (
+          !alive.current ||
+          current.current.timeline.key !== captured.key ||
+          captured.members.some((member) => !players.current.has(member))
+        )
+          return;
+        attempted.current.delete(captured.members[0]);
+        setQualification(null);
+        setRevision((value) => value + 1);
+      })
+      .catch(() => {
+        if (alive.current)
+          setError('両映像の復帰を確認できません。停止状態を保持しています。');
+      });
+  }, [visible, controller, qualification, state.phase, surfaces.hasPresented]);
   const onOriginal = useCallback((): void => {
     current.current.pause();
     controller?.finishPreview();

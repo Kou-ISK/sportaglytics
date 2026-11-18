@@ -3,6 +3,11 @@ import type { NativeGroupTimeline } from '../../shared/nativePlayback/nativeGrou
 import type { NativeGroupSurfaceRegistration } from './NativeGroupSurfaceContext';
 import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
 
+interface GroupSurfaceBinding {
+  key: string;
+  members: NativeGroupSurfaceRegistration[];
+  presentedGeneration: string | null;
+}
 /** Exactly one preload pair binding, in Main selection order, after both actual
  * canvases mount. Duplicate/replaced slots never count as a complete pair. */
 export const useNativeGroupSurfaces = (
@@ -11,6 +16,7 @@ export const useNativeGroupSurfaces = (
   register: (surface: NativeGroupSurfaceRegistration) => () => void;
   ready: boolean;
   assertCurrent: () => void;
+  hasPresented: (generation: string) => boolean;
 } => {
   const slots = useRef(timeline.slots);
   slots.current = timeline.slots;
@@ -18,10 +24,7 @@ export const useNativeGroupSurfaces = (
   const [registered, setRegistered] = useState<
     NativeGroupSurfaceRegistration[]
   >([]);
-  const binding = useRef<{
-    key: string;
-    members: NativeGroupSurfaceRegistration[];
-  } | null>(null);
+  const binding = useRef<GroupSurfaceBinding | null>(null);
   const [boundKey, setBoundKey] = useState<string | null>(null);
   const register = useCallback(
     (surface: NativeGroupSurfaceRegistration): (() => void) => {
@@ -65,7 +68,11 @@ export const useNativeGroupSurfaces = (
       return;
     let detached = false;
     let release: (() => void) | undefined;
-    const captured = { key: timeline.key, members: [first[0], second[0]] };
+    const captured: GroupSurfaceBinding = {
+      key: timeline.key,
+      members: [first[0], second[0]],
+      presentedGeneration: null,
+    };
     const fail = (reason: string): void => {
       if (binding.current === captured) getNativePlayback()?.fail(reason);
     };
@@ -78,6 +85,7 @@ export const useNativeGroupSurfaces = (
           controller?.owner.generation === pair.generation &&
           captured.members.every((member) => surfaces.current.has(member))
         ) {
+          captured.presentedGeneration = pair.generation;
           captured.members.forEach((member) =>
             member.presented(pair.generation),
           );
@@ -105,5 +113,15 @@ export const useNativeGroupSurfaces = (
       }
     };
   }, [timeline.key, registered]);
-  return { register, ready: boundKey === timeline.key, assertCurrent };
+  const hasPresented = useCallback(
+    (generation: string): boolean =>
+      binding.current?.presentedGeneration === generation,
+    [],
+  );
+  return {
+    register,
+    ready: boundKey === timeline.key,
+    assertCurrent,
+    hasPresented,
+  };
 };

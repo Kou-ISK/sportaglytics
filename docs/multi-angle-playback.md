@@ -309,3 +309,6 @@ A paused preparing/settings ACK may be newer than the complete image referenced 
 
 
 New automatic pair qualification/open waits for a visible document. Real paired imports may already exist while an occluded/hidden window's animation-frame scheduler is stopped; starting a new group there otherwise consumes the initial presentation deadline without a submitted pair. Visibility changes revoke only that pending admission and permit a later visible attempt; they do not manufacture Drawn, cancel an issued browser seek, change the existing active-session/drain contract, or block background export/other command work. No background-throttling or OS/security setting is changed.
+
+
+If a newly opened pair becomes hidden before its first complete presentation, request normal drainage and two-port original recovery instead of waiting for a throttled animation-frame callback. A later visible attempt needs confirmed recovery and fresh Main qualification; a failed/uncertain recovery retains its lease and cannot auto-retry. This exception does not reinterpret an already presented session as unstarted or change its existing close/failure contract.

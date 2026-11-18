@@ -141,23 +141,25 @@ const fixture = () => {
       closed: false,
     })),
     onSnapshot: () => () => {},
-    close: vi.fn<IElectronAPI['nativePlayback']['close']>(async () => ({
-      generation: owner.generation,
-      nativeDrained: true,
-      processStarted: true,
-      processExited: true,
-      pipesClosed: true,
-      stopped: null,
-      presentedStop: {
-        document: 'doc',
-        generation: owner.generation,
-        operation: 1,
-        seekId: 1,
-        pair: 1,
-        globalTicks: 360000,
-        ids: [1, 2],
-      },
-    })),
+    close: vi.fn<IElectronAPI['nativePlayback']['close']>(
+      async (activeOwner) => ({
+        generation: activeOwner.generation,
+        nativeDrained: true,
+        processStarted: true,
+        processExited: true,
+        pipesClosed: true,
+        stopped: null,
+        presentedStop: {
+          document: 'doc',
+          generation: activeOwner.generation,
+          operation: 1,
+          seekId: 1,
+          pair: 1,
+          globalTicks: 360000,
+          ids: [1, 2],
+        },
+      }),
+    ),
   };
   Object.defineProperty(window, 'electronAPI', {
     configurable: true,
@@ -472,5 +474,103 @@ it('does not consume a qualification resolved after hiding or lose the next visi
     document.dispatchEvent(new Event('visibilitychange'));
     await vi.advanceTimersByTimeAsync(1);
   });
+  expect(f.api.open).toHaveBeenCalledOnce();
+});
+
+it('drains an opening session hidden before its first pair, and requalifies a fresh generation only after verified HTML return', async () => {
+  let visibility: DocumentVisibilityState = 'visible';
+  vi.spyOn(document, 'visibilityState', 'get').mockImplementation(
+    () => visibility,
+  );
+  const f = fixture();
+  render(<f.View />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.api.open).toHaveBeenCalledOnce();
+  await act(async () => {
+    visibility = 'hidden';
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.api.close).toHaveBeenCalledOnce();
+  expect(getNativePlayback()).toBeNull();
+  expect(htmlPlaybackAllowed()).toBe(true);
+  expect(f.api.open).toHaveBeenCalledOnce();
+  const fresh = qualified();
+  fresh.owner = { ...owner, generation: 'visible-retry' };
+  f.inspect.mockResolvedValue(fresh);
+  await act(async () => {
+    visibility = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.api.open).toHaveBeenCalledTimes(2);
+  expect(getNativePlayback()?.owner.generation).toBe('visible-retry');
+});
+it('does not reinterpret an already presented active session as an unstarted visibility admission', async () => {
+  let visibility: DocumentVisibilityState = 'visible';
+  vi.spyOn(document, 'visibilityState', 'get').mockImplementation(
+    () => visibility,
+  );
+  const f = fixture();
+  render(<f.View />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  await act(async () =>
+    f.present({
+      document: 'doc',
+      generation: owner.generation,
+      operation: 1,
+      seekId: 1,
+      pair: 1,
+      globalTicks: 360000,
+      ids: [1, 2],
+    }),
+  );
+  const active = getNativePlayback();
+  await act(async () => {
+    visibility = 'hidden';
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.api.close).not.toHaveBeenCalled();
+  expect(getNativePlayback()).toBe(active);
+});
+
+it('retains ownership and suppresses automatic retry if visibility recovery cannot verify one original', async () => {
+  let visibility: DocumentVisibilityState = 'visible';
+  vi.spyOn(document, 'visibilityState', 'get').mockImplementation(
+    () => visibility,
+  );
+  const f = fixture();
+  render(<f.View />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  const active = getNativePlayback();
+  expect(active).not.toBeNull();
+  const broken = vi.spyOn(f.right, 'restore').mockImplementation(() => {
+    throw Error('original not confirmed');
+  });
+  await act(async () => {
+    visibility = 'hidden';
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(getNativePlayback()).toBe(active);
+  expect(htmlPlaybackAllowed()).toBe(false);
+  await act(async () => {
+    visibility = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(f.api.open).toHaveBeenCalledOnce();
+  broken.mockRestore();
+  await act(async () => {
+    await active?.returnToOriginal();
+  });
+  expect(htmlPlaybackAllowed()).toBe(true);
   expect(f.api.open).toHaveBeenCalledOnce();
 });
