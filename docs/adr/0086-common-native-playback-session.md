@@ -56,13 +56,11 @@ The compressed reader's start is selected from a bounded AVSampleCursor full-syn
 
 Audio preparation/seek and timestamped image-window preparation are independent, with a joint ready barrier. Starting the bounded reader must not wait for AVPlayer readiness; exposing the source image still requires successful real audio positioning. This permits overlap without treating pending audio as ready or cancelling unacknowledged seeks synthetically.
 
-
 ## Experimental host clock and bounded prefetch
 
 Use two immutable half-second decoded banks per source, sharing one 512 MiB retained-image/loan budget. Adjacent prefetch overlaps consumption without retaining the entire media or claiming a decoder/GPU memory cap. A common host clock is separate from audio time, source sample time and complete-pair Drawn time. Negative playback keeps audio paused. On a coverage deficit, pause at the last complete Drawn pair and wait for one fixed target; resume only after that target is acknowledged. New controls revoke pending resume. Do not advance a clock over a frozen image or treat partial acknowledgement as a synchronized pair.
 
 The synthetic real-Host regression covers all four reverse rates across bank boundaries and physical drain, but its Drawn is mocked. Heavy-source runs demonstrate correct bounded buffering and stopping, with substantial gaps and insufficient sustained throughput. Consequently this decision does not enable the normal Controller, replace ADR 0081, establish screen/audio acceptance, or change this ADR's Proposed status. Further GOP reuse/resource design and signed product integration remain necessary.
-
 
 ## Preserve clock authority through ordinary session recovery
 
@@ -70,19 +68,20 @@ A Main-qualified group session uses complete-pair Drawn history as its observati
 
 A release fence belongs to preload's actual complete-pair presenter, not a requested Controller time. Controller synchronously freezes it before awaiting its serialized writer, preserves a bounded stop barrier before re-press, and allows an explicit newer seek to supersede an unsent stop. Main validates the typed receipt against its own ledger before translation to Host proof. This prevents command-queue delay from moving the release anchor, without claiming cancellation of already submitted Canvas work or enabling group selection in the default provider.
 
-
 Buffering output pause and explicit user stop are separate source operations. A coverage deficit retains decode direction for its fixed pending target while pausing audio/common-clock output; user pause, seek and close continue to revoke new prefetch. Only one adjacent bank is allowed at that target. A peak charged-image counter observes the existing byte budget without extending it or claiming OS memory reservation. Larger decode-bank experiments did not establish acceptable pair cadence and do not change the default half-second plan.
 
 The Main-qualified group presentation supplies reverse rates to Controller gesture eligibility; the audio-only AVPlayer's capability is not the group decoder's authority. Availability tags that distinction only with a validated presentation scope. The Manager must preserve the backend's ledger verifiers. Both command writers retain a bounded fenced-stop barrier before re-press, while a newer explicit seek may replace an unsent stop. A one-port gateway must reject group availability until pair binding and two-port recovery are connected; this metadata does not establish signed-helper capability by itself.
 
-
 Group protocol capability is an explicit fixed helper query after signed-set/hash verification, independently of export revision/capabilities. It describes bounded ABI scope rather than source fitness or cadence. Unknown declarations fail closed; finite termination requests never fabricate process drainage. Keep the legacy provider active until the two-port recovery, pair surface bindings and signed product acceptance are connected.
-
 
 Compose group process/storage/transfer lifecycle in a Main-only backend, separately from source qualification and Renderer controls. A physical termination proof may authorize resource drainage after an abnormal child result; it cannot authorize recovery success. Validate group receipt and charged-image release before removing only the owned session. Preserve original errors if activity cleanup also fails. This composition alone does not change default provider selection or qualify a signed paired UI.
 
-
 Main-driven close must not depend on a future Renderer animation frame. Use one scoped group drain notification to dispose pending imports without Drawn acknowledgement and fence that generation against later controls. Keep the actual transfer/GPU-release and child/native drain barriers; a notification cannot fabricate resource release. Stale document/generation notifications are ignored so old cleanup cannot close a new playback owner.
 
-
 Main group admission uses a separate typed selection endpoint so a Renderer cannot reinterpret a one-source grant as two angles. Package IDs are resolved by Main; signed helper capability, current source identities and the placed-pair profile precede any playback factory. Same-URL slots retain separate angle/clip identity and one explicit audio owner. Only idle qualification may be replaced: switching selection is not a drain/recovery mechanism. Packaged startup supports this admission; unsigned preview and unknown helpers do not silently downgrade signature policy. Full ordinary paired UI/recovery and clip/gap behavior remain prerequisites for default activation. The returned placement grid follows the Host's 120000 ticks rather than introducing a second offset model.
+
+## Restricted ordinary pair composition
+
+Connect an explicit paired boundary rather than removing the single-player exclusion. The initial admissible timeline must have two complete-package local clips with matching canonical coverage. Preserve slot/clip identity even for equal URLs and select exactly one audio owner. Both actual canvases must be registered before any group open; their binding is distinct from the legacy single-source binding. Treat the Main binding as package-global clock authority only while current sources, clips and placements match.
+
+Recovery waits for native drainage and both independently mapped original-player images, retaining authority if either fails. Listener cancellation cannot cancel an issued browser seek. Static original ports cannot safely recover into other clips or gaps, so those timelines remain unsupported by this gateway pending a separate preparation transaction. This bounded connection advances ordinary integration but does not change this ADR's Proposed status or claim sustained reverse, signed display, audio or general timeline acceptance.

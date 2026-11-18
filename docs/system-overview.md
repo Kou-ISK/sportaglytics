@@ -502,21 +502,18 @@ Group v2のnative転送とMain adapterはsource/操作世代・pair単位のmeta
 
 限定group sourceは画像windowと音声用AVPlayerを独立に準備し、実seek成功と検査済み画像が両方そろうまで提示側へreadyを渡さない。未完の音声を準備済みと偽装せず、取消後も実callback/workerの終了を待つ。
 
-
 限定groupの通常Controllerクラス/Mainセッション結合では、Main所有の完全Drawn履歴で観測を検証し、終了後の`presentedStop`をsource clockの`stopped`と分離する。通常UI/providerの能力交渉と二canvas/HTML復旧への接続は未完であり、試験用IPC/Drawn/復旧adapterを本番受入としない。
 
 Experimental group playback separates release image authority from command intent: preload freezes the submitted complete pair synchronously, Main validates its bounded receipt, and the Controller sends a stop barrier before a later re-press. The legacy source-clock path and default native provider eligibility remain unchanged; signed multi-angle screen/audio acceptance is not established by the native contract regression.
-
 
 The experimental group Host distinguishes a fixed-target refill pause from a user stop: output stays paused while one bounded adjacent image read may finish. Explicit pause/seek/close still stop further prefetch. The final internal result reports peak charged image bytes separately from OS/decoder/GPU memory; this neither raises the existing image limit nor establishes high-rate screen acceptance.
 
 Group availability now identifies Main's image-clock authority and qualified rates. The Main Manager forwards complete-pair verifiers, and both Main and Renderer writers preserve a fenced stop before re-press. Legacy source-clock behavior remains separate. The one-player gateway rejects group availability rather than restoring only one angle; normal group provider/resource qualification and paired UI/recovery remain outstanding.
 
-
 Group playback negotiation uses a separate finite helper capability query after signed native resources are verified. The response is a limited ABI declaration, not a source/performance or display guarantee. Legacy playback stays selected while the paired provider/UI recovery is unfinished; export revision and receiver method presence cannot enable it.
-
 
 Main's group backend now composes the placed-pair helper, pair transport and session receipt lifecycle. It exposes ledger verifiers and a separate presented-stop receipt after physical drainage; it does not fabricate an AVPlayer source clock. The standard source provider and paired UI recovery still require explicit connection and acceptance.
 
-
 Native group qualification has a separate fixed IPC endpoint for two package angle IDs and an audio owner. Main authenticates the window/Package Session, resolves selected local sources and verifies signed group capability before returning pointer-free angle/clip/file-URL/placement bindings and common presentation scope. It does not accept Renderer paths or replace active ownership when selection changes. The standard single-source route remains separate; ordinary paired UI and two-port original-player recovery are not enabled by this admission alone. See [group playback](multi-angle-playback.md).
+
+The restricted ordinary group candidate now connects two complete-package single-clip angles to one preload pair binding and a two-port Controller gateway. Explicit slot IDs distinguish equal sources. Main-qualified placement metadata validates the package clock, and both original players must confirm mapped paused images after native drainage before releasing playback authority. Partial overlap, clip/gap timelines, unsupported signed capability or ambiguous audio remain on HTML playback. This connection does not resolve measured sustained reverse starvation or establish signed display/audio acceptance.

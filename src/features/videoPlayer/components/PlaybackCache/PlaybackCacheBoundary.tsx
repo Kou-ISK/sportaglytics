@@ -1,3 +1,5 @@
+import { NativeGroupPlaybackBoundary } from '../NativePlayback/NativeGroupPlaybackBoundary';
+import type { NativeGroupTimeline } from '../../shared/nativePlayback/nativeGroupTimeline';
 import { NativePlaybackBoundaryView } from '../NativePlayback/NativePlaybackBoundaryView';
 import { useMemo } from 'react';
 import { useNativePlaybackPanel } from '../NativePlayback/useNativePlaybackPanel';
@@ -11,16 +13,19 @@ export const PlaybackCacheBoundary = ({
   playing,
   pause,
   onNativeRestored,
+  timelineTime,
+  groupTimeline,
 }: {
   children: ReactNode;
   eligible: boolean;
   playing: boolean;
   timelineTime: number;
+  groupTimeline?: NativeGroupTimeline | null;
   pause: () => void;
   onNativeRestored: (time: number, controls: NativePlaybackControls) => void;
 }): ReactElement => {
   const native = useNativePlaybackPanel(
-    eligible,
+    eligible && !groupTimeline,
     playing,
     pause,
     onNativeRestored,
@@ -32,6 +37,18 @@ export const PlaybackCacheBoundary = ({
     [native.register],
   );
   if (!eligible) return <>{children}</>;
+  if (groupTimeline)
+    return (
+      <NativeGroupPlaybackBoundary
+        timeline={groupTimeline}
+        playing={playing}
+        time={timelineTime}
+        pause={pause}
+        restored={onNativeRestored}
+      >
+        {children}
+      </NativeGroupPlaybackBoundary>
+    );
   return (
     <CachePlayerContext.Provider value={context}>
       <NativePlaybackControlsContext.Provider value={native.view}>

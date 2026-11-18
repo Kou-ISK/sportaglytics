@@ -226,7 +226,6 @@ The faster reader exposed a close/drain ownership race: a completed dispatch blo
 
 A qualified source starts its bounded image window while the audio-only AVPlayer is loading or positioning. Image availability does not depend on audio seek completion, but the source must not expose a ready image until that actual completion succeeds. This removes serial preparation without weakening readiness, operation ownership or shutdown. A native regression gates AVPlayer readiness and withholds delivery of a real seek completion: decoded image loans must exist while readiness remains false; releasing the completion permits the pair, and closing first must wait for the completion and actual decoder drain. The ordinary Host still constructs its own audio session from Main's qualified URL; the internal constructor seam is for lifecycle tests, not a renderer capability.
 
-
 ### Bounded prefetch and presentation backpressure (experimental)
 
 The decoded-sample Host now has a common host clock and two immutable half-second image banks per source. One bounded worker per source fills the adjacent bank while the preceding bank remains available; both banks and borrowed image leases share a 512 MiB retained-image budget. This is not a reservation or a bound on AVFoundation, decoder, OS or GPU memory. An explicit user pause prevents new prefetch; already issued reads must physically finish. A fixed-target buffering pause stops output while preserving its intended decode direction, so it can fill one adjacent bank before resuming. A fixed target outside the newest bank cannot advance prefetch indefinitely. New seeks, changed file revisions and close revoke old work and preserve the existing drain rules.
@@ -236,7 +235,6 @@ Negative rates -0.5/-2/-4/-6 use these exact timestamped images while AVPlayer a
 The actual Host regression now crosses the initial bank boundary at all four rates, verifies each source's decreasing PTS, release/re-press, current operation ownership, stop proof, real child/pipe close and zero retained/quarantined transfer bytes. Both Drawn acknowledgements are synthetic, not Canvas or speaker acceptance.
 
 A read-only heavy-source two-owner diagnostic ran each rate for 2.5 seconds. With backpressure, each run closed successfully at its last acknowledged pair, but only about 0.75–0.79 source seconds were traversed and maximum pair gaps were about 0.31–1.13 seconds. Initial movement after an already prepared paused pair was about 64–92 ms. These are warmed producer/transfer observations with synthetic Drawn; they do not establish physical display latency or nominal sustained 2/4/6× performance. Repeated GOP preroll remains a measured bottleneck. Increasing clock speed while holding stale images is not an acceptable performance fix. Normal Controller/capability, package clip/gap transitions, real audio/display and signed-distribution acceptance remain incomplete.
-
 
 ### Ordinary Controller/session contract integration
 
@@ -252,7 +250,6 @@ The document-local preload bridge captures the last submitted complete pair and 
 
 The typed `presentationFence` is preload-owned, validated against Main's published/current pair ledger and translated to Host stop proof; legacy source-clock sessions reject it. Binding replacement, foreign owners, stale operations and caller-supplied receipts fail without granting source or handle access. Missing complete pairs fail closed instead of inventing a clock. The real Host regression now uses this bridge and the ordinary Controller's pause/preview/scrub operations. Source qualification/signature, IPC and Canvas acknowledgement remain test adapters; normal provider capability selection and real signed screen/audio acceptance are still required.
 
-
 ### Refill pause versus user stop
 
 The Host's common-clock coverage barrier previously called the same source pause that clears prefetch direction. Buffering now pauses AVPlayer output separately while preserving the decode intent for the fixed pending target. Explicit user pause, new seek and close retain their existing revocation rules. A native source regression waits for actual image-worker drainage, then checks the synchronous request transition: refill starts one adjacent read, user pause starts none, and repeatedly polling the fixed target cannot start a second adjacent bank. Playback is still reported buffering with zero rate until complete-pair evidence permits resumption.
@@ -265,13 +262,11 @@ Main availability carries `clockAuthority: drawn-pair` only for a group with a q
 
 A fenced stop is a bounded barrier in both the Controller and Main session writer. Re-press cannot overwrite it while an earlier backend write is pending; only the latest unsent fenced stop is retained, and an explicit newer seek may supersede it. In-flight writes are still awaited, never declared cancelled. The actual native regression now enters through Manager inspect/open, Controller gesture arming/start, guarded Main apply, complete-gesture stop/retire/normalization and Manager close. Qualification/signature, IPC, input permit/retirement, Canvas acknowledgement and original HTML restoration are adapters. This is not physical-key, screen, speaker or signed-distribution acceptance.
 
-
 ## Explicit group protocol negotiation
 
 The verified playback helper has a separate `--group-playback-capabilities` query. It declares only the exact placed-pair decoded-sample protocol, two angles/one clip each, 120000 Hz image time, the existing 512 MiB charged-image budget and submitted-pair stop authority. Export revision 9, the export-budget response and receiver method presence do not establish this capability. It is not a throughput, source qualification, physical display or signature receipt.
 
 `resolveSignedNativeGroupResources` keeps normal signature/resource/hash validation before the fixed query; there is no development-policy downgrade in this composition gate. Each query has its own cancellation, 2-second termination-request deadline and 4096-byte aggregate output bound. Timeout, malformed/unknown/extra fields, stderr, old-helper exit and cancellation fail closed, and completion still waits for the actual owned child close. An SDK/OS operation which does not exit cannot be called drained. The compatible single-source startup remains unchanged. This gate is preparation for the paired provider/UI, not activation of that unfinished route.
-
 
 ## Main group backend composition
 
@@ -279,16 +274,13 @@ The verified playback helper has a separate `--group-playback-capabilities` quer
 
 Successful close requires native drain, physical child/pipe exit, surface/GPU loan drainage, hash-matching real result bytes, AVPlayerGroup success, no stopped-source clock, zero retained/quarantined bytes and a peak within the negotiated charged-image bound. It returns a separate complete-pair receipt. Uncertain factory ownership, invalid result or unconfirmed texture release retain their session; abnormal physical closure permits texture drainage but never becomes successful native drain. Activity-cleanup errors do not replace an original child/receipt failure. Ordinary same-UID filesystem trust remains the existing session-storage boundary; this is not immunity to hostile ancestor replacement. Normal source selection and two-port UI recovery remain unconnected.
 
-
 The Main group backend also exposes a separate physical-termination promise. It checks generation, actual exit/pipe closure and launch status, and returns only those fields. A failed native receipt can coexist with a known exited child. That fact may support an isolated diagnostic app's normal process teardown, but never HTML recovery success, native/GPU-drain acceptance or deletion of retained session data. A timeout or uncertain factory cannot provide this proof.
-
 
 ## Drain pending presentation without an animation frame
 
 Main sends one document/generation-scoped group drain notification when stopping demand. Preload discards pending complete or half pairs immediately, cancels RAF/demand callbacks and rejects later controls for that drained generation. A stale/foreign document or generation cannot close the current owner; a later valid owner remains usable. Last submitted stop metadata is retained independently of the discarded imports. This message is Main-to-preload only and carries no native handle, time target or successful-cleanup claim.
 
 This covers a lifecycle gap when a hidden/occluded document cannot run its queued animation callback. Returning imports still requires real transfer/acknowledgement/GPU release milestones in Main. Sending the notification does not authorize producer drain or release uncertain ownership; the existing deadlines and physical-close checks remain unchanged. It is not by itself a diagnosis of the earlier black-screen trial or proof of sustained cadence.
-
 
 ## Typed Main admission for selected angles
 
@@ -299,3 +291,13 @@ The first Host still admits only one local clip per selected angle with a nonemp
 Changing selection revokes only idle qualification. Pending lookup, opening, active, closing or held ownership rejects replacement; it does not close another session or pretend HTML recovery finished. A drained owner may be requalified under the same existing manager rules. Ordinary single-source inspect stays separate. Nonpackaged unsigned preview runtimes do not acquire production group authority through this endpoint.
 
 This connects packaged startup, typed preload IPC, authenticated Main selection, signed capability, plan/profile qualification and the existing group backend. The ordinary two-canvas UI, both original-player recovery ports and common-clock eligibility mapping are still separate unfinished work. In particular, a group stop outside the current common clip range must not restore two stale source URLs or clamp a legitimate package seek to the overlap. Do not enable the paired UI by only removing its exclusion. Qualification unit/IPC tests mock filesystem/media probes/signatures/Electron as stated; they are not signed distribution or actual two-camera/audio acceptance.
+
+### Ordinary paired surface and verified return (restricted candidate)
+
+The normal PlayerSurface now offers pair admission only for exactly two local, single-clip angles that cover the same complete package interval from zero. Existing mediaTimeline offsets and Main's canonical 120000-tick placements must agree. Unknown duration, different ends, clip/gap timelines, live capture, manual sync, unsupported profiles or absent signed group capability retain HTML playback. This restriction is not general multi-clip/angle acceptance.
+
+Each Video.js registration carries its actual player slot ID. A pair boundary registers two independent canvases (including when both URLs are equal) through one group preload binding; it never attaches a legacy one-source binding beside them. Only a matching generation's complete-pair callback reveals both canvases. The Renderer sends package angle IDs and one audio owner to inspectGroup, validates Main's returned clip/source/offset bindings, then invokes the ordinary Controller through a separate two-port gateway. Two audible original players or unknown audio selections do not get silently reassigned.
+
+A group registry binding validates the common package clock against the current timeline. Native observations already use global package time; offsets are applied only to the original source players on recovery. Main's native/transfer drainage must finish before either original is restored. Both captured source ports must independently confirm paused, seek-complete, ready images at their mapped positions before the shared lease is released. A peer error, timeout, owner/source replacement, non-finite clock or cancellation aborts this recovery attempt's listeners/new mutations and retains ownership. Browser seeks already issued cannot be physically cancelled. An exact qualified package endpoint may map to the canonical native endpoint; arbitrary seeks outside the original clip are never clamped.
+
+jsdom integration covers real boundary/surface/panel/gateway/Controller/package-clock modules with mocked IPC, canvas Drawn notification, native drain and HTML media ports. It is not real decoder, physical display/audio or signed distribution acceptance. Sustained high-rate cadence, distinct-camera synchronization, general clip/gap recovery and signed paired UI acceptance remain open; the prior experimental results do not establish those requirements.

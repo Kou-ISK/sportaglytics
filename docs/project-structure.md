@@ -485,13 +485,12 @@ Mainの`runtime/groupPresentationLedger.ts`は画像資源から独立した有�
 
 `scripts/windows/verify-package-owner.mjs` is a read-only Windows CI contract for the existing Main package-lock identity primitive. It compiles that exact small TypeScript module for execution without importing Electron or adding a production process-control API.
 
-
 `features/videoPlayer/shared/nativePlayback/nativeClosedRecoveryTime.ts` keeps closed-receipt authority and recovery-anchor calculation separate from Controller IPC/lifecycle scheduling. Main independently checks group presentation receipts against complete Drawn history; the Renderer helper does not create that authority.
 
 `preload/nativeGroupControlBridge.ts` owns bounded document-local release receipts and pair admission; `nativePlayback/nativeGroupControl.ts` validates the typed intent with Main's ledger before translating it to the Host wire format. Neither owns source qualification or permits Renderer handles/paths. Controller keeps command scheduling separate from this preload presentation authority.
 
-
 `nativePlayback/runtime/nativeGroupBackend.ts` composes group process/surface/session-storage ownership; `groupCapability.ts` parses and probes only the bounded ABI declaration. They do not select Renderer angles or replace package qualification. `nativeResources.ts` keeps signature/hash-before-probe policy at the trusted Main boundary.
 
-
 `nativePlayback/nativeGroupSourceProvider.ts` composes authenticated selected-angle qualification; `types/ipc/nativePlaybackGroup.ts` owns the narrow ID selection and Main-qualified binding schema. This does not replace the Renderer pair gateway/recovery. Shared synthetic Main header data belongs in `electron/src/testing/nativeSourceProfileFixture.ts`, which the existing build config excludes, rather than importing a test suite or emitting fixtures under production nativePlayback modules.
+
+Renderer `NativeGroupPlaybackBoundary` composes the paired surface registration hook, the group qualification/control hook and existing props-only Views. `nativeGroupTimeline` contains the restricted static timeline contract; `nativeGroupPlaybackGateway` and `nativeGroupOriginalRecovery` own the two-port transaction outside React. The shared playback registry associates the qualified group binding with its Controller for package-clock validation. The single-port gateway and legacy surface route remain separate.
