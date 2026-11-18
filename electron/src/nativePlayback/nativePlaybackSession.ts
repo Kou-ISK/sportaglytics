@@ -167,7 +167,13 @@ export class NativePlaybackSession {
   }
 
   private flush(): void {
-    if (this.delivery || (!this.pending && !this.pendingStop) || this.closing || this.error) return;
+    if (
+      this.delivery ||
+      (!this.pending && !this.pendingStop) ||
+      this.closing ||
+      this.error
+    )
+      return;
     const selected = this.pendingStop ?? this.pending;
     if (!selected) return;
     const { intent: next, allowed } = selected;
@@ -277,11 +283,22 @@ export class NativePlaybackSession {
     const directionChanged =
       Math.sign(processed.rate) !== Math.sign(this.clockRate);
     if (value.phase === 'buffering') {
+      // In the image-clock contract an exact, Main-ledger-confirmed complete
+      // pair may arrive before the initial audio-ready paused observation.
+      // Anchor only this image baseline; readiness and confirmed time remain
+      // unchanged until an actual ready observation. Source clocks cannot do this.
+      const groupImageAnchor =
+        this.scope.clockAuthority === 'drawn-pair' &&
+        this.anchoredSeek !== value.seekId &&
+        Math.abs(value.time - processed.targetTime) <= 0.000001;
+      if (groupImageAnchor) this.anchoredSeek = value.seekId;
       if (
         this.anchoredSeek !== value.seekId ||
-        (!directionChanged &&
+        (!groupImageAnchor &&
+          !directionChanged &&
           clockMovedAgainstRate(value.time, this.clockTime, this.clockRate)) ||
-        (!directionChanged &&
+        (!groupImageAnchor &&
+          !directionChanged &&
           this.scope.clockAuthority !== 'drawn-pair' &&
           this.bufferedStop?.seekId === value.seekId &&
           value.time !== this.bufferedStop.time)

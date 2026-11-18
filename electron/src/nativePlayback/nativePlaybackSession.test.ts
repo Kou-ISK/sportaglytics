@@ -1113,3 +1113,187 @@ it.each(['revoked-repress', 'close'] as const)(
       error: ending === 'close' ? null : 'owner' });
   },
 );
+
+it('anchors only a ledger-confirmed exact initial group image when reverse buffers before the initial audio-ready ACK', async () => {
+  const { backend } = make();
+  const confirmed = vi.fn(
+    (value: NativePlaybackObservation) =>
+      value.sequence === 2 &&
+      value.seekId === 1 &&
+      [3, 2.9].includes(value.time),
+  );
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [1, -0.5],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: confirmed,
+      confirmsPresentedStop: () => false,
+    },
+  );
+  session.apply(intent({ muted: false }));
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        phase: 'preparing',
+        videoReady: false,
+        audioReady: false,
+        muted: false,
+      }),
+    ),
+  ).toBe(true);
+  // A real first Drawn pair can precede AVPlayer's initial audio readiness. The
+  // next operation already has its own complete Drawn pair at the exact target.
+  session.apply(
+    intent({ sequence: 2, playing: true, rate: -0.5, muted: false }),
+  );
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        revision: 2,
+        sequence: 2,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+        muted: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(confirmed).toHaveBeenCalled();
+  expect(session.snapshot().lastConfirmedTime).toBe(0);
+  expect(session.snapshot().observation?.audioReady).toBe(false);
+  expect(
+    session.observe(
+      observation({
+        revision: 3,
+        sequence: 2,
+        phase: 'playing',
+        time: 2.9,
+        rate: -0.5,
+        muted: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(2.9);
+});
+it.each([
+  { authority: 'source-clock' as const, time: 3, proof: true },
+  { authority: 'drawn-pair' as const, time: 3, proof: false },
+  { authority: 'drawn-pair' as const, time: 3.000002, proof: true },
+  { authority: 'drawn-pair' as const, time: 2.9, proof: true },
+])(
+  'does not infer an initial buffering anchor without exact group presentation evidence: %j',
+  async ({ authority, time, proof }) => {
+    const { backend } = make();
+    const session = new NativePlaybackSession(
+      {
+        owner,
+        start: 0,
+        end: 10,
+        audioTracks: 1,
+        rates: [-0.5],
+        clockAuthority: authority,
+      },
+      {
+        ...backend,
+        confirmsPresentation: () => proof,
+        confirmsPresentedStop: () => false,
+      },
+    );
+    session.apply(intent({ rate: -0.5 }));
+    await tick();
+    expect(
+      session.observe(
+        observation({
+          phase: 'buffering',
+          time,
+          videoReady: false,
+          audioReady: false,
+        }),
+      ),
+    ).toBe(false);
+    expect(session.snapshot().error).toBe('protocol');
+    expect(session.snapshot().lastConfirmedTime).toBe(0);
+  },
+);
+
+it('reanchors a new exact group seek independently of the prior reverse direction, without relaxing subsequent monotonicity', async () => {
+  const { backend } = make();
+  const session = new NativePlaybackSession(
+    {
+      owner,
+      start: 0,
+      end: 10,
+      audioTracks: 1,
+      rates: [-0.5],
+      clockAuthority: 'drawn-pair',
+    },
+    {
+      ...backend,
+      confirmsPresentation: (value) => [3, 7, 6.9].includes(value.time),
+      confirmsPresentedStop: () => false,
+    },
+  );
+  session.apply(intent({ rate: -0.5 }));
+  await tick();
+  expect(session.observe(observation())).toBe(true);
+  session.apply(
+    intent({
+      sequence: 2,
+      seekId: 2,
+      targetTime: 7,
+      playing: true,
+      rate: -0.5,
+    }),
+  );
+  await tick();
+  expect(
+    session.observe(
+      observation({
+        revision: 2,
+        sequence: 2,
+        seekId: 2,
+        time: 7,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(3);
+  expect(
+    session.observe(
+      observation({
+        revision: 3,
+        sequence: 2,
+        seekId: 2,
+        time: 6.9,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(true);
+  expect(
+    session.observe(
+      observation({
+        revision: 4,
+        sequence: 2,
+        seekId: 2,
+        time: 7,
+        phase: 'buffering',
+        videoReady: false,
+        audioReady: false,
+      }),
+    ),
+  ).toBe(false);
+  expect(session.snapshot().error).toBe('protocol');
+});
