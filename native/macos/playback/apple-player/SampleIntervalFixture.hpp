@@ -21,7 +21,7 @@ NSData* jpeg(size_t width, size_t height, uint8_t grey) {
   CFRelease(destination); CGImageRelease(image); CGColorSpaceRelease(color); CGDataProviderRelease(provider);
   return data;
 }
-void fixture(NSURL* url, bool precise, int width = 16, int height = 16, int constantGrey = -1, bool withAudio = false, int sampleCount = 8) {
+void fixture(NSURL* url, bool precise, int width = 16, int height = 16, int constantGrey = -1, bool withAudio = false, int sampleCount = 8, int64_t sessionStartTicks = 0) {
   assert(sampleCount > 0 && sampleCount <= 512);
   NSError* error = nil;
   auto writer = [[AVAssetWriter alloc] initWithURL:url fileType:AVFileTypeQuickTimeMovie error:&error];
@@ -42,7 +42,7 @@ void fixture(NSURL* url, bool precise, int width = 16, int height = 16, int cons
     audio = [[AVAssetWriterInput alloc] initWithMediaType:AVMediaTypeAudio outputSettings:nil sourceFormatHint:audioFormat];
     assert([writer canAddInput:audio]); [writer addInput:audio];
   }
-  assert([writer startWriting]); [writer startSessionAtSourceTime:kCMTimeZero];
+  assert([writer startWriting]); [writer startSessionAtSourceTime:CMTimeMake(sessionStartTicks, 120000)];
   int64_t pts = 0;
   for (int n = 0; n < sampleCount; ++n) {
     NSData* image = jpeg(width, height, uint8_t(constantGrey >= 0 ? constantGrey : 40 + (n % 8) * 20));

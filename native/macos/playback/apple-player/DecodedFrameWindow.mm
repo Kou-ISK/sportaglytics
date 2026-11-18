@@ -1,6 +1,6 @@
 #import "DecodedFrameWindow.hpp"
 #include "ReverseFrameCache.hpp"
-#include "SourceClockTicks.hpp"
+#include "TrackEditTime.hpp"
 #include "DecodeAnchor.hpp"
 #include "DiscardableAvcSample.hpp"
 #import <AVFoundation/AVFoundation.h>
@@ -117,6 +117,7 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
     VTDecompressionSessionRef session = nullptr;
     size_t samples = 0, bytes = 0;
     bool covered = false;
+    std::optional<CMTimeMapping> edit;
     std::deque<SampleTime> timings;
     @try {
       try {
@@ -139,9 +140,15 @@ void decode(NSURL *url, const std::shared_ptr<Work> &work) {
           auto pts = appleplayback::sourceTicks(originalPTS), end = appleplayback::sourceTicks(CMTimeAdd(originalPTS, originalDuration));
           auto outPTS = appleplayback::sourceTicks(outputPTS), outEnd = appleplayback::sourceTicks(CMTimeAdd(outputPTS, outputDuration));
           if (!pts || !end || *pts >= *end || !outPTS || !outEnd || *outPTS >= *outEnd) { work->failure = Timing; break; }
-          const bool wanted = *pts < work->end && *end > work->start;
+          const bool wanted = *outPTS < work->end && *outEnd > work->start;
           if (wanted && (CMTimeCompare(outputPTS, originalPTS) || CMTimeCompare(outputDuration, originalDuration))) {
-            work->failure = Timing; break; // unsupported retiming/trim, not a tolerance fallback
+            if (!edit) {
+              NSArray<AVAssetTrackSegment *> *segments = tracks.firstObject.segments;
+              if (segments.count == 1 && !segments.firstObject.empty) edit = segments.firstObject.timeMapping;
+            }
+            if (!edit || !appleplayback::matchesUnitRateEdit(*edit, originalPTS, originalDuration, outputPTS, outputDuration)) {
+              work->failure = Timing; break;
+            }
           }
           auto format = CMSampleBufferGetFormatDescription(raw);
           if (!format) { work->failure = Format; break; }

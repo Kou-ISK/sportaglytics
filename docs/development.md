@@ -613,6 +613,8 @@ surfaceのunbindは登録ごとのtokenに所属し、同じcanvasを再利用�
 
 `DecodedFrameWindow.test.mm`は自作JPEG passthrough素材で、実圧縮sampleから復号した画像のPTS/内容、VFR/coarse timebase、取消、素材差し替え、欠損、予算不足と実worker排出を検査する。`test:native-runtime`に含み、実装はhelperのsource/recipe hashへ含める。H.264 encoderの利用可能性、実画面、署名配布の受入とは別である。
 
+復号器はトラックの提示時刻で区間を選ぶ。圧縮サンプルの元時刻と提示時刻が異なる場合は、単一の空でない等速編集区間にサンプル全体が収まり、編集情報で計算した提示時刻と尺が正確に一致することを検査する。VTのコールバックも同じ提示時刻と尺を返す必要がある。自作の先頭トリム付きVFR素材で先頭画像を照合する。
+
 限定group Hostは`pnpm run native:build && pnpm run test:native-group-player-host`で確認する。Main manifest関数を実コンパイルし、既存のowned backendから実FIFOへ制御を送り、実helperと音声用AVPlayerと二つの圧縮reader/decoderからMach receiverへ画像を受け取る。両側のDrawnはsynthetic ACKであり、Electron画面や音声の合格とはしない。`test:native-runtime`は`GroupPlayerSource`/`GroupPlayerPair`の実AVPlayer・VFR区間/offset・旧seek完了・片側close・共有loan保持も含む。fixtureはImageIO JPEG passthroughでプロセス専用先に生成し、実worker/所有者の排出確認後にその所有物だけを削除する。原本や既存出力の削除を含まない。通常providerのgroup能力交渉・Controller・package clip切替は未接続のため、現行defaultを有効化しない。
 
 `DecodedFrameWindow.test.mm` also checks actual VFR cursor containment, exact boundaries and cancelled anchor lookup. `DecodeAnchor.hpp` bounds the reverse metadata walk at 512 samples and retains the prior reader fallback for unsupported metadata. Performance comparisons must keep the same requested windows and report source/GOP position, order, cache condition, pixel/PTS checks and producer-versus-display boundary.

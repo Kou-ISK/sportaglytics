@@ -103,3 +103,8 @@ Repeated full-sync preroll, rather than requested-image copying alone, remains a
 ### Preserve a proven stopped image independently of decode banks
 
 Decode-bank eviction is not authority to change the displayed stop or force a new decode for it. Keep four fixed, own-source successful-publication pins per source, sharing existing pixel leases and budget. Only the transport's validated complete-pair stop proof permits using the matching pair/interval; a pin alone grants no presentation, source or audio readiness. Revalidate the file and reject known decoder failure before reuse. Missing pins retain normal finite seeking. New seek/source lifecycle and close revoke pins; actual workers and audio completions must still drain. Fixed slots avoid introducing a heap allocation after a complete pair has already been sent. The bounded retention may extend image-loan lifetime but never increases the configured image budget or reserves OS/GPU memory.
+
+
+### Map a translated media sample to its track timeline
+
+A container edit can shift every sample on a track by a fixed offset. Selecting intervals by raw media PTS in that case chooses the wrong timeline. Use the sample buffer's output presentation interval for selection. When the input and output timings differ, require one nonempty unit-rate edit with exact translation and unchanged duration for the entire sample. Continue to verify the timestamp and duration reported by the decoder. Apply the package camera offset separately when projecting track time onto the shared clock. Unverified timing fails the decode request. Source profile and transport admission remain independent prerequisites.

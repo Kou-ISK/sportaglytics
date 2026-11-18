@@ -1,6 +1,7 @@
 #import "DecodedFrameReferenceFixture.hpp"
 #import "DecodedFrameWindow.hpp"
 #import "DecodeAnchor.hpp"
+#include "TrackEditTime.hpp"
 #include <cstdio>
 void wait(STDecodedFrameWindow *decoder) {
   double end = CACurrentMediaTime() + 7;
@@ -28,6 +29,7 @@ int main() { @autoreleasepool {
   chosen = appleplayback::decodeAnchor(tracks.firstObject, CMTimeMake(6006, 120000), kCMTimeZero, [] { return true; });
   assert(CMTimeCompare(chosen, kCMTimeZero) == 0);
   appleplayback::FrameBudget budget(64 * 1024 * 1024);
+  const uint8_t secondSampleLuma = referenceComponent(directory, 16, 16, 60);
   auto decoder = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:*appleplayback::sourceFileRevision(url)];
   assert([decoder requestStart:0 end:24024] && ![decoder requestStart:0 end:24024]); wait(decoder);
   if (decoder.failed) fprintf(stderr, "decoder code=%ld underlying=%ld\n", (long)decoder.error.code, (long)[decoder.error.userInfo[NSUnderlyingErrorKey] code]);
@@ -42,7 +44,7 @@ int main() { @autoreleasepool {
     // JPEG's coded full-range component is returned by this decoder, unlike
     // AVPlayer's colour-converted output. This test identifies the original
     // distinct sample; it is not general BT.709/limited-range qualification.
-    assert(y == referenceComponent(directory, 16, 16, 60));
+    assert(y == secondSampleLuma);
     CVPixelBufferUnlockBaseAddress(first->image(), kCVPixelBufferLock_ReadOnly);
     [decoder close]; assert(decoder.drained && ![decoder select:4004] && budget.usedBytes() > 0);
   }
@@ -75,6 +77,26 @@ int main() { @autoreleasepool {
   assert([coarse requestStart:0 end:24000]); wait(coarse);
   { auto image = [coarse select:2001]; assert(image && std::llround(image->pts() * 120000) == 2000); }
   [coarse close]; assert(budget.usedBytes() == 0);
+  // The writer drops the first interval from the presentation timeline.
+  auto editedURL = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"translated.mov"]];
+  fixture(editedURL, true, 16, 16, -1, false, 8, 2002);
+  auto edited = [[STDecodedFrameWindow alloc] initWithURL:editedURL budget:budget sourceRevision:*appleplayback::sourceFileRevision(editedURL)];
+  assert([edited requestStart:0 end:4004]); wait(edited);
+  { auto first = [edited select:0]; assert(!edited.failed && first && first->pts() == 0 && llround(first->end()*120000) == 4004);
+    assert(CVPixelBufferLockBaseAddress(first->image(), kCVPixelBufferLock_ReadOnly) == 0);
+    const auto actual = *static_cast<const uint8_t*>(CVPixelBufferGetBaseAddressOfPlane(first->image(), 0));
+    CVPixelBufferUnlockBaseAddress(first->image(), kCVPixelBufferLock_ReadOnly);
+    assert(actual == secondSampleLuma); }
+  [edited close]; assert(budget.usedBytes() == 0);
+  const auto time = [](int value) { return CMTimeMake(value, 120000); };
+  const CMTimeMapping mapping{CMTimeRangeMake(time(2002), time(8008)), CMTimeRangeMake(time(0), time(8008))};
+  assert(appleplayback::matchesUnitRateEdit(mapping, time(2002), time(4004), time(0), time(4004)));
+  assert(!appleplayback::matchesUnitRateEdit(mapping, time(2001), time(4004), time(0), time(4004)));
+  assert(!appleplayback::matchesUnitRateEdit(mapping, time(8008), time(4004), time(6006), time(4004)));
+  assert(!appleplayback::matchesUnitRateEdit(mapping, time(2002), time(4004), time(1), time(4004)));
+  assert(!appleplayback::matchesUnitRateEdit(mapping, time(2002), time(4004), time(0), time(2002)));
+  assert(!appleplayback::matchesUnitRateEdit({mapping.source,CMTimeRangeMake(time(0),time(16016))},
+                                             time(2002), time(4004), time(0), time(4004)));
   auto replacement = [NSURL fileURLWithPath:[directory stringByAppendingPathComponent:@"replacement.mov"]]; fixture(replacement, true);
   auto originalRevision = *appleplayback::sourceFileRevision(url);
   auto changed = [[STDecodedFrameWindow alloc] initWithURL:url budget:budget sourceRevision:originalRevision];
