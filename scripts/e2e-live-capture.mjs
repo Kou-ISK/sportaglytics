@@ -360,6 +360,25 @@ try {
       };
     };
     globalThis.captureTransitions = [];
+    // Bound clock-assignment observations to the synthetic capture element.
+    const element = globalThis.initialCaptureVideo;
+    const nativeClock = Object.getOwnPropertyDescriptor(HTMLMediaElement.prototype, 'currentTime');
+    if (!nativeClock?.get || !nativeClock?.set || Object.hasOwn(element, 'currentTime'))
+      throw Error('Synthetic capture clock observer unavailable');
+    Object.defineProperty(element, 'currentTime', {
+      configurable: true,
+      get() { return nativeClock.get.call(this); },
+      set(value) {
+        const before = nativeClock.get.call(this);
+        const at = performance.now();
+        nativeClock.set.call(this, value);
+        globalThis.captureTransitions.push({
+          type: 'clock-assigned', deliveredMs: at, time: before, target: value,
+          seeking: this.seeking, ready: this.readyState,
+        });
+        if (globalThis.captureTransitions.length > 128) globalThis.captureTransitions.shift();
+      },
+    });
     for (const type of ['seeking', 'seeked', 'waiting', 'playing', 'stalled', 'canplay']) {
       globalThis.initialCaptureVideo.addEventListener(type, (event) => {
         const video = globalThis.initialCaptureVideo;
@@ -367,6 +386,8 @@ try {
         globalThis.captureTransitions.push({
           type, eventMs: event.timeStamp, deliveredMs: performance.now(),
           time: video.currentTime, ready: video.readyState, seeking: video.seeking,
+          frames: video.getVideoPlaybackQuality().totalVideoFrames,
+          dropped: video.getVideoPlaybackQuality().droppedVideoFrames,
           bufferEnd: ranges.length ? ranges.end(ranges.length - 1) : null,
         });
         if (globalThis.captureTransitions.length > 128) globalThis.captureTransitions.shift();
@@ -429,6 +450,7 @@ try {
     () => globalThis.captureClock.currentTime,
   );
   const playback = await main.evaluate(() => {
+    delete globalThis.initialCaptureVideo.currentTime;
     clearInterval(globalThis.captureTraceTimer);
     globalThis.stopCaptureTraceState?.();
     return {
