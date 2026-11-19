@@ -660,3 +660,39 @@ it('confirms the first destination image when a clip switch defers the player se
   await work;
   expect(done.mock.calls[0][0]).toBeCloseTo(9.29);
 });
+
+it.each([false, true])(
+  'repeated paused seek only retains its own exact image without an intervening move (%s)',
+  async (movedAway) => {
+    const f = setup();
+    const done = vi.fn();
+    const work = waitForVideoPresentation(
+      [f.target],
+      new AbortController().signal,
+      () => {
+        f.video.currentTime = f.target.time;
+      },
+      true,
+    ).then(done);
+    f.video.dispatchEvent(new Event('seeking'));
+    f.image(f.target.time);
+    if (movedAway) {
+      f.video.currentTime = 0;
+      f.video.dispatchEvent(new Event('seeking'));
+      f.video.currentTime = f.target.time;
+    }
+    f.video.dispatchEvent(new Event('seeking'));
+    f.paint();
+    f.paint();
+    await Promise.resolve();
+    if (movedAway) {
+      expect(done).not.toHaveBeenCalled();
+      f.image(f.target.time);
+      f.paint();
+      f.paint();
+      await Promise.resolve();
+    }
+    expect(done).toHaveBeenCalledOnce();
+    await work;
+  },
+);
