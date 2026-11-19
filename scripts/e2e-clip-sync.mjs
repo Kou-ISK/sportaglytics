@@ -411,6 +411,15 @@ try {
   await page.locator('iframe[src*="dQw4w9WgXcQ"]').waitFor({
     timeout: 30_000,
   });
+  // The detached timeline and embedded player can take keyboard focus.
+  await (await electronApp.browserWindow(page)).evaluate((win) => win.focus());
+  await page.evaluate(() => {
+    if (document.activeElement instanceof HTMLIFrameElement)
+      document.activeElement.blur();
+  });
+  await page.waitForFunction(
+    () => document.hasFocus() && document.activeElement?.tagName !== 'IFRAME',
+  );
   await page.keyboard.press(`${primaryModifier}+Shift+T`);
   await page
     .getByLabel('アングル同期ワークスペース', { exact: true })

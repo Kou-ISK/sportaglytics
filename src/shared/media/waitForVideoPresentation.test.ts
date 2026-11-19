@@ -311,6 +311,29 @@ it('confirms a requested clip transition only after the new source loads and del
   expect(done).toHaveBeenCalledOnce();
 });
 
+it('confirms the new clip frame presented between metadata and loadeddata in an exact scrub', async () => {
+  const f = setup();
+  const target = { ...f.target, source: 'file:///next.mp4' };
+  const remove = vi.spyOn(f.video, 'removeEventListener');
+  const work = waitForVideoPresentation(
+    [target],
+    new AbortController().signal,
+    () => {},
+    true,
+  );
+  f.video.dispatchEvent(new Event('loadstart'));
+  Object.defineProperty(f.video, 'currentSrc', { value: target.source });
+  f.video.currentTime = target.time;
+  f.video.dispatchEvent(new Event('loadedmetadata'));
+  f.image(target.time);
+  f.video.dispatchEvent(new Event('loadeddata'));
+  f.paint();
+  f.paint();
+  expect(await work).toBeCloseTo(target.time - target.offset);
+  expect(remove).toHaveBeenCalledWith('loadedmetadata', expect.any(Function));
+  expect(remove).toHaveBeenCalledWith('loadeddata', expect.any(Function));
+});
+
 it('rejects a second unexpected reload after an intended clip transition', async () => {
   const f = setup();
   const target = { ...f.target, source: 'file:///next.mp4' };

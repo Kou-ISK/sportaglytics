@@ -126,8 +126,10 @@ export const waitForVideoPresentation = (
       for (const [video, id] of callbacks) video.cancelVideoFrameCallback(id);
       for (const [video, listener] of seekListeners)
         video.removeEventListener('seeking', listener);
-      for (const [video, listener] of sourceListeners)
+      for (const [video, listener] of sourceListeners) {
+        video.removeEventListener('loadedmetadata', listener);
         video.removeEventListener('loadeddata', listener);
+      }
       signal.removeEventListener('abort', aborted);
     };
     const finish = (error?: Error): void => {
@@ -267,6 +269,8 @@ export const waitForVideoPresentation = (
           register(target);
         };
         sourceListeners.set(target.video, loaded);
+        // Chromium may present the first destination image before loadeddata.
+        target.video.addEventListener('loadedmetadata', loaded);
         target.video.addEventListener('loadeddata', loaded);
       }
       register(target);

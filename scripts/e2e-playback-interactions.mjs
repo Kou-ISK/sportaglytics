@@ -6,6 +6,18 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
   const axis = timeline.getByTestId('timeline-time-origin');
   const box = await axis.boundingBox();
   const target = 2;
+  await timeline.evaluate(() => {
+    const api = window.electronAPI.timelineWindow;
+    const record = ({ currentTime }) => {
+      window.__interactionClock = currentTime;
+    };
+    const offClock = api.onClock(record);
+    const offSync = api.onSync(record);
+    window.__stopInteractionClock = () => {
+      offClock();
+      offSync();
+    };
+  });
   await timeline.mouse.click(box.x + (box.width * target) / 14, box.y + 8);
   await timeline.waitForFunction(
     () =>
@@ -17,6 +29,13 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
         ) - 2,
       ) < 0.02,
   );
+  // The detached ruler previews immediately. Require the owner's confirmed cut
+  // before testing that a subsequent lane click leaves the clock unchanged.
+  await timeline.waitForFunction(
+    (time) => Math.abs(window.__interactionClock - time) < 0.02,
+    target,
+  );
+  await timeline.evaluate(() => window.__stopInteractionClock());
   await timeline
     .getByTestId('timeline-lane-Attack')
     .click({ position: { x: 5, y: 20 } });
