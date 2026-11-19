@@ -29,6 +29,36 @@ const createVideo = () => {
   return video;
 };
 describe('Playlist package video adapter', () => {
+  it('keeps the last angle frame mounted at the exact endpoint, preserving internal gaps', () => {
+    const video = createVideo();
+    const player = new TimelineVideoAdapter(video, timeline);
+    expect(player.sync(12, false, true)).toBe(true);
+    expect(video.currentTime).toBe(6);
+    expect(video.style.visibility).not.toBe('hidden');
+    player.sync(5.5, false, true);
+    expect(video.style.visibility).toBe('hidden');
+  });
+  it('pauses a running clock before assigning a precise stopped position', () => {
+    const video = createVideo();
+    const log: string[] = [];
+    Object.defineProperty(video, 'paused', { get: () => !running });
+    let running = true,
+      clock = 0;
+    vi.mocked(video.pause).mockImplementation(() => {
+      running = false;
+      log.push('pause');
+    });
+    Object.defineProperty(video, 'currentTime', {
+      get: () => clock,
+      set: (v: number) => {
+        clock = v;
+        log.push('seek');
+      },
+    });
+    new TimelineVideoAdapter(video, timeline).sync(3, false, true);
+    expect(log.indexOf('pause')).toBeLessThan(log.indexOf('seek'));
+    expect(clock).toBe(4);
+  });
   it('does not suppress the small first step of a 0.5x held reverse seek', () => {
     const video = createVideo();
     const player = new TimelineVideoAdapter(video, timeline);

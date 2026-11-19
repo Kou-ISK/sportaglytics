@@ -1,8 +1,8 @@
+import { PlaylistScrubSlider } from '../components/PlaylistScrubSlider';
 import { studioControlLayout } from './studioControlLayout';
 import { mediaChromeSx } from '../../../design-system/mediaChrome';
 import type { ReactElement } from 'react';
 import {
-  Slider,
   InputAdornment,
   ToggleButton,
   ToggleButtonGroup,
@@ -13,6 +13,7 @@ import {
 import { MovieTransportView } from '../../../components/ui';
 
 export interface StudioTransportViewProps {
+  scrubOwnerKey?: string;
   coachMode?: boolean;
   onCoachModeChange?: (value: boolean) => void;
   time: number;
@@ -22,6 +23,7 @@ export interface StudioTransportViewProps {
   disabled: boolean;
   freezeDuration: number;
   onSeek: (time: number) => void;
+  onScrub?: (time: number, final: boolean) => void;
   onTogglePlay: () => void;
   onFreezeDurationChange: (duration: number) => void;
 }
@@ -44,17 +46,19 @@ export const StudioTransportView = (
     ]}
   >
     {props.coachMode && (
-      <Slider
-        size="small"
+      <PlaylistScrubSlider
+        key={props.scrubOwnerKey}
         aria-label="Paint 再生位置"
         min={props.min}
         max={Math.max(props.min + 0.001, props.max)}
-        step={0.01}
-        value={props.time}
+        time={props.time}
         disabled={props.disabled}
-        onChange={(_, value) => {
-          if (typeof value === 'number') props.onSeek(value);
-        }}
+        onPreview={(_, time) =>
+          props.onScrub ? props.onScrub(time, false) : props.onSeek(time)
+        }
+        onCommit={(time) =>
+          props.onScrub ? props.onScrub(time, true) : props.onSeek(time)
+        }
       />
     )}
     <Stack

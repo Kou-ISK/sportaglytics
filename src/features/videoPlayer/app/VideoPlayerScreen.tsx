@@ -57,6 +57,7 @@ export const VideoPlayerScreen = (): React.ReactElement => {
     setVideoList,
     currentTime,
     playbackTime,
+    scrubbing,
     seekReverse,
     setCurrentTime,
     setTimelineFilePath,
@@ -473,6 +474,7 @@ export const VideoPlayerScreen = (): React.ReactElement => {
         videoPlayBackRate={videoPlayBackRate}
         currentTime={currentTime}
         playbackTime={playbackTime}
+        scrubbing={scrubbing}
         setCurrentTime={setCurrentTime}
         setisVideoPlaying={setisVideoPlaying}
         setVideoPlayBackRate={setVideoPlayBackRate}

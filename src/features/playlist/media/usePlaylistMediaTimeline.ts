@@ -12,6 +12,7 @@ import {
   singleSourceTimeline,
 } from '../../../shared/media/mediaTimeline';
 import type { UsePlaylistPlaybackParams } from '../hooks/playlist/usePlaylistPlayback.types';
+import { resolveMediaDisplayTime } from '../../../shared/media/mediaDisplayTime';
 import { TimelineVideoAdapter } from './TimelineVideoAdapter';
 
 interface TimelineCallbacks {
@@ -29,10 +30,11 @@ export const usePlaylistMediaTimeline = (
   error: string;
   retry: () => void;
   seek: (time: number, publish?: boolean) => boolean;
-  confirmSeek: () => void;
+  confirmSeek: (confirmed?: number) => void;
   resolve: (
     time: number,
     secondary: boolean,
+    includeEnd?: boolean,
   ) => ReturnType<typeof resolveMediaTime> | undefined;
 } => {
   const primary =
@@ -58,6 +60,7 @@ export const usePlaylistMediaTimeline = (
   }, [params]);
   const adapters = useRef<Array<TimelineVideoAdapter | null>>([]);
   const time = useRef(0);
+  const confirmedTime = useRef(0);
   const ended = useRef(false);
   const awaitingPresentation = useRef(false);
   const retry = useCallback((): void => setRevision((value) => value + 1), []);
@@ -107,9 +110,22 @@ export const usePlaylistMediaTimeline = (
   }, [active, primary, secondary, sourceKey, revision]);
 
   const itemKey = `${params.currentItem?.id}:${params.currentItem?.startTime}:${params.currentItem?.endTime}`;
+  const confirmSeek = useCallback((confirmed?: number): void => {
+    if (!awaitingPresentation.current) return;
+    if (confirmed !== undefined) confirmedTime.current = confirmed;
+    else {
+      time.current = confirmedTime.current;
+      adapters.current.forEach((adapter) => adapter?.invalidatePosition());
+    }
+    awaitingPresentation.current = false;
+  }, []);
+  useLayoutEffect(() => {
+    confirmSeek();
+  }, [confirmSeek, itemKey, params.workspaceMode, params.viewMode, sourceKey, resolved]);
   useEffect(() => {
     if (!active) return;
     time.current = latest.current.currentItem?.startTime ?? 0;
+    confirmedTime.current = time.current;
     adapters.current.forEach((adapter) => adapter?.invalidatePosition());
     ended.current = false;
     latest.current.setCurrentTime(time.current);
@@ -150,6 +166,7 @@ export const usePlaylistMediaTimeline = (
       const players = adapters.current;
       const playing =
         current.isPlaying &&
+        !awaitingPresentation.current &&
         !current.isFrozen &&
         !ended.current &&
         !error &&
@@ -162,6 +179,7 @@ export const usePlaylistMediaTimeline = (
       try {
         let annotationSeek = false;
         if (
+          !awaitingPresentation.current &&
           !current.isFrozen &&
           !error &&
           !ended.current &&
@@ -211,8 +229,10 @@ export const usePlaylistMediaTimeline = (
         const ready = players.length > 0 && readiness.every(Boolean);
         if (!ready) players.forEach((adapter) => adapter?.video.pause());
         if (ready && !error && !current.isFrozen) {
-          if (!awaitingPresentation.current)
+          if (!awaitingPresentation.current) {
+            confirmedTime.current = time.current;
             callbacks.current.onTime(time.current);
+          }
           if (
             playing &&
             time.current >= (current.currentItem?.endTime ?? Infinity) &&
@@ -277,16 +297,19 @@ export const usePlaylistMediaTimeline = (
     error: active ? error : '',
     retry,
     seek,
-    confirmSeek: () => {
-      awaitingPresentation.current = false;
-    },
-    resolve: (value, isSecondary) => {
+    confirmSeek,
+    resolve: (value, isSecondary, includeEnd) => {
       if (!active) return undefined;
       const timeline =
         resolved?.key === sourceKey
           ? resolved.timelines[isSecondary ? 1 : 0]
           : null;
-      return timeline ? resolveMediaTime(timeline, value) : null;
+      return timeline
+        ? (includeEnd ? resolveMediaDisplayTime : resolveMediaTime)(
+            timeline,
+            value,
+          )
+        : null;
     },
   };
 };

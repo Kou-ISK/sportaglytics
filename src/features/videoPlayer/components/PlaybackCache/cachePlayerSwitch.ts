@@ -5,6 +5,7 @@ import {
 import { CachePlayerDurationError } from './cachePlayerDurationError';
 /** Media adapter keeps this transaction independent of React and Video.js. */
 export interface CachePlayerPort {
+  presentationElement?: () => HTMLVideoElement | null;
   paused: () => boolean;
   time: () => number;
   duration: () => number;

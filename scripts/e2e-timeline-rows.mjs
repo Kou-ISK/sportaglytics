@@ -915,6 +915,10 @@ try {
     await waitForCount(4);
 
     // Context-menu deletion has the same multi-selection semantics as Delete.
+    // Backspace above intentionally runs immediately. This next gesture starts
+    // a separate selection after undo; wait for the previous menu to release
+    // keyboard focus before targeting the timeline region.
+    await page.locator('[role="menu"]').waitFor({ state: 'detached' });
     await page
       .getByRole('region', { name: 'タイムライン', exact: true })
       .focus();

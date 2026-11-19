@@ -1,11 +1,18 @@
-import { waitForVideoPresentation } from '../../../../shared/media/waitForVideoPresentation';
-import type { VideoPresentationTarget } from '../../../../shared/media/waitForVideoPresentation';
-import { formatSource } from '../../../../shared/media/videoSource';
+import { useScrubPreview } from './useScrubPreview';
+import { TimelineScrub } from '../../../../shared/media/timelineScrub';
 import {
-  getAngleOffset,
-  resolveMediaTime,
-} from '../../../../shared/media/mediaTimeline';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+  videoPresentationTargets,
+  waitForMountedTargets,
+} from './videoPresentationTargets';
+import { waitForVideoPresentation } from '../../../../shared/media/waitForVideoPresentation';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import type { VideoSeekMode } from '../../../../types/video/seek';
@@ -13,10 +20,15 @@ import {
   getVideoJsPlayer,
   setVideoJsPlayerCurrentTime,
 } from '../../shared/videojs/videoJsAdapter';
-import { getNativePlayback } from '../../shared/nativePlayback/nativePlaybackRegistry';
+import {
+  getNativePlayback,
+  subscribeNativePlayback,
+} from '../../shared/nativePlayback/nativePlaybackRegistry';
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 
 type UseVideoTimeControllerParams = {
+  onScrubFailure?: () => void;
+  isVideoPlaying?: boolean;
   videoList: string[];
   syncData: VideoSyncData | undefined;
   syncMode: 'auto' | 'manual';
@@ -117,6 +129,8 @@ const seekEachPlayer = ({
 };
 
 export const useVideoTimeController = ({
+  onScrubFailure,
+  isVideoPlaying,
   videoList,
   syncData,
   syncMode,
@@ -124,6 +138,7 @@ export const useVideoTimeController = ({
 }: UseVideoTimeControllerParams): {
   currentTime: number;
   playbackTime: number;
+  scrubbing: boolean;
   seekReverse: (time: number, signal: AbortSignal) => Promise<number | null>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
   handleCurrentTime: (
@@ -132,15 +147,43 @@ export const useVideoTimeController = ({
     seekMode?: VideoSeekMode,
   ) => void;
 } => {
+  const failedScrub = useRef(false);
+  useEffect(() => {
+    if (isVideoPlaying) failedScrub.current = false;
+  }, [isVideoPlaying]);
   const [currentTime, setConfirmedTime] = useState(0);
   const [reverseDemand, setReverseDemand] = useState<number | null>(null);
+  const [scrubDemand, setScrubDemand] = useState<number | null>(null);
+  const preview = useScrubPreview(
+    videoList,
+    mediaAngles,
+    syncData,
+    syncMode,
+    currentTime,
+    !!isVideoPlaying || scrubDemand !== null,
+  );
+  const previewRevision = useRef(0);
+  const scrub = useRef<TimelineScrub | null>(null);
+  const nativeDrag = useRef<{
+    owner: NonNullable<ReturnType<typeof getNativePlayback>>;
+    input: string;
+    revision: number;
+  } | null>(null);
+  const cancelScrub = useCallback(() => {
+    previewRevision.current++;
+    preview.current?.end();
+    if (!scrub.current) return;
+    scrub.current.cancel();
+    scrub.current = null;
+    setScrubDemand(null);
+  }, [preview]);
   const reverseAbort = useRef<AbortController | null>(null);
   const reverseAbortOwner = useRef<object | null>(null);
   // Legacy polling reads currentTime immediately after assignment. While a held
   // seek owns presentation it cannot promote that unconfirmed value to tags.
   const setCurrentTime = useCallback<Dispatch<SetStateAction<number>>>(
     (value) => {
-      if (!reverseAbort.current) setConfirmedTime(value);
+      if (!reverseAbort.current && !scrub.current && !failedScrub.current) setConfirmedTime(value);
     },
     [],
   );
@@ -152,12 +195,14 @@ export const useVideoTimeController = ({
   currentOwner.current = seekOwner;
   useEffect(() => {
     currentOwner.current = seekOwner;
+    failedScrub.current = false;
     return () => {
       if (currentOwner.current === seekOwner) currentOwner.current = null;
       if (reverseAbortOwner.current === seekOwner)
         reverseAbort.current?.abort();
     };
   }, [seekOwner]);
+  useLayoutEffect(() => () => cancelScrub(), [seekOwner, cancelScrub]);
   const pendingSeekRef = useRef<number | null>(null);
   const seekFrameRef = useRef<number | null>(null);
   const seekEndTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -172,6 +217,107 @@ export const useVideoTimeController = ({
     [],
   );
 
+  const presentPosition = useCallback(
+    async (
+      time: number,
+      signal: AbortSignal,
+      timeline = false,
+    ): Promise<number | null> => {
+      if (signal.aborted || currentOwner.current !== seekOwner)
+        throw Error('REVERSE_CANCELLED');
+      const abort = new AbortController();
+      reverseAbort.current?.abort();
+      reverseAbort.current = abort;
+      reverseAbortOwner.current = seekOwner;
+      pendingSeekRef.current = null;
+      if (seekFrameRef.current !== null)
+        cancelAnimationFrame(seekFrameRef.current);
+      seekFrameRef.current = null;
+      if (seekEndTimerRef.current !== null)
+        clearTimeout(seekEndTimerRef.current);
+      seekEndTimerRef.current = null;
+      let started = false;
+      const cancel = (): void => abort.abort();
+      signal.addEventListener('abort', cancel, { once: true });
+      try {
+        const readTargets = () =>
+          videoPresentationTargets(
+            time,
+            videoList,
+            mediaAngles,
+            syncData,
+            timeline,
+          );
+        let targets = readTargets();
+        if (!targets) {
+          if (!timeline) throw Error('REVERSE_VIDEO_UNAVAILABLE');
+          setScrubDemand(time);
+          targets = await waitForMountedTargets(readTargets, abort.signal);
+        }
+        const measured = await waitForVideoPresentation(
+          targets,
+          abort.signal,
+          () => {
+            if (timeline) setScrubDemand(time);
+            else setReverseDemand(time);
+            started = true;
+            dispatchSeekEvent('video-seek-start', time, 'exact', true);
+            seekEachPlayer({
+              timeClamped: time,
+              videoList,
+              syncData,
+              isManualMode: false,
+              mediaAngles,
+            });
+          },
+          timeline,
+        );
+        if (
+          signal.aborted ||
+          abort.signal.aborted ||
+          currentOwner.current !== seekOwner
+        )
+          throw Error('REVERSE_CANCELLED');
+        if (!timeline) setConfirmedTime(measured ?? time);
+        return measured;
+      } finally {
+        signal.removeEventListener('abort', cancel);
+        if (reverseAbort.current === abort) {
+          reverseAbort.current = null;
+          reverseAbortOwner.current = null;
+          setReverseDemand(null);
+          if (started && currentOwner.current === seekOwner)
+            dispatchSeekEvent('video-seek-end');
+        }
+      }
+    },
+    [mediaAngles, seekOwner, syncData, videoList],
+  );
+  const seekReverse = useCallback(
+    (time: number, signal: AbortSignal): Promise<number | null> => {
+      cancelScrub();
+      failedScrub.current = false;
+      return presentPosition(time, signal);
+    },
+    [cancelScrub, presentPosition],
+  );
+  useEffect(() => {
+    const finish = (): void => {
+      if (scrub.current?.input === 'timeline-window-seek') {
+        previewRevision.current++;
+        preview.current?.end();
+        scrub.current.finishPreview();
+      }
+    };
+    window.addEventListener('timeline-window-preview-end', finish);
+    const unsubscribe = subscribeNativePlayback(() => {
+      if (getNativePlayback()) cancelScrub();
+    });
+    return () => {
+      unsubscribe();
+      window.removeEventListener('timeline-window-preview-end', finish);
+    };
+  }, [cancelScrub, preview]);
   const handleCurrentTime = useCallback(
     (
       _event: SyntheticEvent | Event,
@@ -180,12 +326,85 @@ export const useVideoTimeController = ({
     ): void => {
       // Unmount cleanup from an old timeline cannot seek a replacement source.
       if (currentOwner.current !== seekOwner) return;
+      const native = getNativePlayback();
+      const nativeOwned = native !== null;
+      const drag = nativeDrag.current;
+      if (
+        native &&
+        seekMode === 'scrub' &&
+        (drag?.input !== _event.type ||
+          drag.owner !== native ||
+          drag.revision !== native.seekRevision)
+      )
+        return;
+      if (seekMode !== 'preview') nativeDrag.current = null;
+      const time = typeof newValue === 'number' ? newValue : Number.NaN;
+      const supportsScrub =
+        syncMode === 'auto' &&
+        !nativeOwned &&
+        videoList.some((source) => source.trim()) &&
+        videoList.every((source) => !/^https?:/i.test(source)) &&
+        mediaAngles.every(
+          (angle) =>
+            angle.sourceKind === 'local' &&
+            angle.playbackFormat !== 'fragmented-mp4',
+        );
+      if (
+        Number.isFinite(time) &&
+        time >= getMinAllowedGlobalTime(syncData) &&
+        seekMode !== 'exact' &&
+        supportsScrub
+      ) {
+        if (seekMode === 'scrub' && scrub.current?.input !== _event.type)
+          return;
+        if (scrub.current && scrub.current.input !== _event.type) {
+          cancelScrub();
+        }
+        previewRevision.current++;
+        if (seekMode === 'scrub') preview.current?.end();
+        else preview.current?.request(time);
+        if (!scrub.current) {
+          let failedLayer: typeof preview.current = null;
+          const gesture = new TimelineScrub(
+            _event.type,
+            async (target, signal, final) => {
+              const layer = preview.current;
+              if (!final && layer && layer !== failedLayer && !getNativePlayback()) {
+                const revision = previewRevision.current;
+                setScrubDemand((previous) => previous ?? layer.video.currentTime);
+                const pts = await layer.draw(target, signal).catch(() => null);
+                if (revision !== previewRevision.current) {
+                  // An expired/slow preview must not starve original seeks.
+                  if (pts === null) failedLayer = layer;
+                  return undefined;
+                }
+                if (pts !== null) return pts;
+                layer.end();
+              }
+              return presentPosition(target, signal, true);
+            },
+            (confirmed) => {
+              if (currentOwner.current === seekOwner)
+                setConfirmedTime(confirmed);
+            },
+            (failed) => {
+              if (scrub.current !== gesture) return;
+              failedScrub.current = failed;
+              if (failed) onScrubFailure?.();
+              cancelScrub();
+            },
+          );
+          scrub.current = gesture;
+        }
+        scrub.current.request(time, seekMode === 'scrub');
+        return;
+      }
+      failedScrub.current = false;
+      cancelScrub();
       reverseAbort.current?.abort();
       reverseAbort.current = null;
       reverseAbortOwner.current = null;
       setReverseDemand(null);
-      const time = typeof newValue === 'number' ? newValue : Number.NaN;
-      const nativeOwned = getNativePlayback() !== null;
       const isManualMode = syncMode === 'manual';
       const minAllowed = getMinAllowedGlobalTime(syncData);
 
@@ -206,6 +425,13 @@ export const useVideoTimeController = ({
         seekFrameRef.current = null;
       }
       dispatchSeekEvent('video-seek-start', timeClamped, seekMode);
+      if (native && seekMode === 'preview') {
+        nativeDrag.current = {
+          owner: native,
+          input: _event.type,
+          revision: native.seekRevision,
+        };
+      }
 
       if (!nativeOwned && seekFrameRef.current === null) {
         seekFrameRef.current = requestAnimationFrame(() => {
@@ -230,88 +456,23 @@ export const useVideoTimeController = ({
         dispatchSeekEvent('video-seek-end');
       }, 120);
     },
-    [mediaAngles, syncData, syncMode, videoList, seekOwner],
+    [
+      mediaAngles,
+      syncData,
+      syncMode,
+      videoList,
+      seekOwner,
+      presentPosition,
+      onScrubFailure,
+      preview,
+      cancelScrub,
+    ],
   );
 
-  const seekReverse = useCallback(
-    async (time: number, signal: AbortSignal): Promise<number | null> => {
-      if (signal.aborted || currentOwner.current !== seekOwner)
-        throw Error('REVERSE_CANCELLED');
-      const abort = new AbortController();
-      reverseAbort.current?.abort();
-      reverseAbort.current = abort;
-      reverseAbortOwner.current = seekOwner;
-      pendingSeekRef.current = null;
-      if (seekFrameRef.current !== null)
-        cancelAnimationFrame(seekFrameRef.current);
-      seekFrameRef.current = null;
-      if (seekEndTimerRef.current !== null)
-        clearTimeout(seekEndTimerRef.current);
-      seekEndTimerRef.current = null;
-      let started = false;
-      const cancel = (): void => abort.abort();
-      signal.addEventListener('abort', cancel, { once: true });
-      try {
-        const targets: VideoPresentationTarget[] = [];
-        videoList.forEach((source, index) => {
-          const offset = getAngleOffset(syncData, index);
-          const clips = mediaAngles[index]?.clips;
-          const resolved = clips?.length
-            ? resolveMediaTime({ clips, offsetSeconds: offset }, time)
-            : undefined;
-          if (resolved === null) return; // A real timeline gap has no image to wait for.
-          const video = getVideoJsPlayer(`video_${index}`)
-            ?.el?.()
-            ?.querySelector('video');
-          if (!(video instanceof HTMLVideoElement))
-            throw Error('REVERSE_VIDEO_UNAVAILABLE');
-          targets.push({
-            video,
-            source: formatSource(resolved?.clip.source ?? source),
-            time: resolved?.sourceTime ?? Math.max(0, time + offset),
-            offset: resolved?.sourceTimeOffset ?? offset,
-          });
-        });
-        const measured = await waitForVideoPresentation(
-          targets,
-          abort.signal,
-          () => {
-            setReverseDemand(time);
-            started = true;
-            dispatchSeekEvent('video-seek-start', time, 'exact', true);
-            seekEachPlayer({
-              timeClamped: time,
-              videoList,
-              syncData,
-              isManualMode: false,
-              mediaAngles,
-            });
-          },
-        );
-        if (
-          signal.aborted ||
-          abort.signal.aborted ||
-          currentOwner.current !== seekOwner
-        )
-          throw Error('REVERSE_CANCELLED');
-        setConfirmedTime(measured ?? time);
-        return measured;
-      } finally {
-        signal.removeEventListener('abort', cancel);
-        if (reverseAbort.current === abort) {
-          reverseAbort.current = null;
-          reverseAbortOwner.current = null;
-          setReverseDemand(null);
-          if (started && currentOwner.current === seekOwner)
-            dispatchSeekEvent('video-seek-end');
-        }
-      }
-    },
-    [mediaAngles, seekOwner, syncData, videoList],
-  );
   return {
     currentTime,
-    playbackTime: reverseDemand ?? currentTime,
+    playbackTime: scrubDemand ?? reverseDemand ?? currentTime,
+    scrubbing: scrubDemand !== null,
     seekReverse,
     setCurrentTime,
     handleCurrentTime,

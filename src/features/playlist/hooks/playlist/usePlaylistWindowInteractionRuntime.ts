@@ -59,6 +59,7 @@ export const usePlaylistWindowInteractionRuntime = (
 
   const playback = usePlaylistPlayback({
     items: history.items,
+    workspaceMode: core.workspaceMode,
     currentIndex: core.currentIndex,
     setCurrentIndex: core.setCurrentIndex,
     isPlaying: core.isPlaying,
@@ -167,6 +168,10 @@ export const usePlaylistWindowInteractionRuntime = (
   return {
     playback: {
       ...playback,
+      handleScrub: (time: number, final: boolean): void => {
+        if (!final) cancelReversePlayback();
+        playback.handleScrub(time, final);
+      },
       handleSeek: (event: Event, value: number | number[]): void => {
         cancelReversePlayback();
         playback.handleSeek(event, value);

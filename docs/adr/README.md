@@ -160,3 +160,4 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 - [ADR 0084: Held-descriptor publication for native exports](0084-held-export-publication.md) — Proposed
 
 - [ADR 0085: Detached Selection Receipts](0085-detached-selection-receipts.md)
+- [0086 Ephemeral Scrub Previews](0086-ephemeral-scrub-previews.md): 重い単一素材のドラッグ中だけ利用する短区間のメモリプレビュー（Proposed）。

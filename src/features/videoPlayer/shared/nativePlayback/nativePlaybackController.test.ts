@@ -51,7 +51,7 @@ it('holds ownership when a new drag supersedes an original restore already in fl
   pending.resolve();
   await vi.advanceTimersByTimeAsync(1);
   expect(f.original.release).not.toHaveBeenCalled();
-  expect(f.controller.snapshot()).toMatchObject({ phase: 'closing', time: 3 });
+  expect(f.controller.snapshot()).toMatchObject({ phase: 'closing', time: 12 });
   f.controller.seek(12, 'scrub');
   await f.controller.returnToOriginal();
   expect(f.original.restored).toHaveBeenLastCalledWith(
@@ -86,11 +86,12 @@ it('drains a media failure during preview without resuming until the exact relea
   f.failMedia();
   await vi.advanceTimersByTimeAsync(1);
   expect(f.api.close).toHaveBeenCalledOnce();
-  expect(f.original.restore).not.toHaveBeenCalled();
+  expect(f.original.restore).toHaveBeenLastCalledWith(12, expect.objectContaining({ playing: false }), expect.any(AbortSignal), true);
   expect(f.original.release).not.toHaveBeenCalled();
+  f.original.restore.mockResolvedValueOnce(13.99);
   f.controller.seek(14, 'preview');
   await vi.advanceTimersByTimeAsync(1);
-  expect(f.original.restore).not.toHaveBeenCalled();
+  expect(f.controller.snapshot()).toMatchObject({ phase: 'closing', time: 13.99, originalPreviewTime: 13.99 });
   f.controller.seek(14, 'exact');
   await f.controller.returnToOriginal();
   expect(f.original.restored).toHaveBeenLastCalledWith(
@@ -162,7 +163,7 @@ const make = (
         _time: number,
         _controls: import('./nativePlaybackController').NativePlaybackControls,
         _signal: AbortSignal,
-      ) => {},
+      ): Promise<void | number> => _time,
     ),
     release: vi.fn(),
     restored: vi.fn(),
@@ -352,6 +353,28 @@ it('treats reentrant forward play during gesture stop as a new operation', async
   expect(f.original.restored).toHaveBeenCalledWith(3, expect.objectContaining({ playing: true, rate: 1 }));
   unsubscribe();
 });
+it('issues only the newest drag position after a confirmed native image', async () => {
+  vi.useFakeTimers();
+  const { controller, api, reply } = make();
+  await vi.advanceTimersByTimeAsync(1);
+  controller.seek(9, 'preview');
+  await vi.advanceTimersByTimeAsync(1);
+  controller.seek(18, 'preview');
+  controller.seek(7, 'preview');
+  await vi.advanceTimersByTimeAsync(1);
+  expect(api.apply.mock.lastCall?.[0].targetTime).toBe(9);
+  reply(2, 2, 9);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(api.apply.mock.lastCall?.[0].targetTime).toBe(7);
+  controller.seek(11, 'preview');
+  controller.finishPreview();
+  reply(3, 3, 7);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(api.apply.mock.lastCall?.[0]).toMatchObject({ targetTime: 11, seekMode: 'scrub' });
+  expect(controller.snapshot().time).toBe(9);
+  await controller.returnToOriginal();
+});
+
 it('commits an exact seek at the same pending preview target and ignores its stale completion', async () => {
   vi.useFakeTimers();
   const { controller, api, reply } = make();

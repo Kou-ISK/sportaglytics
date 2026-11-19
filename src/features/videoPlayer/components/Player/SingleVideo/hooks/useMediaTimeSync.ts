@@ -1,4 +1,4 @@
-import { isConfirmedDisplayedFrame } from '../../../../../../shared/media/waitForVideoPresentation';
+import { isConfirmedDisplayedFrame, issueVideoPresentationSeek } from '../../../../../../shared/media/waitForVideoPresentation';
 import {
   htmlPlaybackAllowed,
   playbackAuthorityRevision,
@@ -131,7 +131,8 @@ export const useMediaTimeSync = (
       return;
     lastSeekAt.current = now;
     lastRequestedTime.current = state.targetTime;
-    player.currentTime(Math.max(0, state.targetTime));
+    const target = Math.max(0, state.targetTime);
+    issueVideoPresentationSeek(video instanceof HTMLVideoElement ? video : null, () => { player.currentTime(target); });
   }, [playerRef]);
 
   useEffect(() => {

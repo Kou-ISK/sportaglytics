@@ -107,11 +107,13 @@ export const usePackagePlaybackClock = ({
   }, [mediaAngles, syncData, playbackTime, isVideoPlaying, useTimelineClock]);
   // A delayed React commit may still contain an older tick. Never feed it back
   // into the running clock: that slows playback and forces repeated video seeks.
+  const wasPlaying = useRef(isVideoPlaying);
   useLayoutEffect(() => {
     // Native observations (including the final stopped time) are authoritative
     // while native owns playback. Seed the next HTML rAF before releasing it.
-    if (nativeOwned || !isVideoPlaying || !useTimelineClock)
+    if (nativeOwned || !isVideoPlaying || !useTimelineClock || !wasPlaying.current)
       clock.current = currentTime;
+    wasPlaying.current = isVideoPlaying;
   }, [currentTime, isVideoPlaying, useTimelineClock, nativeOwned]);
   useEffect(() => {
     const seek = (event: Event): void => {

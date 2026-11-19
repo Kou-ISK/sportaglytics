@@ -258,6 +258,7 @@ export const usePlaylistStudio = (
       onTargetChange,
     },
     transport: {
+      scrubOwnerKey: JSON.stringify([item?.id, item?.startTime, item?.endTime, core.viewMode, currentItemState.currentVideoSource, currentItemState.currentVideoSource2]),
       coachMode,
       onCoachModeChange: setCoachMode,
       time: core.currentTime,
@@ -268,6 +269,13 @@ export const usePlaylistStudio = (
       freezeDuration: annotations.currentAnnotation?.freezeDuration ?? 3,
       onFreezeDurationChange: annotations.handleFreezeDurationChange,
       onSeek: seek,
+      onScrub: (time, final) => {
+        if (!final) {
+          setSeekRevision((value) => value + 1);
+          core.setIsPlaying(false);
+        }
+        playback.handleScrub(time, final);
+      },
       onTogglePlay: togglePlayback,
     },
     clips: {

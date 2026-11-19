@@ -257,8 +257,7 @@ export class NativePlaybackSession {
     ) {
       if (
         value.phase !== 'paused' ||
-        (intent.seekMode !== 'scrub' &&
-          Math.abs(value.time - intent.targetTime) > 0.000001)
+        Math.abs(value.time - intent.targetTime) > 0.000001
       ) {
         this.fail('protocol');
         return false;

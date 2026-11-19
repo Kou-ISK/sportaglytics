@@ -21,6 +21,7 @@ import {
   nativePlaybackSnapshotChannel,
   nativePlaybackSnapshotAckChannel,
 } from '../../src/types/ipc/nativePlayback';
+import { scrubPreviewChannels } from '../../src/types/ipc/scrubPreview';
 import { createPlaybackCacheBridge } from './preload/playbackCacheBridge';
 import { createSettingsBridge } from './preload/settingsBridge';
 import { createTimelineWindowBridge } from './preload/timelineWindowBridge';
@@ -59,6 +60,11 @@ const electronAPI = {
       };
     },
   }),
+  scrubPreview: {
+    prepare: (request) => ipcRenderer.invoke(scrubPreviewChannels.prepare, request),
+    validate: (token) => ipcRenderer.invoke(scrubPreviewChannels.validate, token),
+    release: (token) => ipcRenderer.invoke(scrubPreviewChannels.release, token),
+  },
   playbackCache: createPlaybackCacheBridge(ipcRenderer),
   liveCapture: createLiveCaptureBridge(ipcRenderer),
   ...createAppBridge(ipcRenderer, registerListener),
