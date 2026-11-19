@@ -24,6 +24,7 @@ const setup = ({
   surface = true,
   available = true,
   paused = true,
+  dragging = false,
 } = {}) => {
   const source = 'file:///synthetic.mp4';
   const state = { rate, ready, time: 10, paused };
@@ -89,9 +90,11 @@ const setup = ({
     },
   };
   if (surface) cleanups.push(registerNativeSurface(source));
+  const initialState: {playing: boolean; scrubbing?: boolean} = {playing: !paused, scrubbing: dragging};
   const hook = renderHook(
-    ({ playing }) => useNativePlaybackPanel(true, playing, vi.fn(), vi.fn()),
-    { initialProps: { playing: !paused } },
+    ({ playing, scrubbing }: {playing: boolean; scrubbing?: boolean}) =>
+      useNativePlaybackPanel(true, playing, vi.fn(), vi.fn(), scrubbing),
+    { initialProps: initialState },
   );
   let unregister = (): void => {};
   act(() => {
@@ -132,6 +135,16 @@ it('automatically adopts an eligible ready original once, with no selection or r
   value.event('volumechange');
   expect(openQualifiedNativePlayback).toHaveBeenCalledTimes(1);
   expect(value.inspect).toHaveBeenCalledTimes(1);
+});
+it('defers native adoption while a paused HTML scrub owns the original', async () => {
+  const value = setup({ dragging: true });
+  await waitFor(() => expect(value.inspect).toHaveBeenCalledOnce());
+  value.event('loadeddata');
+  expect(openQualifiedNativePlayback).not.toHaveBeenCalled();
+  value.hook.rerender({ playing: true, scrubbing: false });
+  expect(openQualifiedNativePlayback).not.toHaveBeenCalled();
+  value.hook.rerender({ playing: false, scrubbing: false });
+  await waitFor(() => expect(openQualifiedNativePlayback).toHaveBeenCalledOnce());
 });
 it('waits for the surface and decoded image rather than losing a late readiness event', async () => {
   const value = setup({ surface: false, ready: 0 });

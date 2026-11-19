@@ -537,7 +537,7 @@ Native再生はmacOS arm64の適格な停止中sourceを自動使用します。
 
 終了receiptが失敗した場合の内部資源回収は、[操作と所有権](native-playback.md#操作と所有権)に従って物理終了と正常drainを区別します。`test:native-runtime`で両方の失敗経路を検査し、資源回収だけを原本復帰やQuit成功と扱わないでください。
 
-AVPlayerの通常スクラブは近傍画像と実表示時刻を採用し、コマ送り・時刻指定だけ厳密シークを使います。停止時はtimebase rateを一度だけ取得して通知し、古い速度を新しい操作の確定と扱いません。互換再生へ引き継いだ文書ではpauseごとの再試行を行わず、再open時に資格を取り直します。
+AVPlayerのドラッグは近傍画像の描画確認後に最新位置へ進み、解放・コマ送り・時刻指定は厳密シークを使います。停止時はtimebase rateを一度だけ取得して通知し、古い速度を新しい操作の確定と扱いません。互換再生へ引き継いだ文書ではpauseごとの再試行を行わず、再open時に資格を取り直します。
 
 `relativeSeekInput.integration.test.tsx`では実DOMキー/ボタンクリックを受領させ、古い別窓時計通知とHTML時計の遅延中も相対入力が失われないことを検査します。`timelineWindowSeek.test.ts`は所有元の未確定位置・方向反転・端点・source/同期モード変更を確認します。合成IPC/clockの検証であり、OS入力生成や物理表示の検査とは区別します。
 
@@ -588,3 +588,5 @@ For held native publication changes, run the exportHeldPublish, exportHeldPublis
 独立タイムラインの複数選択は所有者のdocument世代・source連番・要求UUIDで確認します。読み込み成功時にloading leaseを失効し、履歴の新入力採用まで編集・行補完と項目の送信を停止します。描画の準備状態と操作受付のcommit状態を分け、同内容の再読み込みも空表示のまま残しません。旧同期で選択を戻さず、未確認が5秒続けば既知の選択へ戻して再同期します（編集の自動再送なし）。実装境界と未保証範囲は[ADR 0085](adr/0085-detached-selection-receipts.md)を参照してください。
 
 行内インスタンス選択のfocusは`useTimelineInstanceCommands`が閉鎖commitで復帰させます。メニューを閉じる前の即時focusだけではMUIの復元に上書きされるためです。待ち時間や後続timerを追加せず、選択を伴わない閉鎖・新しいメニュー・unmountに保留focusを持ち越しません。実MUI回帰とmacOS行操作E2Eを[検証手順](testing.md)で分けて確認します。
+
+ドラッグ用フレームの変更時は、単一素材の短区間で原本と準備済み表示を同じ合成後の描画で比較する。準備・未生成・範囲外・解放時の原本確定・再ドラッグ・素材変更・再生再開を分けて検査する。[ADR 0086](adr/0086-ephemeral-scrub-previews.md)

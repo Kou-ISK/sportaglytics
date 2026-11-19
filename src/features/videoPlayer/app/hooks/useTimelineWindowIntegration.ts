@@ -100,7 +100,10 @@ export const useTimelineWindowIntegration = (
 ): { open: () => Promise<void> } => {
   const audioSelections = usePlaybackAudioSelections(params.videoSources);
   const paramsRef = useRef(params);
-  const previewOwner = useRef<ReturnType<typeof getNativePlayback>>(null);
+  const previewOwner = useRef<{
+    controller: NonNullable<ReturnType<typeof getNativePlayback>>;
+    revision: number;
+  } | null>(null);
   useLayoutEffect(() => {
     paramsRef.current = params;
   }, [params]);
@@ -213,9 +216,15 @@ export const useTimelineWindowIntegration = (
   useEffect(() => {
     return subscribeTimelineWindowVisibility((isOpen) => {
       if (isOpen) return;
+      window.dispatchEvent(new Event('timeline-window-preview-end'));
       const owner = previewOwner.current;
       previewOwner.current = null;
-      if (owner && owner === getNativePlayback()) owner.finishPreview();
+      if (
+        owner &&
+        owner.controller === getNativePlayback() &&
+        owner.revision === owner.controller.seekRevision
+      )
+        owner.controller.finishPreview();
     });
   }, []);
 
@@ -312,9 +321,14 @@ export const useTimelineWindowIntegration = (
             current.onSeek(command.time);
             break;
           }
-          previewOwner.current =
-            command.seekMode === 'preview' ? getNativePlayback() : null;
           seek(command);
+          {
+            const controller = getNativePlayback();
+            previewOwner.current =
+              command.seekMode === 'preview' && controller
+                ? { controller, revision: controller.seekRevision }
+                : null;
+          }
           break;
         case 'seek-relative':
           if (current.angleSync) {

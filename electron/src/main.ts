@@ -76,6 +76,7 @@ import {
 import { createExternalOpenQueue } from './packageOpenQueue';
 import { createPackageOpenRouter } from './packageOpenRouter';
 import { registerTimelineCloseProtection } from './timelineCloseProtection';
+import { registerScrubPreviewHandlers } from './scrubPreview/handlers';
 import { registerPlaybackCacheHandlers } from './playbackCache/cacheHandlers';
 import { holdPlaybackCaches } from './playbackCache/cacheSessionController';
 import {
@@ -225,6 +226,7 @@ registerLegacyFileAccessHandlers({ getMainWindow: () => mainWindow });
 registerPackageHandlers();
 registerPackageSessionHandlers();
 registerPlaybackCacheHandlers();
+registerScrubPreviewHandlers();
 registerNativePlaybackHandlers(
   nativePlaybackProvider(path.resolve(__dirname, '../..')),
 );

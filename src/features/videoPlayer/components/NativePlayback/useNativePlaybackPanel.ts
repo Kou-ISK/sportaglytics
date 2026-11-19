@@ -25,6 +25,7 @@ export const useNativePlaybackPanel = (
   playing: boolean,
   pause: () => void,
   restored: (time: number, controls: NativePlaybackControls) => void,
+  scrubbing = false,
 ): {
   register: (player: CachePlayerRegistration) => () => void;
   view: NativePlaybackPanelViewProps | null;
@@ -189,6 +190,7 @@ export const useNativePlaybackPanel = (
     const player = [...players.current][0];
     if (
       !eligible ||
+      scrubbing ||
       controller ||
       working.current ||
       !player ||
@@ -213,6 +215,7 @@ export const useNativePlaybackPanel = (
     controller,
     availability,
     surfaceSource,
+    scrubbing,
     revision,
     settingsRevision,
     qualification,

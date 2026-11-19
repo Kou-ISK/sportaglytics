@@ -3,8 +3,10 @@ import {
   releaseVideoFrameClock,
 } from '../../../shared/media/videoFrameClock';
 import type { MediaTimeline } from '../../../shared/media/mediaTimeline';
+import { resolveMediaDisplayTime } from '../../../shared/media/mediaDisplayTime';
 import { resolveMediaTime } from '../../../shared/media/mediaTimeline';
 import { formatSource } from '../../../shared/media/videoSource';
+import { issueVideoPresentationSeek } from '../../../shared/media/waitForVideoPresentation';
 
 /** A source clock is private to this adapter. Callers only seek package time. */
 export class TimelineVideoAdapter {
@@ -58,7 +60,10 @@ export class TimelineVideoAdapter {
   }
 
   sync(time: number, playing: boolean, force = false): boolean {
-    const active = resolveMediaTime(this.timeline, time);
+    const active = (playing ? resolveMediaTime : resolveMediaDisplayTime)(
+      this.timeline,
+      time,
+    );
     if (!active) {
       releaseVideoFrameClock(this.video);
       this.video.pause();
@@ -97,6 +102,9 @@ export class TimelineVideoAdapter {
         '映像を読み込めません。元映像や外付けドライブの接続を確認してください。',
       );
     if (this.video.readyState < 1) return false;
+    // Freeze the clock before assigning its exact target; pausing after a
+    // running seek can advance currentTime beyond the frame being verified.
+    if (!playing && !this.video.paused) this.video.pause();
     const positionRequired = force || this.positionRequired;
     if (positionRequired) {
       this.pendingPosition = active.sourceTime;
@@ -108,7 +116,9 @@ export class TimelineVideoAdapter {
         (positionRequired ? 0.000001 : playing ? 0.15 : 0.015)
     ) {
       this.pendingPosition = active.sourceTime;
-      this.video.currentTime = active.sourceTime;
+      issueVideoPresentationSeek(this.video, () => {
+        this.video.currentTime = active.sourceTime;
+      });
     }
     const ready = this.positionReady();
     if (playing && ready && this.video.ended)
@@ -117,7 +127,7 @@ export class TimelineVideoAdapter {
       );
     if (playing && ready && this.video.paused)
       void this.video.play().catch(() => undefined);
-    if (!playing) this.video.pause();
+
     return ready;
   }
 

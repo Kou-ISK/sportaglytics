@@ -2,6 +2,7 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import {
   isConfirmedDisplayedFrame,
+  issueVideoPresentationSeek,
   waitForVideoPresentation,
 } from './waitForVideoPresentation';
 const setup = () => {
@@ -31,11 +32,11 @@ const setup = () => {
     raf.clear();
     pending.forEach((callback) => callback(0));
   };
-  const image = (pts: number): void =>
+  const image = (pts: number, submitted = performance.now() + 1): void =>
     receive(0, {
       mediaTime: pts,
       expectedDisplayTime: 0,
-      presentationTime: 0,
+      presentationTime: submitted,
       presentedFrames: 1,
       width: 320,
       height: 180,
@@ -408,4 +409,189 @@ it('times out and detaches callbacks when an expected clip never loads', async (
   expect(await work).toBe('REVERSE_IMAGE_TIMEOUT');
   expect(f.video.cancelVideoFrameCallback).toHaveBeenCalled();
   expect(removed).toHaveBeenCalledWith('loadeddata', expect.any(Function));
+});
+
+it('requires both scrub angles to present after their own requested seek starts', async () => {
+  const f = setup();
+  const g = setup();
+  const done = vi.fn();
+  const work = waitForVideoPresentation(
+    [f.target, g.target],
+    new AbortController().signal,
+    () => {},
+    true,
+  ).then(done);
+  for (const angle of [f, g]) {
+    angle.video.currentTime = 10;
+    angle.image(9.99); // An earlier display can arrive before React issues the seek.
+    angle.video.dispatchEvent(new Event('seeking'));
+  }
+  f.image(9.99);
+  g.paint();
+  g.paint();
+  await Promise.resolve();
+  expect(done).not.toHaveBeenCalled();
+  g.image(9.98);
+  g.paint();
+  g.paint();
+  await work;
+  expect(done).toHaveBeenCalledOnce();
+});
+
+it('retains a newly submitted distant seek image delivered before the DOM seeking event', async () => {
+  const f = setup();
+  let seeking = false;
+  Object.defineProperty(f.video, 'seeking', { get: () => seeking });
+  const work = waitForVideoPresentation(
+    [f.target],
+    new AbortController().signal,
+    () => {
+      f.video.currentTime = 10;
+      seeking = true;
+    },
+    true,
+  );
+  f.image(9.99, performance.now() + 1);
+  f.video.dispatchEvent(new Event('seeking'));
+  seeking = false;
+  f.paint();
+  f.paint();
+  expect(await work).toBeCloseTo(9.29);
+});
+it('rejects a frame submitted before issuing the distant seek', async () => {
+  const f = setup();
+  let seeking = false;
+  Object.defineProperty(f.video, 'seeking', { get: () => seeking });
+  const done = vi.fn();
+  const work = waitForVideoPresentation(
+    [f.target],
+    new AbortController().signal,
+    () => {
+      f.video.currentTime = 10;
+      seeking = true;
+    },
+    true,
+  ).then(done);
+  f.image(9.99, performance.now() - 1);
+  f.video.dispatchEvent(new Event('seeking'));
+  seeking = false;
+  f.paint();
+  f.paint();
+  await Promise.resolve();
+  expect(done).not.toHaveBeenCalled();
+  f.image(9.99);
+  f.paint();
+  f.paint();
+  await work;
+  expect(done).toHaveBeenCalledOnce();
+});
+
+it.each([
+  { old: 9.98, pending: false },
+  { old: 0, pending: true },
+])(
+  'does not accept an early image for an ambiguous origin $old/$pending',
+  async ({ old, pending }) => {
+    const f = setup();
+    let seeking = pending;
+    Object.defineProperty(f.video, 'seeking', { get: () => seeking });
+    f.video.currentTime = old;
+    const done = vi.fn();
+    const work = waitForVideoPresentation(
+      [f.target],
+      new AbortController().signal,
+      () => {
+        f.video.currentTime = 10;
+        seeking = true;
+      },
+      true,
+    ).then(done);
+    f.image(9.99, performance.now() + 1);
+    f.video.dispatchEvent(new Event('seeking'));
+    seeking = false;
+    f.paint();
+    f.paint();
+    await Promise.resolve();
+    expect(done).not.toHaveBeenCalled();
+    f.image(9.99);
+    f.paint();
+    f.paint();
+    await work;
+    expect(done).toHaveBeenCalledOnce();
+  },
+);
+
+it('recognizes the compositor image for a source seek issued later by the mounted player', async () => {
+  const f = setup();
+  let seeking = false;
+  Object.defineProperty(f.video, 'seeking', { get: () => seeking });
+  const work = waitForVideoPresentation(
+    [f.target],
+    new AbortController().signal,
+    () => {},
+    true,
+  );
+  issueVideoPresentationSeek(f.video, () => {
+    f.video.currentTime = 10;
+    seeking = true;
+  });
+  f.image(9.99);
+  f.video.dispatchEvent(new Event('seeking'));
+  seeking = false;
+  f.paint();
+  f.paint();
+  expect(await work).toBeCloseTo(9.29);
+});
+it('rejects a pre-command adjacent image delivered after the seeking event', async () => {
+  const f = setup();
+  f.video.currentTime = 9.98;
+  const done = vi.fn();
+  const work = waitForVideoPresentation(
+    [f.target],
+    new AbortController().signal,
+    () => {
+      f.video.currentTime = 10;
+    },
+    true,
+  ).then(done);
+  f.video.dispatchEvent(new Event('seeking'));
+  f.image(9.98, performance.now() - 1);
+  f.paint();
+  f.paint();
+  await Promise.resolve();
+  expect(done).not.toHaveBeenCalled();
+  f.image(9.99);
+  f.paint();
+  f.paint();
+  await work;
+  expect(done).toHaveBeenCalledOnce();
+});
+
+it('drops provisional proof when a newer presented image is outside the seek interval', async () => {
+  const f = setup();
+  let seeking = false;
+  Object.defineProperty(f.video, 'seeking', { get: () => seeking });
+  const done = vi.fn();
+  const work = waitForVideoPresentation(
+    [f.target],
+    new AbortController().signal,
+    () => {
+      f.video.currentTime = 10;
+      seeking = true;
+    },
+    true,
+  ).then(done);
+  f.image(9.99, performance.now() + 1);
+  f.image(8, performance.now() + 2);
+  f.video.dispatchEvent(new Event('seeking'));
+  seeking = false;
+  f.paint();
+  f.paint();
+  await Promise.resolve();
+  expect(done).not.toHaveBeenCalled();
+  f.image(9.99, performance.now() + 3);
+  f.paint();
+  f.paint();
+  await work;
+  expect(done).toHaveBeenCalledOnce();
 });
