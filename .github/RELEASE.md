@@ -2,6 +2,12 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.32 のライブスクラブ候補
+
+[PR #294](https://github.com/Kou-ISK/sportaglytics/pull/294)のドラッグ操作と版準備を対象とする。配布範囲の限定案は[ARCH-EX-016](../docs/architecture-exceptions.md)でレビューする。developへの先行統合、main向けPRのレビューと全CI、署名・公証と同一DMGの検査を維持する。未公開モデル関連の変更とPR #288は含めない。
+
+レビュー・CIの完了後、対象のmain SHAと未使用の版タグを照合する。まず `Release desktop` を `publish=false` で実行し、候補のハッシュを記録する。候補を隔離したMacでドラッグ中の画像、解放後の原本フレーム、通常再生への復帰、実出音、2画面とプレイリストの原本再生を検査し、合格時のみ既存の公開手順へ進む。
+
 ## 0.17.31の保存完了確認を含む修正候補
 
 0.17.30候補は通常E2Eの保存後Quitで停止し、署名・公証・公開には進んでいません。既存のv0.17.30 tagを保持し、file更新に加えてMainのclean通知を待つ検証修正と必要な版準備をdevelopへ先行統合します。[ARCH-EX-015](../docs/architecture-exceptions.md)に従いmainへ限定した変更を取り込み、PR #288と未公開モデル方針/catalog/lockを除外します。製品コード・終了ガード・15秒期限・全30シナリオを維持します。元runのdirty traceは未採取であり、Linuxの制御診断をそのMac failureの再現とは扱いません。
