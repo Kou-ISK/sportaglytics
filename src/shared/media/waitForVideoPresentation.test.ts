@@ -696,3 +696,62 @@ it.each([false, true])(
     await work;
   },
 );
+
+it.each([
+  { pts: 10, submittedAt: 120, confirms: true },
+  { pts: 9.98, submittedAt: 120, confirms: false },
+  { pts: 10, submittedAt: 101, confirms: false },
+])(
+  'checks the exact frame on a reloaded clip after a redundant same-position assignment ($pts / $submittedAt)',
+  async ({ pts, submittedAt, confirms }) => {
+    const f = setup();
+    let now = 100;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const source = 'file:///new-clip.mp4';
+    let seeking = false,
+      clock = 0;
+    Object.defineProperties(f.video, {
+      currentTime: {
+        get: () => clock,
+        set: (v: number) => {
+          clock = v;
+          seeking = true;
+        },
+      },
+      seeking: { get: () => seeking },
+    });
+    const done = vi.fn();
+    const work = waitForVideoPresentation(
+      [{ ...f.target, source }],
+      new AbortController().signal,
+      () => {},
+      true,
+    ).then(done);
+    now = 110;
+    f.video.dispatchEvent(new Event('loadstart'));
+    Object.defineProperty(f.video, 'currentSrc', { value: source });
+    now = 115;
+    f.video.dispatchEvent(new Event('loadedmetadata'));
+    // The compositor submits at 120. A later assignment of the same position
+    // is observed before the callback carrying that already submitted image.
+    now = 125;
+    issueVideoPresentationSeek(f.video, () => {
+      f.video.currentTime = f.target.time;
+    });
+    f.image(pts, submittedAt);
+    f.video.dispatchEvent(new Event('seeking'));
+    f.video.dispatchEvent(new Event('seeking'));
+    seeking = false;
+    f.paint();
+    f.paint();
+    await Promise.resolve();
+    expect(done).toHaveBeenCalledTimes(confirms ? 1 : 0);
+    if (!confirms) {
+      f.image(f.target.time, now + 1);
+      f.paint();
+      f.paint();
+    }
+    await work;
+    vi.restoreAllMocks();
+  },
+);
