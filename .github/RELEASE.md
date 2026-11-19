@@ -2,6 +2,12 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.33 のライブスクラブ候補
+
+0.17.32 は署名前の複数クリップ受入で停止しました。既存タグを保持し、[PR #298](https://github.com/Kou-ISK/sportaglytics/pull/298) と [PR #301](https://github.com/Kou-ISK/sportaglytics/pull/301) の停止中シーク修正と同じシナリオのmacOS PR検査をdevelopに先行統合します。[ARCH-EX-017](../docs/architecture-exceptions.md)に従いmainの0.17.32から今回の修正・回帰と版準備だけを取り込みます。実験用PR #297、逆再生PR #288、未公開モデル方針・catalog・lockは対象外です。
+
+両PRのCIを確認し、mainの最終SHAと新規タグを照合します。まず `publish=false` で署名・公証・配布物E2Eを行い、同一DMGを隔離したMacでドラッグ中の画像、解放時の原本フレーム、2画面・プレイリスト、再生復帰と実出音まで確認してから公開します。
+
 ## 0.17.32 のライブスクラブ候補
 
 [PR #294](https://github.com/Kou-ISK/sportaglytics/pull/294)のドラッグ操作と版準備を対象とする。配布範囲の限定案は[ARCH-EX-016](../docs/architecture-exceptions.md)でレビューする。developへの先行統合、main向けPRのレビューと全CI、署名・公証と同一DMGの検査を維持する。未公開モデル関連の変更とPR #288は含めない。
@@ -104,7 +110,7 @@ tag pushやmain pushでは起動しません。**GitHub Actionsの明示的なwo
 1. 準備PRとmain向けPRをレビューし、必要なCIを通して統合します。通常は`develop`→`main`、限定release branchを使う場合は、対象版に対して承認された例外の範囲に従います。
 2. `main`の40文字SHAと`package.json`のversionを確認し、そのcommitへ`v<version>` tagを作成します。tag作成だけでは署名・Apple送信・公開を開始しません。
 3. [Release desktop](https://github.com/Kou-ISK/sportaglytics/actions/workflows/release.yml) → **Run workflow** → branch **main**を選びます。
-4. `version`に対象版（今回の候補は`0.17.32`）、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
+4. `version`に対象版（今回の候補は`0.17.33`）、`expected_sha`に最終レビュー済みmainの40文字SHAを入力し、`include_windows=false`を指定します。現在の作業branchのSHAを入力しません。
 5. `publish=false`（既定）は署名・公証・最終DMG検証まで行い、Actions artifactとして90日間保存します。GitHub ReleaseとHomebrewは更新しません。**これは未署名dry-runではなく、Appleへのアプリ送信を含みます。**
 6. 最終公開が承認された実行は`publish=true`を指定します。同じ品質・署名・公証・DMG検証を再実行し、その実行で検査したbytesだけを公開します。先行runのartifactを無検査で流用しません。
 
@@ -112,7 +118,7 @@ CLIでも同じ入力を使います。`REVIEWED_MAIN_SHA` にレビュー済み
 
 ```bash
 gh workflow run release.yml --ref main \
-  -f version=0.17.32 -f expected_sha="$REVIEWED_MAIN_SHA" -F include_windows=false -F publish=false
+  -f version=0.17.33 -f expected_sha="$REVIEWED_MAIN_SHA" -F include_windows=false -F publish=false
 ```
 
 workflowは入力version、package version、tag commit、checkout、workflow commit、現在のorigin/mainを照合します。省略・食い違い・既存Release・API読み取り失敗は停止条件です。公開直前にも再確認します。並行runは直列化し、実行中の署名・公証を新しいdispatchでcancelしません。
