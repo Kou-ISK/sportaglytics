@@ -359,6 +359,19 @@ try {
         })),
       };
     };
+    globalThis.captureTransitions = [];
+    for (const type of ['seeking', 'seeked', 'waiting', 'playing', 'stalled', 'canplay']) {
+      globalThis.initialCaptureVideo.addEventListener(type, (event) => {
+        const video = globalThis.initialCaptureVideo;
+        const ranges = video.buffered;
+        globalThis.captureTransitions.push({
+          type, eventMs: event.timeStamp, deliveredMs: performance.now(),
+          time: video.currentTime, ready: video.readyState, seeking: video.seeking,
+          bufferEnd: ranges.length ? ranges.end(ranges.length - 1) : null,
+        });
+        if (globalThis.captureTransitions.length > 128) globalThis.captureTransitions.shift();
+      });
+    }
     globalThis.captureTraceTimer = setInterval(() => {
       globalThis.captureTrace.push(sample());
     }, 500);
@@ -431,6 +444,7 @@ try {
         document.querySelector('#video_0 video').currentTime -
         globalThis.initialCaptureTime,
       waits: globalThis.captureWaits,
+      transitions: globalThis.captureTransitions,
       trace: globalThis.captureTrace,
       error: document.querySelector('#video_0 video')?.error?.message,
     };
