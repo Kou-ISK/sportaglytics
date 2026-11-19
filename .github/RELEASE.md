@@ -4,7 +4,7 @@
 
 ## 0.17.33 のライブスクラブ候補
 
-0.17.32 は署名前の複数クリップ受入で停止しました。既存タグを保持し、[PR #298](https://github.com/Kou-ISK/sportaglytics/pull/298) の停止中シーク修正と同じシナリオのmacOS PR検査をdevelopに先行統合します。[ARCH-EX-017](../docs/architecture-exceptions.md)に従いmainの0.17.32から今回の修正・回帰と版準備だけを取り込みます。実験用PR #297、逆再生PR #288、未公開モデル方針・catalog・lockは対象外です。
+0.17.32 は署名前の複数クリップ受入で停止しました。既存タグを保持し、[PR #298](https://github.com/Kou-ISK/sportaglytics/pull/298) と [PR #301](https://github.com/Kou-ISK/sportaglytics/pull/301) の停止中シーク修正と同じシナリオのmacOS PR検査をdevelopに先行統合します。[ARCH-EX-017](../docs/architecture-exceptions.md)に従いmainの0.17.32から今回の修正・回帰と版準備だけを取り込みます。実験用PR #297、逆再生PR #288、未公開モデル方針・catalog・lockは対象外です。
 
 両PRのCIを確認し、mainの最終SHAと新規タグを照合します。まず `publish=false` で署名・公証・配布物E2Eを行い、同一DMGを隔離したMacでドラッグ中の画像、解放時の原本フレーム、2画面・プレイリスト、再生復帰と実出音まで確認してから公開します。
 
