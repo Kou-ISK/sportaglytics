@@ -45,3 +45,8 @@ jobs:
         run: node scripts/e2e-timeline-close.mjs
       - name: Verify timeline row and selection interactions
         run: node scripts/e2e-timeline-rows.mjs
+      - name: Check persisted embedded clip shortcut delivery
+        run: |
+          pnpm run native:build
+          pnpm run test:native-runtime
+          node scripts/e2e-clip-sync.mjs
