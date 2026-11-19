@@ -411,32 +411,6 @@ try {
   await page.locator('iframe[src*="dQw4w9WgXcQ"]').waitFor({
     timeout: 30_000,
   });
-  // Read only: distinguish an inactive window, an embedded frame, and an
-  // Electron accelerator that consumes the shortcut before DOM delivery.
-  const inputTrace = await electronApp.evaluateHandle(({ BrowserWindow }) => {
-    const samples = [];
-    const record = (win, stage) => {
-      if (samples.length >= 40 || win.isDestroyed()) return;
-      const contents = win.webContents;
-      const frame = contents.focusedFrame;
-      samples.push({
-        stage,
-        windowId: win.id,
-        focusedWindowId: BrowserWindow.getFocusedWindow()?.id ?? null,
-        contentsFocused: contents.isFocused(),
-        frame: frame ? (frame === contents.mainFrame ? 'main' : 'embedded') : 'none',
-      });
-    };
-    for (const win of BrowserWindow.getAllWindows()) {
-      record(win, 'before focus request');
-      win.on('focus', () => record(win, 'window focused'));
-      win.on('blur', () => record(win, 'window blurred'));
-      win.webContents.on('before-input-event', (_event, input) => {
-        record(win, input.type);
-      });
-    }
-    return samples;
-  });
   // The detached timeline and embedded player can take keyboard focus.
   await (await electronApp.browserWindow(page)).evaluate((win) => win.focus());
   const shortcutTrace = await page.evaluateHandle(() => {
@@ -479,12 +453,6 @@ try {
     );
     throw error;
   } finally {
-    console.log('Synthetic input delivery', {
-      targetWindowId: await (await electronApp.browserWindow(page)).evaluate((win) => win.id),
-      native: await inputTrace.jsonValue(),
-      renderer: await shortcutTrace.jsonValue(),
-    });
-    await inputTrace.dispose();
     await shortcutTrace.dispose();
   }
   assert.equal(await page.getByRole('combobox').count(), 0);

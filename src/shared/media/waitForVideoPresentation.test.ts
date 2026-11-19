@@ -618,3 +618,140 @@ it('drops provisional proof when a newer presented image is outside the seek int
   await work;
   expect(done).toHaveBeenCalledOnce();
 });
+
+it('confirms the first destination image when a clip switch defers the player seek until canplay', async () => {
+  const f = setup();
+  const source = 'file:///next.mp4';
+  let clock = 0;
+  let seeking = false;
+  Object.defineProperties(f.video, {
+    currentTime: {
+      get: () => clock,
+      set: (time: number) => {
+        clock = time;
+        seeking = true;
+      },
+    },
+    seeking: { get: () => seeking },
+  });
+  const done = vi.fn();
+  const work = waitForVideoPresentation(
+    [{ ...f.target, source }],
+    new AbortController().signal,
+    () => {},
+    true,
+  ).then(done);
+  f.video.dispatchEvent(new Event('loadstart'));
+  Object.defineProperty(f.video, 'currentSrc', { value: source });
+  f.video.dispatchEvent(new Event('loadedmetadata'));
+  f.video.dispatchEvent(new Event('loadeddata'));
+  // Video.js can cache currentTime while changing its source and apply it
+  // later from canplay. The paused decoder may present its only image before
+  // the browser dispatches the queued seeking/seeked events.
+  if (clock !== f.target.time) f.video.currentTime = f.target.time;
+  f.image(9.99);
+  f.video.dispatchEvent(new Event('seeking'));
+  seeking = false;
+  f.video.dispatchEvent(new Event('seeked'));
+  f.paint();
+  f.paint();
+  await Promise.resolve();
+  expect(done).toHaveBeenCalledOnce();
+  await work;
+  expect(done.mock.calls[0][0]).toBeCloseTo(9.29);
+});
+
+it.each([false, true])(
+  'repeated paused seek only retains its own exact image without an intervening move (%s)',
+  async (movedAway) => {
+    const f = setup();
+    const done = vi.fn();
+    const work = waitForVideoPresentation(
+      [f.target],
+      new AbortController().signal,
+      () => {
+        f.video.currentTime = f.target.time;
+      },
+      true,
+    ).then(done);
+    f.video.dispatchEvent(new Event('seeking'));
+    f.image(f.target.time);
+    if (movedAway) {
+      f.video.currentTime = 0;
+      f.video.dispatchEvent(new Event('seeking'));
+      f.video.currentTime = f.target.time;
+    }
+    f.video.dispatchEvent(new Event('seeking'));
+    f.paint();
+    f.paint();
+    await Promise.resolve();
+    if (movedAway) {
+      expect(done).not.toHaveBeenCalled();
+      f.image(f.target.time);
+      f.paint();
+      f.paint();
+      await Promise.resolve();
+    }
+    expect(done).toHaveBeenCalledOnce();
+    await work;
+  },
+);
+
+it.each([
+  { pts: 10, submittedAt: 120, confirms: true },
+  { pts: 9.98, submittedAt: 120, confirms: false },
+  { pts: 10, submittedAt: 101, confirms: false },
+])(
+  'checks the exact frame on a reloaded clip after a redundant same-position assignment ($pts / $submittedAt)',
+  async ({ pts, submittedAt, confirms }) => {
+    const f = setup();
+    let now = 100;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    const source = 'file:///new-clip.mp4';
+    let seeking = false,
+      clock = 0;
+    Object.defineProperties(f.video, {
+      currentTime: {
+        get: () => clock,
+        set: (v: number) => {
+          clock = v;
+          seeking = true;
+        },
+      },
+      seeking: { get: () => seeking },
+    });
+    const done = vi.fn();
+    const work = waitForVideoPresentation(
+      [{ ...f.target, source }],
+      new AbortController().signal,
+      () => {},
+      true,
+    ).then(done);
+    now = 110;
+    f.video.dispatchEvent(new Event('loadstart'));
+    Object.defineProperty(f.video, 'currentSrc', { value: source });
+    now = 115;
+    f.video.dispatchEvent(new Event('loadedmetadata'));
+    // The compositor submits at 120. A later assignment of the same position
+    // is observed before the callback carrying that already submitted image.
+    now = 125;
+    issueVideoPresentationSeek(f.video, () => {
+      f.video.currentTime = f.target.time;
+    });
+    f.image(pts, submittedAt);
+    f.video.dispatchEvent(new Event('seeking'));
+    f.video.dispatchEvent(new Event('seeking'));
+    seeking = false;
+    f.paint();
+    f.paint();
+    await Promise.resolve();
+    expect(done).toHaveBeenCalledTimes(confirms ? 1 : 0);
+    if (!confirms) {
+      f.image(f.target.time, now + 1);
+      f.paint();
+      f.paint();
+    }
+    await work;
+    vi.restoreAllMocks();
+  },
+);

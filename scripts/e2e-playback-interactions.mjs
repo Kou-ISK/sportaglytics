@@ -23,26 +23,25 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
       controller = new AbortController();
     const options = { capture: true, signal: controller.signal };
     const record = (kind, data) => {
-      if (entries.length === 192) entries.shift();
+      if (entries.length === 48) entries.shift();
       entries.push([Math.round(performance.now()), kind, data]);
     };
-    const callbacks = new Map();
-    const observe = (video) => {
-      if (callbacks.has(video)) return;
-      const tick = (_now, frame) => {
-        record('frame', [
-          video.currentSrc.split('/').pop(), video.currentTime,
-          frame.mediaTime, frame.presentationTime, video.paused, video.seeking,
-          video.readyState, document.visibilityState,
+    // Observe callbacks the scrubber itself registers. Adding an independent
+    // compositor callback could change frame delivery on a paused element.
+    const originalFrameRequest =
+      HTMLVideoElement.prototype.requestVideoFrameCallback;
+    HTMLVideoElement.prototype.requestVideoFrameCallback = function (callback) {
+      return originalFrameRequest.call(this, (now, metadata) => {
+        record('presented', [
+          this.currentSrc.split('/').pop(),
+          metadata.mediaTime,
+          metadata.presentationTime,
+          this.currentTime,
+          this.seeking,
         ]);
-        callbacks.set(video, video.requestVideoFrameCallback(tick));
-      };
-      callbacks.set(video, video.requestVideoFrameCallback(tick));
+        callback.call(this, now, metadata);
+      });
     };
-    for (const video of document.querySelectorAll('video')) observe(video);
-    document.addEventListener('loadstart', ({target}) => {
-      if (target instanceof HTMLVideoElement) observe(target);
-    }, options);
     for (const kind of [
       'loadstart',
       'loadedmetadata',
@@ -70,10 +69,14 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
         (event) => record(kind, event.detail),
         options,
       );
-    return { entries, stop: () => {
-      controller.abort();
-      for (const [video, id] of callbacks) video.cancelVideoFrameCallback(id);
-    } };
+    return {
+      entries,
+      stop: () => {
+        controller.abort();
+        HTMLVideoElement.prototype.requestVideoFrameCallback =
+          originalFrameRequest;
+      },
+    };
   });
   try {
     await timeline.mouse.click(box.x + (box.width * target) / 14, box.y + 8);
@@ -94,17 +97,17 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
       target,
     );
   } catch (error) {
-    console.error('Multi-clip ruler failure', JSON.stringify({
-      target,
-      box,
-      clock: await timeline.evaluate(() => window.__interactionClock),
-      events: await clipTrace.evaluate((trace) => trace.entries),
-    }));
+    console.error(
+      'Multi-clip ruler failure',
+      JSON.stringify({
+        target,
+        box,
+        clock: await timeline.evaluate(() => window.__interactionClock),
+        events: await clipTrace.evaluate((trace) => trace.entries),
+      }),
+    );
     throw error;
   } finally {
-    console.log('Synthetic ruler frames', JSON.stringify(
-      await clipTrace.evaluate((trace) => trace.entries),
-    ));
     await clipTrace.evaluate((trace) => trace.stop());
     await clipTrace.dispose();
   }
