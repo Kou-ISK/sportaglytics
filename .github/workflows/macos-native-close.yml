@@ -45,3 +45,7 @@ jobs:
         run: node scripts/e2e-timeline-close.mjs
       - name: Verify timeline row and selection interactions
         run: node scripts/e2e-timeline-rows.mjs
+      - name: Verify cross-clip ruler presentation on macOS
+        run: |
+          pnpm run native:build
+          node scripts/e2e-multi-clip-playback.mjs

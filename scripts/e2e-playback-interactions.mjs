@@ -26,6 +26,22 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
       if (entries.length === 48) entries.shift();
       entries.push([Math.round(performance.now()), kind, data]);
     };
+    // Observe callbacks the scrubber itself registers. Adding an independent
+    // compositor callback could change frame delivery on a paused element.
+    const originalFrameRequest =
+      HTMLVideoElement.prototype.requestVideoFrameCallback;
+    HTMLVideoElement.prototype.requestVideoFrameCallback = function (callback) {
+      return originalFrameRequest.call(this, (now, metadata) => {
+        record('presented', [
+          this.currentSrc.split('/').pop(),
+          metadata.mediaTime,
+          metadata.presentationTime,
+          this.currentTime,
+          this.seeking,
+        ]);
+        callback.call(this, now, metadata);
+      });
+    };
     for (const kind of [
       'loadstart',
       'loadedmetadata',
@@ -53,7 +69,14 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
         (event) => record(kind, event.detail),
         options,
       );
-    return { entries, stop: () => controller.abort() };
+    return {
+      entries,
+      stop: () => {
+        controller.abort();
+        HTMLVideoElement.prototype.requestVideoFrameCallback =
+          originalFrameRequest;
+      },
+    };
   });
   try {
     await timeline.mouse.click(box.x + (box.width * target) / 14, box.y + 8);
@@ -74,12 +97,15 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
       target,
     );
   } catch (error) {
-    console.error('Multi-clip ruler failure', {
-      target,
-      box,
-      clock: await timeline.evaluate(() => window.__interactionClock),
-      events: await clipTrace.evaluate((trace) => trace.entries),
-    });
+    console.error(
+      'Multi-clip ruler failure',
+      JSON.stringify({
+        target,
+        box,
+        clock: await timeline.evaluate(() => window.__interactionClock),
+        events: await clipTrace.evaluate((trace) => trace.entries),
+      }),
+    );
     throw error;
   } finally {
     await clipTrace.evaluate((trace) => trace.stop());
