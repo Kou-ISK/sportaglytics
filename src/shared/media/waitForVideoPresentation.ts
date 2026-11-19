@@ -30,6 +30,7 @@ const settledFrames = new WeakMap<
 >();
 const watchedFrames = new WeakSet<HTMLVideoElement>();
 const mediaEpochs = new WeakMap<HTMLVideoElement, number>();
+const reloadTimes = new WeakMap<HTMLVideoElement, number>();
 const watchFrameInvalidation = (video: HTMLVideoElement): void => {
   if (watchedFrames.has(video)) return;
   watchedFrames.add(video);
@@ -42,6 +43,7 @@ const watchFrameInvalidation = (video: HTMLVideoElement): void => {
   };
   const reload = (): void => {
     invalidate();
+    reloadTimes.set(video, performance.now());
     mediaEpochs.set(video, (mediaEpochs.get(video) ?? 0) + 1);
   };
   video.addEventListener('seeking', invalidateProof);
@@ -76,6 +78,7 @@ export const waitForVideoPresentation = (
     const callbacks = new Map<HTMLVideoElement, number>();
     const epochs = new Map<HTMLVideoElement, number>();
     const expectedSourceChanges = new Set<HTMLVideoElement>();
+    const destinationLoads = new Map<HTMLVideoElement, number>();
     const seekStarted = new Set<HTMLVideoElement>();
     const submittedAfter = new Map<HTMLVideoElement, number>();
     const requestBeganAt = performance.now();
@@ -191,19 +194,33 @@ export const waitForVideoPresentation = (
             metadata.presentationTime > submitted &&
             metadata.mediaTime <= target.time + 0.000001 &&
             target.time - metadata.mediaTime <= 0.05;
+          // On a clip change, repeated assignments may arrive after the
+          // paused compositor has already submitted the exact target frame.
+          // Its PTS and fresh source generation identify it independently of
+          // the most recent identical assignment. Nearby PTS still need the
+          // normal seek-order proof.
+          const loadedAt = destinationLoads.get(video);
+          const exactDestinationImage =
+            exactScrub &&
+            loadedAt !== undefined &&
+            metadata.presentationTime > Math.max(loadedAt, requestBeganAt) &&
+            Math.abs(metadata.mediaTime - target.time) <= 0.000001;
+          const orderedImage =
+            (seekStarted.has(video) || early) &&
+            metadata.presentationTime > (submitted ?? requestBeganAt);
+          const pausedAtTarget =
+            video.paused &&
+            Math.abs(video.currentTime - target.time) <= 0.000001;
           if (
             (!exactScrub ||
-              ((seekStarted.has(video) || early) &&
-                metadata.presentationTime > (submitted ?? requestBeganAt) &&
-                video.paused &&
-                Math.abs(video.currentTime - target.time) <= 0.000001)) &&
+              ((exactDestinationImage || orderedImage) && pausedAtTarget)) &&
             !expectedSourceChanges.has(video) &&
             video.currentSrc === source
           ) {
             displayed.set(video, { source, pts: metadata.mediaTime });
-            if (early) earlyImage.add(video);
-          }
-          if (earlyImage.has(video) && !early && !seekStarted.has(video)) {
+            if (!seekStarted.has(video) && (early || exactDestinationImage))
+              earlyImage.add(video);
+          } else if (exactScrub) {
             earlyImage.delete(video);
             displayed.delete(video);
           }
@@ -239,6 +256,7 @@ export const waitForVideoPresentation = (
             displayed.delete(video);
             earlyImage.delete(video);
             seekStarted.delete(video);
+            destinationLoads.delete(video);
             return;
           }
           const prior = displayed.get(video);
@@ -270,6 +288,9 @@ export const waitForVideoPresentation = (
           )
             return;
           expectedSourceChanges.delete(target.video);
+          const reloadedAt = reloadTimes.get(target.video);
+          if (reloadedAt !== undefined)
+            destinationLoads.set(target.video, reloadedAt);
           if (
             exactScrub &&
             Math.abs(target.video.currentTime - target.time) <= 0.000001
