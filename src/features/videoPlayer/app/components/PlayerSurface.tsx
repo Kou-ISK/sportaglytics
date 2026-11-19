@@ -15,6 +15,7 @@ interface PlayerSurfaceProps {
   videoPlayBackRate: number;
   currentTime: number;
   playbackTime?: number;
+  scrubbing?: boolean;
   setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   setIsVideoPlaying: React.Dispatch<React.SetStateAction<boolean>>;
   setVideoPlayBackRate: React.Dispatch<React.SetStateAction<number>>;
@@ -39,6 +40,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   videoPlayBackRate,
   currentTime,
   playbackTime = currentTime,
+  scrubbing = false,
   setCurrentTime,
   setIsVideoPlaying,
   setVideoPlayBackRate,
@@ -79,6 +81,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         livePlaybackEnd === undefined
       }
       playing={isVideoPlaying}
+      scrubbing={scrubbing}
       timelineTime={currentTime}
       pause={() => setIsVideoPlaying(false)}
       onNativeRestored={restoreNativePlayback}

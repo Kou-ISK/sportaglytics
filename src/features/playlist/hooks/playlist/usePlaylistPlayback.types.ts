@@ -7,6 +7,7 @@ import type {
 export interface UsePlaylistPlaybackParams {
   items: PlaylistItem[];
   currentIndex: number;
+  workspaceMode?: string;
   setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
   isPlaying: boolean;
   setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;

@@ -19,6 +19,7 @@ export const useCachePlayerRegistration = (
     const player = playerRef.current;
     if (!context || !player || !isReady) return;
     const port: CachePlayerPort = {
+      presentationElement: () => player.el()?.querySelector('video') ?? null,
       paused: () => player.paused(),
       time: () => player.currentTime() ?? 0,
       duration: () => player.duration() ?? NaN,

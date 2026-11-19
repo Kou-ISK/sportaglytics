@@ -1,3 +1,4 @@
+import { prioritizeClipExport } from '../scrubPreview/exportPriority';
 import { createExportResourceGate } from './exportResourceGate';
 import { retainedFor } from './exportRetainedRecords';
 import { ExportCopyIncomplete } from './exportBoundedCopy';
@@ -178,6 +179,7 @@ export const registerExportHandlers = ({
           job.finishCommit(success && final);
         },
       });
+      const finishedExport = prioritizeClipExport();
       return exportAbortContext.run(shutdown.signal, () =>
         exportProcessContext.run(activeProcesses, async () => {
           try {
@@ -637,7 +639,7 @@ export const registerExportHandlers = ({
               pendingFailure.error += '\n保存済み出力の完了状態の通知を確認できません';
           }
         }),
-      );
+      ).finally(finishedExport);
     },
   );
 };

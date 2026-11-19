@@ -112,6 +112,14 @@ export const usePlaylistWindowSections = ({
     videoRef2: core.videoRef2,
     hasItems: history.items.length > 0,
     controlsVisible: core.controlsVisible,
+    scrubOwnerKey: JSON.stringify([
+      currentItemState.currentItem?.id,
+      currentItemState.currentVideoSource,
+      currentItemState.currentVideoSource2,
+      core.viewMode,
+      videoControls.sliderMin,
+      videoControls.sliderMax,
+    ]),
     sliderMin: videoControls.sliderMin,
     sliderMax: videoControls.sliderMax,
     marks: videoControls.marks,
@@ -122,8 +130,13 @@ export const usePlaylistWindowSections = ({
     isMuted: core.isMuted,
     volume: core.volume,
     isFullscreen: core.isFullscreen,
-    onSeek: playback.handleSeek,
-    onSeekCommitted: videoControls.handleSeekCommitted,
+    onSeek: (_, value) => {
+      if (typeof value === 'number') playback.handleScrub(value, false);
+    },
+    onSeekCommitted: (time) => {
+      playback.handleScrub(time, true);
+      videoControls.handleSeekCommitted();
+    },
     onPrevious: playback.handlePrevious,
     onTogglePlay: playback.handleTogglePlay,
     onNext: playback.handleNext,

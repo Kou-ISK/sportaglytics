@@ -453,3 +453,36 @@ it('resumes after the real annotation freeze without repeating the same stop', a
     integrated.unmount();
   }
 });
+
+it('lets a replacement playlist item play without a second seek after an unconfirmed scrub', async () => {
+  const { media, tick, params, callbacks, result, rerender } = await setup();
+  act(() => result.current.seek(65, false));
+  media.settle();
+  tick(32);
+  expect(media.video.paused).toBe(true);
+  if (!params.currentItem) throw Error('Missing fixture item');
+  const item = { ...params.currentItem, id: 'replacement', startTime: 70 };
+  rerender({ ...params, currentItem: item, items: [item] });
+  tick(48);
+  media.settle();
+  tick(64);
+  expect(media.video.paused).toBe(false);
+  media.advance(70.2);
+  tick(264);
+  expect(callbacks.current.onTime).toHaveBeenLastCalledWith(70.2);
+});
+
+it('reanchors a new workspace on the same item at the last confirmed clock', async () => {
+  const { media, tick, params, callbacks, result, rerender } = await setup();
+  media.advance(60.3);
+  tick(316);
+  act(() => result.current.seek(65, false));
+  media.settle();
+  rerender({ ...params, workspaceMode: 'studio', isPlaying: false });
+  tick(332);
+  media.settle();
+  tick(348);
+  expect(media.video.currentTime).toBe(60.3);
+  expect(callbacks.current.onTime).not.toHaveBeenCalledWith(65);
+  expect(callbacks.current.onTime).toHaveBeenLastCalledWith(60.3);
+});

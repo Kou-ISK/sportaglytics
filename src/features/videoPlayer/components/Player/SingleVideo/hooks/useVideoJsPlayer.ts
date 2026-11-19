@@ -9,6 +9,7 @@ interface UseVideoJsPlayerParams {
   id: string;
   videoSrc: string;
   allowSeek: boolean;
+  retainLocalElement: boolean;
   setMaxSec: (value: number) => void;
   onAspectRatioChange?: (ratio: number) => void;
 }
@@ -17,6 +18,7 @@ export const useVideoJsPlayer = ({
   id,
   videoSrc,
   allowSeek,
+  retainLocalElement,
   setMaxSec,
   onAspectRatioChange,
 }: UseVideoJsPlayerParams) => {
@@ -48,6 +50,7 @@ export const useVideoJsPlayer = ({
     id,
     videoSrc,
     allowSeek,
+    retainLocalElement,
     setMaxSec: reportOriginalDuration,
     setIsReady,
     setDurationSec,

@@ -38,7 +38,8 @@ export interface NativeOriginalRecovery {
     time: number,
     controls: NativePlaybackControls,
     signal: AbortSignal,
-  ) => Promise<void>;
+    requirePresentation?: boolean,
+  ) => Promise<void | number>;
   release: () => void;
   restored?: (time: number, controls: NativePlaybackControls) => void;
 }
@@ -71,6 +72,8 @@ export class NativePlaybackController {
   private restoreAttempt: AbortController | null = null;
   private watchdog: ReturnType<typeof setInterval>;
   private lastReadySeek = 0;
+  private latestPreview: number | null = null;
+  private restoredPreviewRevision = -1;
   private fallingBack = false;
   private recoveryRevision = 0;
   private recoveryTime: number | null = null;
@@ -173,6 +176,8 @@ export class NativePlaybackController {
     // A new toolbar operation ends an interrupted scrub at its latest target.
     // Repeated React settings with no change above must not commit a held drag.
     if (next.seekMode === 'preview') {
+      next.targetTime = this.latestPreview ?? next.targetTime;
+      this.latestPreview = null;
       next.seekMode = 'scrub';
       next.seekId++;
     }
@@ -192,11 +197,20 @@ export class NativePlaybackController {
     // A coalesced same-target input still supersedes an earlier gesture.
     this.operationRevision++;
     this.positionRevision++;
+    this.issueSeek(time, mode);
+  }
+  private issueSeek(time: number, mode: VideoSeekMode): void {
     if (!this.acceptsOperation()) return;
     if (!Number.isFinite(time) || time < 0 || time > 86400) {
       this.fail('NATIVE_INVALID_SEEK');
       return;
     }
+    // IPC delivery can precede decode and draw by many input events.
+    if (mode === 'preview' && !this.fallingBack && this.isPreviewing() && !this.hasConfirmedSeek) {
+      this.latestPreview = time;
+      return;
+    }
+    this.latestPreview = null;
     // Pointer release can repeat a still-pending stopped target. Keep that
     // operation and its deadline; issuing it again would cancel useful decode.
     if (
@@ -228,6 +242,7 @@ export class NativePlaybackController {
   /** Relative commands build on a pending seek, as the HTML currentTime setter
    * does. This never advances the confirmed playback/tag/save clock. */
   get seekCommandTime(): number {
+    if (this.latestPreview !== null) return this.latestPreview;
     return this.lastReadySeek === this.intent.seekId
       ? this.state.time
       : this.intent.targetTime;
@@ -325,7 +340,7 @@ export class NativePlaybackController {
   }
   finishPreview(): void {
     if (this.intent.seekMode === 'preview')
-      this.seek(this.intent.targetTime, 'scrub');
+      this.seek(this.latestPreview ?? this.intent.targetTime, 'scrub');
   }
   get isFallingBack(): boolean {
     return this.fallingBack;
@@ -383,14 +398,7 @@ export class NativePlaybackController {
     return true;
   }
   private continueFallback(): void {
-    // A failed preview may drain immediately, but must not start the original
-    // player while the pointer is still held. Keep only the latest intent until
-    // release/capture loss/window close commits it. No native decoder remains.
-    const work =
-      this.intent.seekMode === 'preview'
-        ? this.closeNative()
-        : this.startRecovery();
-    void work.catch(() => this.fail('NATIVE_RECOVERY_UNCONFIRMED'));
+    void this.startRecovery().catch(() => this.fail('NATIVE_RECOVERY_UNCONFIRMED'));
   }
   private flush(): void {
     if (this.writer || !this.pending || this.state.phase !== 'active') return;
@@ -429,6 +437,12 @@ export class NativePlaybackController {
   private beginMediaFallback(reason: string): void {
     this.fallingBack = true;
     this.pending = null;
+    if (this.latestPreview !== null) {
+      this.recoveryTime = this.latestPreview;
+      this.intent = { ...this.intent, targetTime: this.latestPreview };
+      this.latestPreview = null;
+      this.recoveryRevision++;
+    }
     this.update({ error: reason });
     this.continueFallback();
   }
@@ -499,6 +513,11 @@ export class NativePlaybackController {
         observation,
         ...(ready ? { time: value.lastConfirmedTime } : {}),
       });
+      if (ready && preview && this.intent.sequence === observation.sequence && this.latestPreview !== null) {
+        const latest = this.latestPreview;
+        this.latestPreview = null;
+        if (latest !== this.intent.targetTime) this.issueSeek(latest, 'preview');
+      }
       if (
         ready &&
         !preview &&
@@ -647,10 +666,12 @@ export class NativePlaybackController {
         // rejects input. End the gesture without sending to the drained host.
         this.intent = {
           ...this.intent,
+          targetTime: this.latestPreview ?? this.intent.targetTime,
           seekMode: 'scrub',
           sequence: this.intent.sequence + 1,
           seekId: this.intent.seekId + 1,
         };
+        this.latestPreview = null;
         this.recoveryTime = this.intent.targetTime;
         this.recoveryRevision++;
       }
@@ -670,7 +691,7 @@ export class NativePlaybackController {
         this.recoveryWork = null;
         // A pointer gesture can supersede an in-flight original restore. Resume
         // only if its release arrived while that stopped restore was settling.
-        if (this.fallingBack && this.intent.seekMode !== 'preview')
+        if (this.fallingBack && (!this.isPreviewing() || this.restoredPreviewRevision !== this.recoveryRevision))
           this.continueFallback();
       },
       () => {},
@@ -696,7 +717,7 @@ export class NativePlaybackController {
       let restoredTime: number;
       let restoredControls: NativePlaybackControls;
       while (true) {
-        if (this.isPreviewing()) return;
+        const preview = this.isPreviewing();
         const revision = this.recoveryRevision;
         restoredTime =
           this.recoveryTime ??
@@ -720,12 +741,15 @@ export class NativePlaybackController {
         const cancelAttempt = (): void => attempt.abort();
         abort.signal.addEventListener('abort', cancelAttempt, { once: true });
         let imageVerified = false;
+        let displayedTime: number | undefined;
         try {
-          await this.original.restore(
+          const measured = await this.original.restore(
             restoredTime,
             { ...restoredControls, playing: false },
             attempt.signal,
+            ...(this.intent.seekMode ? [true] as const : []),
           );
+          if (typeof measured === 'number' && Number.isFinite(measured)) displayedTime = measured;
           imageVerified = true;
         } catch (error) {
           // Superseded seek/settings cancellation is not failure of the latest
@@ -741,7 +765,14 @@ export class NativePlaybackController {
           if (this.restoreAttempt === attempt) this.restoreAttempt = null;
         }
         abort.signal.throwIfAborted();
-        if (this.isPreviewing()) return;
+        if (this.isPreviewing()) {
+          this.restoredPreviewRevision = revision;
+          if (preview && displayedTime !== undefined && !attempt.signal.aborted) {
+            this.update({ time: displayedTime, originalPreviewTime: displayedTime });
+          }
+          return;
+        }
+        if (preview && revision !== this.recoveryRevision) continue;
         if (imageVerified && !attempt.signal.aborted) {
           // Drain and the original port's source/settings/paused-image checks
           // have completed. Show that image and its confirmed clock, while
