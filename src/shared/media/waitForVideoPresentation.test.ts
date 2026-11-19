@@ -618,3 +618,45 @@ it('drops provisional proof when a newer presented image is outside the seek int
   await work;
   expect(done).toHaveBeenCalledOnce();
 });
+
+it('confirms the first destination image when a clip switch defers the player seek until canplay', async () => {
+  const f = setup();
+  const source = 'file:///next.mp4';
+  let clock = 0;
+  let seeking = false;
+  Object.defineProperties(f.video, {
+    currentTime: {
+      get: () => clock,
+      set: (time: number) => {
+        clock = time;
+        seeking = true;
+      },
+    },
+    seeking: { get: () => seeking },
+  });
+  const done = vi.fn();
+  const work = waitForVideoPresentation(
+    [{ ...f.target, source }],
+    new AbortController().signal,
+    () => {},
+    true,
+  ).then(done);
+  f.video.dispatchEvent(new Event('loadstart'));
+  Object.defineProperty(f.video, 'currentSrc', { value: source });
+  f.video.dispatchEvent(new Event('loadedmetadata'));
+  f.video.dispatchEvent(new Event('loadeddata'));
+  // Video.js can cache currentTime while changing its source and apply it
+  // later from canplay. The paused decoder may present its only image before
+  // the browser dispatches the queued seeking/seeked events.
+  if (clock !== f.target.time) f.video.currentTime = f.target.time;
+  f.image(9.99);
+  f.video.dispatchEvent(new Event('seeking'));
+  seeking = false;
+  f.video.dispatchEvent(new Event('seeked'));
+  f.paint();
+  f.paint();
+  await Promise.resolve();
+  expect(done).toHaveBeenCalledOnce();
+  await work;
+  expect(done.mock.calls[0][0]).toBeCloseTo(9.29);
+});

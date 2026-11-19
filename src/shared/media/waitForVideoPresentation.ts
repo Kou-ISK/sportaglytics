@@ -267,6 +267,25 @@ export const waitForVideoPresentation = (
           const id = callbacks.get(target.video);
           if (id !== undefined) target.video.cancelVideoFrameCallback(id);
           register(target);
+          const { video, time } = target;
+          // Video.js can defer its first seek on a new tech until canplay.
+          // Bind the exact seek to this loaded source before its paused
+          // decoder submits the only destination image.
+          if (
+            exactScrub &&
+            video.paused &&
+            !video.seeking &&
+            video.readyState >= 1 &&
+            Math.abs(video.currentTime - time) > 0.000001
+          ) {
+            try {
+              issueVideoPresentationSeek(video, () => {
+                video.currentTime = time;
+              });
+            } catch (error) {
+              finish(error instanceof Error ? error : new Error(String(error)));
+            }
+          }
         };
         sourceListeners.set(target.video, loaded);
         // Chromium may present the first destination image before loadeddata.
