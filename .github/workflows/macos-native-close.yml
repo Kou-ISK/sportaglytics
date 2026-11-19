@@ -49,3 +49,24 @@ jobs:
         run: |
           pnpm run native:build
           node scripts/e2e-multi-clip-playback.mjs
+      - name: Compare live capture on the two immutable release tags
+        if: ${{ !cancelled() }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin refs/tags/v0.17.31:refs/tags/v0.17.31 refs/tags/v0.17.33:refs/tags/v0.17.33
+          test "$(git rev-parse 'v0.17.31^{commit}')" = 14f69336085954f9f454e92aab7ef7e2ce11d4f7
+          test "$(git rev-parse 'v0.17.33^{commit}')" = d3f2937b71586176f62647023cc60ff321efd663
+          test "$(git rev-parse v0.17.31:pnpm-lock.yaml)" = "$(git rev-parse v0.17.33:pnpm-lock.yaml)"
+          test "$(git rev-parse v0.17.31:scripts/e2e-live-capture.mjs)" = "$(git rev-parse v0.17.33:scripts/e2e-live-capture.mjs)"
+          result=0
+          for tag in v0.17.31 v0.17.33; do
+            fixture=$(mktemp -d "$RUNNER_TEMP/compare-capture.XXXXXXXX")
+            git archive "$tag" | tar xf - -C "$fixture"
+            ln -s "$GITHUB_WORKSPACE/node_modules" "$fixture/node_modules"
+            ln -s "$GITHUB_WORKSPACE/.cache" "$fixture/.cache"
+            cp scripts/e2e-live-capture.mjs "$fixture/scripts/e2e-live-capture.mjs"
+            (cd "$fixture" && pnpm run e2e:prepare && node scripts/e2e-live-capture.mjs) || result=1
+            echo "Completed capture comparison $tag"
+          done
+          exit "$result"
