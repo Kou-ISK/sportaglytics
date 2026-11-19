@@ -10,6 +10,7 @@ interface UseVideoJsInitializationParams {
   id: string;
   videoSrc: string;
   allowSeek: boolean;
+  retainLocalElement: boolean;
   setMaxSec: (value: number) => void;
   setIsReady: (value: boolean) => void;
   setDurationSec: (value: number) => void;
@@ -111,6 +112,7 @@ export const useVideoJsInitialization = ({
   id,
   videoSrc,
   allowSeek,
+  retainLocalElement,
   setMaxSec,
   setIsReady,
   setDurationSec,
@@ -132,9 +134,10 @@ export const useVideoJsInitialization = ({
   // Source sync owns local-to-local changes. Preserve the tech element so a
   // scrub waiting on its compositor callback survives a clip boundary.
   const formattedSource = resolveVideoSource(videoSrc).src;
-  const playerSourceKey = formattedSource.startsWith('file://')
-    ? 'local'
-    : formattedSource;
+  const playerSourceKey =
+    retainLocalElement && formattedSource.startsWith('file://')
+      ? 'local'
+      : formattedSource;
 
   // Reporting callbacks can change on every timeline tick. Their identity must
   // not dispose a player that is still reading its media source.

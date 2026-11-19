@@ -28,6 +28,7 @@ export const SingleVideoPlayer: React.FC<SingleVideoPlayerProps> = ({
       id,
       videoSrc,
       allowSeek,
+      retainLocalElement: true,
       setMaxSec,
       onAspectRatioChange,
     });

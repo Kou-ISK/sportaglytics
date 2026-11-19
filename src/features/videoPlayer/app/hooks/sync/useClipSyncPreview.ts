@@ -22,6 +22,8 @@ export const useClipSyncPreview = (
     id,
     videoSrc: source,
     allowSeek: false,
+    // The alignment editor resets its source-local clock for each new player.
+    retainLocalElement: false,
     setMaxSec: onDuration,
   });
   const [time, setTime] = useState(0);

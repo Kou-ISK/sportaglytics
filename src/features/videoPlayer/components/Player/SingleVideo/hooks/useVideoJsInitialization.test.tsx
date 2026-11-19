@@ -19,6 +19,7 @@ import { useVideoJsSourceSync } from './useVideoJsSourceSync';
 
 interface HarnessProps {
   videoSrc?: string;
+  retainLocalElement?: boolean;
   setIsReady: (value: boolean) => void;
   setDurationSec: (value: number) => void;
   setMaxSec: (value: number) => void;
@@ -28,6 +29,7 @@ const Harness = ({
   setIsReady,
   setDurationSec,
   setMaxSec,
+  retainLocalElement = true,
   videoSrc = 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
 }: HarnessProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -46,6 +48,7 @@ const Harness = ({
     id: 'video_0',
     videoSrc,
     allowSeek: false,
+    retainLocalElement,
     setMaxSec,
     setIsReady,
     setDurationSec,
@@ -152,6 +155,23 @@ describe('useVideoJsInitialization YouTube readiness', () => {
     view.rerender(<Harness {...latest} />);
     expect(videojsMock).toHaveBeenCalledTimes(2);
     expect(disposeMock).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(disposeMock).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it('creates a new source-local player for each cut in the angle alignment editor', () => {
+    const props = {
+      setMaxSec: vi.fn(),
+      setIsReady: vi.fn(),
+      setDurationSec: vi.fn(),
+      retainLocalElement: false,
+    };
+    const view = render(<Harness {...props} videoSrc="file:///angle-a.mp4" />);
+    view.rerender(<Harness {...props} videoSrc="file:///angle-b.mp4" />);
+    expect(videojsMock).toHaveBeenCalledTimes(2);
+    expect(disposeMock).toHaveBeenCalledTimes(1);
+    expect(sourceChanged).toHaveBeenLastCalledWith('file:///angle-b.mp4');
     view.unmount();
     expect(disposeMock).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
