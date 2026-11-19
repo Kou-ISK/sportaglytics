@@ -61,10 +61,15 @@ export const useVisualTimelineController = ({
     currentTimePosition,
     scrollLeft,
   } = useTimelineViewport({ maxSec, currentTime });
+  const [pointerTime, setPointerTime] = React.useState<number | null>(null);
+  const seekFromBar = useCallback<VisualTimelineProps['onSeek']>((time, mode) => {
+    setPointerTime(mode === 'preview' ? time : null);
+    onSeek(time, mode);
+  }, [onSeek]);
   const seekHandlers = useTimelineSeek(
     clientXToContentX,
     positionToTime,
-    onSeek,
+    seekFromBar,
   );
   const axisRef = React.useRef<HTMLDivElement>(null);
   const rowInteractions = useTimelineRowInteractions({
@@ -435,7 +440,7 @@ export const useVisualTimelineController = ({
     scrollLeft,
     axisRef,
     maxSec,
-    currentTimePosition,
+    currentTimePosition: pointerTime === null ? currentTimePosition : timeToPosition(pointerTime),
     containerWidth,
     timeMarkers,
     timeToPosition,

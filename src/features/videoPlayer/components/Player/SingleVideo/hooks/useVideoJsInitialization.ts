@@ -10,6 +10,7 @@ interface UseVideoJsInitializationParams {
   id: string;
   videoSrc: string;
   allowSeek: boolean;
+  retainLocalElement: boolean;
   setMaxSec: (value: number) => void;
   setIsReady: (value: boolean) => void;
   setDurationSec: (value: number) => void;
@@ -111,6 +112,7 @@ export const useVideoJsInitialization = ({
   id,
   videoSrc,
   allowSeek,
+  retainLocalElement,
   setMaxSec,
   setIsReady,
   setDurationSec,
@@ -125,6 +127,18 @@ export const useVideoJsInitialization = ({
   aspectRatioCallbackRef,
   lastReportedAspectRatioRef,
 }: UseVideoJsInitializationParams): void => {
+  const sourceRef = useRef(videoSrc);
+  useEffect(() => {
+    sourceRef.current = videoSrc;
+  }, [videoSrc]);
+  // Source sync owns local-to-local changes. Preserve the tech element so a
+  // scrub waiting on its compositor callback survives a clip boundary.
+  const formattedSource = resolveVideoSource(videoSrc).src;
+  const playerSourceKey =
+    retainLocalElement && formattedSource.startsWith('file://')
+      ? 'local'
+      : formattedSource;
+
   // Reporting callbacks can change on every timeline tick. Their identity must
   // not dispose a player that is still reading its media source.
   const callbacksRef = useRef({ setMaxSec, setIsReady, setDurationSec });
@@ -175,7 +189,7 @@ export const useVideoJsInitialization = ({
         return;
       }
 
-      const initialSource = resolveVideoSource(videoSrc);
+      const initialSource = resolveVideoSource(sourceRef.current);
       const isYoutubeSource = initialSource.type === 'video/youtube';
       const playerInstance = videojs(videoEl, {
         controls: allowSeek,
@@ -284,7 +298,7 @@ export const useVideoJsInitialization = ({
       playerInstance.on('error', handleTechError);
       playerInstance.on('resize', handleResize);
 
-      if (videoSrc && videoSrc.trim()) {
+      if (sourceRef.current.trim()) {
         playerInstance.src(initialSource);
       }
     };
@@ -341,6 +355,6 @@ export const useVideoJsInitialization = ({
     resizeHandlerRef,
     techErrorHandlerRef,
     videoRef,
-    videoSrc,
+    playerSourceKey,
   ]);
 };

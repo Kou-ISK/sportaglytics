@@ -1,3 +1,4 @@
+import { PlaylistScrubSlider } from './PlaylistScrubSlider';
 import { mediaChromeSx } from '../../../design-system/mediaChrome';
 import type { ReactElement } from 'react';
 import {
@@ -38,7 +39,7 @@ type PlaylistVideoControlsOverlayProps = {
   volume: number;
   isFullscreen: boolean;
   onSeek: (event: Event, value: number | number[]) => void;
-  onSeekCommitted: () => void;
+  onSeekCommitted: (time: number) => void;
   onPrevious: () => void;
   onTogglePlay: () => void;
   onNext: () => void;
@@ -76,7 +77,9 @@ export const PlaylistVideoControlsOverlay = (
       new Event('playlist-jog'),
       Math.min(props.sliderMax, Math.max(props.sliderMin, time)),
     );
-    props.onSeekCommitted();
+    props.onSeekCommitted(
+      Math.min(props.sliderMax, Math.max(props.sliderMin, time)),
+    );
   };
   return (
     <Paper
@@ -128,15 +131,13 @@ export const PlaylistVideoControlsOverlay = (
             </Tooltip>
           ))}
       </Box>
-      <Slider
+      <PlaylistScrubSlider
         aria-label="映像の再生位置"
-        size="small"
-        value={props.currentTime}
+        time={props.currentTime}
         min={props.sliderMin}
         max={Math.max(props.sliderMin + 0.001, props.sliderMax)}
-        step={0.01}
-        onChange={props.onSeek}
-        onChangeCommitted={props.onSeekCommitted}
+        onPreview={props.onSeek}
+        onCommit={props.onSeekCommitted}
         marks={props.marks.map((mark) => ({ value: mark.value }))}
         sx={{ height: 2, py: 1, '& .MuiSlider-thumb': { width: 8, height: 8 } }}
       />

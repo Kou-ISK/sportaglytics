@@ -46,6 +46,7 @@ type PlaylistVideoAreaProps = {
   videoRef2: React.RefObject<HTMLVideoElement | null>;
   hasItems: boolean;
   controlsVisible: boolean;
+  scrubOwnerKey?: string;
   sliderMin: number;
   sliderMax: number;
   marks: { value: number; label: string }[];
@@ -57,7 +58,7 @@ type PlaylistVideoAreaProps = {
   volume: number;
   isFullscreen: boolean;
   onSeek: (event: Event, value: number | number[]) => void;
-  onSeekCommitted: () => void;
+  onSeekCommitted: (time: number) => void;
   onPrevious: () => void;
   onTogglePlay: () => void;
   onNext: () => void;
@@ -96,6 +97,7 @@ export const PlaylistVideoArea = ({
   videoRef2,
   hasItems,
   controlsVisible,
+  scrubOwnerKey,
   sliderMin,
   sliderMax,
   marks,
@@ -166,6 +168,7 @@ export const PlaylistVideoArea = ({
 
       {showControls && !isDrawingMode && !studioOverlay && (
         <PlaylistVideoControlsOverlay
+          key={scrubOwnerKey}
           visible={controlsVisible}
           currentTime={currentTime}
           sliderMin={sliderMin}

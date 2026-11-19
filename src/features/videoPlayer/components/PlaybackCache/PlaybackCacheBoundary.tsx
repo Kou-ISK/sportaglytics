@@ -9,12 +9,14 @@ export const PlaybackCacheBoundary = ({
   children,
   eligible,
   playing,
+  scrubbing = false,
   pause,
   onNativeRestored,
 }: {
   children: ReactNode;
   eligible: boolean;
   playing: boolean;
+  scrubbing?: boolean;
   timelineTime: number;
   pause: () => void;
   onNativeRestored: (time: number, controls: NativePlaybackControls) => void;
@@ -24,6 +26,7 @@ export const PlaybackCacheBoundary = ({
     playing,
     pause,
     onNativeRestored,
+    scrubbing,
   );
   const context = useMemo(
     () => ({

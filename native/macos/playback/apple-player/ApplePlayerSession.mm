@@ -76,7 +76,7 @@
   NSParameterAssert(NSThread.isMainThread);
   if (_closed) { completion(NO); return; }
   NSUInteger revision = ++_seekRevision;
-  CMTime tolerance = approximate ? kCMTimePositiveInfinity : kCMTimeZero;
+  CMTime tolerance = approximate ? CMTimeMake(1, 30) : kCMTimeZero;
   __weak STApplePlayerSession *weakSelf = self;
   [_player seekToTime:time toleranceBefore:tolerance toleranceAfter:tolerance
     completionHandler:^(BOOL finished) {
