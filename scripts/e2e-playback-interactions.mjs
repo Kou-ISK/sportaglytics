@@ -74,12 +74,12 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
       target,
     );
   } catch (error) {
-    console.error('Multi-clip ruler failure', {
+    console.error('Multi-clip ruler failure', JSON.stringify({
       target,
       box,
       clock: await timeline.evaluate(() => window.__interactionClock),
       events: await clipTrace.evaluate((trace) => trace.entries),
-    });
+    }));
     throw error;
   } finally {
     await clipTrace.evaluate((trace) => trace.stop());
