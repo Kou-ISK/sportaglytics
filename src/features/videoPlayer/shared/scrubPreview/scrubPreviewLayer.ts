@@ -17,6 +17,10 @@ export const findScrubFrame = (
   return low > 0 && low < strip.frames.length ? strip.frames[low - 1] : null;
 };
 
+// createImageBitmap cannot be cancelled. Keep one slot per renderer until the
+// actual operation settles, including across a gesture or source replacement.
+let drawing = false;
+
 /** Presentation only. The original media element owns audio and the playback clock. */
 export class ScrubPreviewLayer {
   private canvas: HTMLCanvasElement | null = null;
@@ -30,26 +34,28 @@ export class ScrubPreviewLayer {
   request(time: number): void {
     // The queue has only one in-flight draw. Let it paint before the latest
     // queued position so continuous in-range movement cannot starve images.
-    if (!findScrubFrame(this.strip, time)) this.hide();
+    if (!findScrubFrame(this.strip, time)) this.end();
   }
   end(): void {
     this.epoch++;
     this.validation = null;
-  }
-  hide(): void {
-    this.end();
     this.canvas?.remove();
     this.canvas = null;
   }
   async draw(time: number, signal: AbortSignal): Promise<number | null> {
+    if (drawing) return null;
+    drawing = true;
     const epoch = this.epoch;
+    const decoded = this.decode(time, signal).finally(() => {
+      drawing = false;
+    });
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       return await Promise.race([
-        this.decode(time, signal),
+        decoded,
         new Promise<null>((resolve) => {
           timer = setTimeout(() => {
-            if (epoch === this.epoch) this.hide();
+            if (epoch === this.epoch) this.end();
             resolve(null);
           }, 90);
         }),
@@ -65,7 +71,7 @@ export class ScrubPreviewLayer {
     const { strip, video } = this;
     const frame = findScrubFrame(strip, time);
     if (!frame || video.currentSrc !== strip.sourceUrl || !video.isConnected) {
-      this.hide();
+      this.end();
       return null;
     }
     const epoch = this.epoch;
@@ -95,7 +101,7 @@ export class ScrubPreviewLayer {
       }
       const ctx = canvas.getContext('2d');
       if (!ctx) {
-        this.hide();
+        this.end();
         return null;
       }
       ctx.drawImage(bitmap, 0, 0);

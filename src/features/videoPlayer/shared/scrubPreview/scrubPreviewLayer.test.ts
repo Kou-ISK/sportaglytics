@@ -94,8 +94,44 @@ it('presents an in-flight frame when in-range input keeps arriving', async () =>
     complete?.();
     expect(await draw).toBe(10);
     expect(paint).toHaveBeenCalledOnce();
+    expect(document.querySelector('canvas')).not.toBeNull();
+    owner.end();
+    expect(document.querySelector('canvas')).toBeNull();
     expect(close).toHaveBeenCalledOnce();
   } finally {
     context.mockRestore();
+  }
+});
+
+it('falls back while a timed-out bitmap is still decoding', async () => {
+  vi.useFakeTimers();
+  const video = document.createElement('video');
+  document.body.append(video);
+  Object.defineProperty(video, 'currentSrc', { value: strip.sourceUrl });
+  const close = vi.fn();
+  let complete: (() => void) | undefined;
+  const decode = vi.fn(
+    () =>
+      new Promise((resolve) => {
+        complete = () => resolve({ close, width: 640, height: 360 });
+      }),
+  );
+  vi.stubGlobal('createImageBitmap', decode);
+  try {
+    const owner = new ScrubPreviewLayer(strip, video, async () => true);
+    const signal = new AbortController().signal;
+    const first = owner.draw(10, signal);
+    await vi.advanceTimersByTimeAsync(91);
+    expect(await first).toBeNull();
+    const second = owner.draw(10.01, signal);
+    await vi.advanceTimersByTimeAsync(91);
+    expect(await second).toBeNull();
+    expect(decode).toHaveBeenCalledTimes(1);
+    complete?.();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(close).toHaveBeenCalledOnce();
+    expect(document.querySelector('canvas')).toBeNull();
+  } finally {
+    vi.useRealTimers();
   }
 });

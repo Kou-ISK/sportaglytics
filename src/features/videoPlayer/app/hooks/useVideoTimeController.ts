@@ -171,7 +171,7 @@ export const useVideoTimeController = ({
   } | null>(null);
   const cancelScrub = useCallback(() => {
     previewRevision.current++;
-    preview.current?.hide();
+    preview.current?.end();
     if (!scrub.current) return;
     scrub.current.cancel();
     scrub.current = null;
@@ -379,7 +379,7 @@ export const useVideoTimeController = ({
                   return undefined;
                 }
                 if (pts !== null) return pts;
-                layer.hide();
+                layer.end();
               }
               return presentPosition(target, signal, true);
             },

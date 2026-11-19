@@ -90,15 +90,23 @@ export const useScrubPreview = (
       const token = crypto.randomUUID();
       const close = (): void => {
         if (lease.current?.token !== token) return;
+        video.removeEventListener('play', stopPreparation);
         video.removeEventListener('emptied', close);
         video.removeEventListener('loadstart', close);
-        layer.current?.hide();
+        layer.current?.end();
         layer.current = null;
         lease.current = null;
         void api.release(token).catch(() => undefined);
       };
       const entry: Lease = { token, anchor: time, video, layer: null, close };
+      const stopPreparation = (): void => {
+        if (lease.current === entry && !entry.layer) {
+          attempted.current = null;
+          close();
+        }
+      };
       lease.current = entry;
+      video.addEventListener('play', stopPreparation, { once: true });
       video.addEventListener('emptied', close);
       video.addEventListener('loadstart', close);
       void api
