@@ -18,23 +18,73 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
       offSync();
     };
   });
-  await timeline.mouse.click(box.x + (box.width * target) / 14, box.y + 8);
-  await timeline.waitForFunction(
-    () =>
-      Math.abs(
-        Number(
-          document
-            .querySelector('[aria-label="タイムラインの再生位置"]')
-            .getAttribute('aria-valuenow'),
-        ) - 2,
-      ) < 0.02,
-  );
-  // The detached ruler previews immediately. Require the owner's confirmed cut
-  // before testing that a subsequent lane click leaves the clock unchanged.
-  await timeline.waitForFunction(
-    (time) => Math.abs(window.__interactionClock - time) < 0.02,
-    target,
-  );
+  const clipTrace = await main.evaluateHandle(() => {
+    const entries = [],
+      controller = new AbortController();
+    const options = { capture: true, signal: controller.signal };
+    const record = (kind, data) => {
+      if (entries.length === 48) entries.shift();
+      entries.push([Math.round(performance.now()), kind, data]);
+    };
+    for (const kind of [
+      'loadstart',
+      'loadedmetadata',
+      'loadeddata',
+      'seeking',
+      'seeked',
+      'error',
+    ]) {
+      document.addEventListener(
+        kind,
+        ({ target }) => {
+          if (target instanceof HTMLVideoElement)
+            record(kind, [
+              target.currentSrc.split('/').pop(),
+              target.currentTime,
+              target.readyState,
+            ]);
+        },
+        options,
+      );
+    }
+    for (const kind of ['video-seek-start', 'video-seek-end'])
+      window.addEventListener(
+        kind,
+        (event) => record(kind, event.detail),
+        options,
+      );
+    return { entries, stop: () => controller.abort() };
+  });
+  try {
+    await timeline.mouse.click(box.x + (box.width * target) / 14, box.y + 8);
+    await timeline.waitForFunction(
+      () =>
+        Math.abs(
+          Number(
+            document
+              .querySelector('[aria-label="タイムラインの再生位置"]')
+              .getAttribute('aria-valuenow'),
+          ) - 2,
+        ) < 0.02,
+    );
+    // The detached ruler previews immediately. Require the owner's confirmed cut
+    // before testing that a subsequent lane click leaves the clock unchanged.
+    await timeline.waitForFunction(
+      (time) => Math.abs(window.__interactionClock - time) < 0.02,
+      target,
+    );
+  } catch (error) {
+    console.error('Multi-clip ruler failure', {
+      target,
+      box,
+      clock: await timeline.evaluate(() => window.__interactionClock),
+      events: await clipTrace.evaluate((trace) => trace.entries),
+    });
+    throw error;
+  } finally {
+    await clipTrace.evaluate((trace) => trace.stop());
+    await clipTrace.dispose();
+  }
   await timeline.evaluate(() => window.__stopInteractionClock());
   await timeline
     .getByTestId('timeline-lane-Attack')

@@ -413,17 +413,48 @@ try {
   });
   // The detached timeline and embedded player can take keyboard focus.
   await (await electronApp.browserWindow(page)).evaluate((win) => win.focus());
-  await page.evaluate(() => {
-    if (document.activeElement instanceof HTMLIFrameElement)
-      document.activeElement.blur();
+  const shortcutTrace = await page.evaluateHandle(() => {
+    const trace = [];
+    const record = (name, event) => {
+      if (trace.length < 24)
+        trace.push({
+          name,
+          key: event?.key,
+          target: event?.target?.tagName,
+          active: document.activeElement?.tagName,
+          focused: document.hasFocus(),
+          prevented: event?.defaultPrevented,
+          workspace: !!document.querySelector(
+            '[aria-label="アングル同期ワークスペース"]',
+          ),
+        });
+    };
+    for (const name of ['keydown', 'keyup', 'clip-sync-cancel']) {
+      window.addEventListener(name, (event) => record(name, event), true);
+    }
+    window.addEventListener('keydown', (event) => record('bubble', event));
+    window.electronAPI.onSetSyncMode?.(() => record('native-menu'));
+    return trace;
   });
-  await page.waitForFunction(
-    () => document.hasFocus() && document.activeElement?.tagName !== 'IFRAME',
-  );
-  await page.keyboard.press(`${primaryModifier}+Shift+T`);
-  await page
-    .getByLabel('アングル同期ワークスペース', { exact: true })
-    .waitFor();
+  // A cross-origin YouTube tech may focus its new frame after the containing
+  // document has gained focus. Send this real desktop shortcut from the
+  // player's own transport control, as the user can do from the main window.
+  try {
+    await page
+      .getByRole('button', { name: /^(再生|一時停止)$/ })
+      .press(`${primaryModifier}+Shift+T`);
+    await page
+      .getByLabel('アングル同期ワークスペース', { exact: true })
+      .waitFor();
+  } catch (error) {
+    console.error(
+      'Persisted YouTube shortcut trace',
+      await shortcutTrace.jsonValue(),
+    );
+    throw error;
+  } finally {
+    await shortcutTrace.dispose();
+  }
   assert.equal(await page.getByRole('combobox').count(), 0);
 
   console.log(`Electron E2E passed: ${packagePath}`);
