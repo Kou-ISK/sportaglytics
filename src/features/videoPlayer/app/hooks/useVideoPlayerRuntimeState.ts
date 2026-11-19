@@ -32,6 +32,7 @@ interface UseVideoPlayerRuntimeStateResult {
   setSyncMode: Dispatch<SetStateAction<'auto' | 'manual'>>;
   currentTime: number;
   playbackTime: number;
+  scrubbing: boolean;
   seekReverse: (time: number, signal: AbortSignal) => Promise<number | null>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
   handleCurrentTime: (
@@ -82,13 +83,20 @@ export const useVideoPlayerRuntimeState =
       [],
     );
 
+    const onScrubFailure = useCallback((): void => {
+      setIsVideoPlayingState(false);
+      setError({ type: 'playback', message: 'シーク先の映像を確認できませんでした。' });
+    }, [setError]);
     const {
+      scrubbing,
       currentTime,
       playbackTime,
       seekReverse,
       setCurrentTime,
       handleCurrentTime,
     } = useVideoTimeController({
+      onScrubFailure,
+      isVideoPlaying,
       videoList,
       syncData,
       syncMode,
@@ -121,7 +129,7 @@ export const useVideoPlayerRuntimeState =
       setIsFileSelected,
       maxSec,
       setMaxSec,
-      isVideoPlaying,
+      isVideoPlaying: isVideoPlaying && !scrubbing,
       setIsVideoPlaying,
       videoPlayBackRate,
       setVideoPlayBackRate,
@@ -133,6 +141,7 @@ export const useVideoPlayerRuntimeState =
       setSyncMode,
       currentTime,
       playbackTime,
+      scrubbing,
       seekReverse,
       setCurrentTime,
       handleCurrentTime,

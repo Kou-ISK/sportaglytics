@@ -74,6 +74,7 @@ export interface BuildVideoAreaSectionParams {
   videoRef2: React.RefObject<HTMLVideoElement | null>;
   hasItems: boolean;
   controlsVisible: boolean;
+  scrubOwnerKey?: string;
   sliderMin: number;
   sliderMax: number;
   marks: { value: number; label: string }[];
@@ -85,7 +86,7 @@ export interface BuildVideoAreaSectionParams {
   volume: number;
   isFullscreen: boolean;
   onSeek: (event: Event, value: number | number[]) => void;
-  onSeekCommitted: () => void;
+  onSeekCommitted: (time: number) => void;
   onPrevious: () => void;
   onTogglePlay: () => void;
   onNext: () => void;

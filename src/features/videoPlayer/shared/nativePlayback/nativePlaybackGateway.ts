@@ -1,3 +1,5 @@
+import { waitForVideoPresentation } from '../../../../shared/media/waitForVideoPresentation';
+import { resolveCachePlayerSeekTarget } from '../../components/PlaybackCache/cachePlayerSeekTarget';
 import { restoreNativeOriginal } from './nativeOriginalRecovery';
 import { nativePresentationSupports } from '../../../../types/ipc/nativePlaybackPresentation';
 import type { NativePlaybackControls } from './nativePlaybackController';
@@ -86,7 +88,7 @@ export const openQualifiedNativePlayback = (
           }
           player.pause();
         },
-        restore: async (time, controls, signal) => {
+        restore: async (time, controls, signal, requirePresentation) => {
           assertDocument();
           if (player.source() !== source) throw Error('NATIVE_SOURCE_CHANGED');
           const check = (): void => {
@@ -108,26 +110,56 @@ export const openQualifiedNativePlayback = (
               player.restore(settings, count);
             },
           };
-          await restoreNativeOriginal(
-            guardedPlayer,
-            source,
-            {
-              time,
-              sourceEnd: availability.sourceEnd ?? undefined,
-              settings: {
-                volume: controls.volume,
-                muted: controls.muted,
-                rate: controls.rate,
-                audio: audio.map((_, index) => index === controls.audioTrack),
+          const restore = (attempt: AbortSignal): Promise<void> =>
+            restoreNativeOriginal(
+              guardedPlayer,
+              source,
+              {
+                time,
+                sourceEnd: availability.sourceEnd ?? undefined,
+                settings: {
+                  volume: controls.volume,
+                  muted: controls.muted,
+                  rate: controls.rate,
+                  audio: audio.map((_, index) => index === controls.audioTrack),
+                },
               },
-            },
-            audio.length,
-            signal,
-            player,
-          );
+              audio.length,
+              attempt,
+              player,
+            );
+          let displayedTime: number | undefined;
+          if (requirePresentation) {
+            const video = player.presentationElement?.();
+            const target = resolveCachePlayerSeekTarget(
+              time,
+              player.duration(),
+              availability.sourceEnd ?? undefined,
+            );
+            if (!video || target === null)
+              throw Error('NATIVE_ORIGINAL_IMAGE_UNAVAILABLE');
+            const cancel = new AbortController();
+            const attempt = AbortSignal.any([signal, cancel.signal]);
+            try {
+              const [pts] = await Promise.all([
+                waitForVideoPresentation(
+                  [{ video, source, time: target, offset: 0 }],
+                  attempt,
+                  () => {},
+                  true,
+                ),
+                restore(attempt),
+              ]);
+              if (pts === null) throw Error('NATIVE_ORIGINAL_IMAGE_UNAVAILABLE');
+              displayedTime = pts;
+            } finally {
+              cancel.abort();
+            }
+          } else await restore(signal);
           assertDocument();
           if (player.source() !== source || !player.paused())
             throw Error('NATIVE_RECOVERY_CHANGED');
+          return displayedTime;
         },
         release: () => {
           unbind?.();

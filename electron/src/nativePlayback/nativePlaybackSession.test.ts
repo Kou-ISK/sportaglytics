@@ -85,12 +85,12 @@ it('rejects a different frame instead of calling it an exact seek', async () => 
   await tick();
   expect(session.observe(observation({ time: 3.001 }))).toBe(false);
 });
-it('commits the observed scrub position and resumes there without inventing exactness', async () => {
+it('commits the exact scrub position before resuming', async () => {
   const { session } = make();
   session.apply(intent({ targetTime: 7, seekMode: 'scrub' }));
   await tick();
-  expect(session.observe(observation({ time: 7.6 }))).toBe(true);
-  expect(session.snapshot().lastConfirmedTime).toBe(7.6);
+  expect(session.observe(observation({ time: 7 }))).toBe(true);
+  expect(session.snapshot().lastConfirmedTime).toBe(7);
   session.apply(
     intent({ targetTime: 7, seekMode: 'scrub', sequence: 2, playing: true }),
   );
@@ -107,6 +107,12 @@ it('commits the observed scrub position and resumes there without inventing exac
     ),
   ).toBe(true);
   expect(session.snapshot().lastConfirmedTime).toBe(7.8);
+});
+it('rejects an approximate clock on scrub release', async () => {
+  const { session } = make();
+  session.apply(intent({ targetTime: 7, seekMode: 'scrub' }));
+  await tick();
+  expect(session.observe(observation({ time: 7.6 }))).toBe(false);
 });
 it('uses the displayed preview time for tags, then honors an explicit exact position', async () => {
   const { session } = make();

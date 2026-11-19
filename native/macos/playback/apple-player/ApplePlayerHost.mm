@@ -161,7 +161,7 @@ struct OutputDisconnected {};
     [_engine pause]; _seek = seek; _ready = NO; _imageSent = NO; _seekCompleted = NO; _seeking = YES; _rateSequence = 0;
     double target = [_intent[@"targetTime"] doubleValue];
     CMTime time = CMTimeMakeWithSeconds(target, 1000000000);
-    [_engine seekToTime:time approximate:_intent[@"seekMode"] != nil completion:^(BOOL finished) {
+    [_engine seekToTime:time approximate:[_intent[@"seekMode"] isEqual:@"preview"] completion:^(BOOL finished) {
       if (!self->_closing && self->_seek == seek) { self->_seekCompleted = finished; self->_seeking = NO; }
     }];
   }

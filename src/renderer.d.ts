@@ -99,6 +99,11 @@ export interface IElectronAPI {
       owner: import('./types/ipc/nativePlayback').NativePlaybackOwner,
     ) => Promise<import('./types/ipc/nativePlayback').NativePlaybackClosed>;
   };
+  scrubPreview: {
+    prepare: (request: import('./types/ipc/scrubPreview').ScrubPreviewRequest) => Promise<import('./types/ipc/scrubPreview').ScrubPreviewStrip | null>;
+    validate: (token: string) => Promise<boolean>;
+    release: (token: string) => Promise<void>;
+  };
   playbackCache: {
     inspect: () => Promise<
       import('./types/ipc/playbackCache').PlaybackCacheSnapshot

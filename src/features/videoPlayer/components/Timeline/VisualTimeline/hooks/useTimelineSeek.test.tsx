@@ -46,3 +46,44 @@ it('keeps one gesture callback through rerender, movement, release and cancellat
     ]);
   }
 });
+
+it('follows the owned pointer outside the bar when capture is unavailable, and commits once', () => {
+  const target = document.createElement('div');
+  target.setPointerCapture = () => { throw new DOMException('Inactive pointer', 'NotFoundError'); };
+  target.hasPointerCapture = () => false;
+  target.releasePointerCapture = vi.fn();
+  const commit = vi.fn();
+  const hook = renderHook(() =>
+    useTimelineSeek(
+      (x) => x,
+      (x) => x / 10,
+      commit,
+    ),
+  );
+  const down = {
+    pointerId: 7,
+    button: 0,
+    clientX: 10,
+    currentTarget: target,
+    stopPropagation: vi.fn(),
+    preventDefault: vi.fn(),
+  } as unknown as PointerEvent<HTMLElement>; // React pointer fixture.
+  act(() => hook.result.current.onPointerDown(down));
+  const send = (name: string, id: number, x: number): void => {
+    const event = new MouseEvent(name, { clientX: x });
+    Object.defineProperty(event, 'pointerId', { value: id });
+    window.dispatchEvent(event);
+  };
+  act(() => {
+    send('pointermove', 9, 100);
+    send('pointermove', 7, 40);
+    send('pointerup', 7, 20);
+    send('pointerup', 7, 80);
+  });
+  expect(commit.mock.calls).toEqual([
+    [1, 'preview'],
+    [4, 'preview'],
+    [2, 'scrub'],
+  ]);
+  hook.unmount();
+});

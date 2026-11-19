@@ -15,8 +15,11 @@ vi.mock('videojs-youtube', () => ({}));
 
 import { useVideoJsInitialization } from './useVideoJsInitialization';
 
+import { useVideoJsSourceSync } from './useVideoJsSourceSync';
+
 interface HarnessProps {
   videoSrc?: string;
+  retainLocalElement?: boolean;
   setIsReady: (value: boolean) => void;
   setDurationSec: (value: number) => void;
   setMaxSec: (value: number) => void;
@@ -26,6 +29,7 @@ const Harness = ({
   setIsReady,
   setDurationSec,
   setMaxSec,
+  retainLocalElement = true,
   videoSrc = 'https://www.youtube.com/watch?v=M7lc1UVf-VE',
 }: HarnessProps) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -44,6 +48,7 @@ const Harness = ({
     id: 'video_0',
     videoSrc,
     allowSeek: false,
+    retainLocalElement,
     setMaxSec,
     setIsReady,
     setDurationSec,
@@ -55,6 +60,15 @@ const Harness = ({
     metadataHandlerRef,
     resizeHandlerRef,
     aspectRatioCallbackRef,
+    lastReportedAspectRatioRef,
+  });
+
+  useVideoJsSourceSync({
+    id: 'video_0',
+    videoSrc,
+    playerRef,
+    setIsReady,
+    setDurationSec,
     lastReportedAspectRatioRef,
   });
 
@@ -71,7 +85,10 @@ describe('useVideoJsInitialization YouTube readiness', () => {
   let metadataCallback: (() => void) | undefined;
   let disposeMock: ReturnType<typeof vi.fn>;
 
+  const sourceChanged = vi.fn();
+
   beforeEach(() => {
+    sourceChanged.mockClear();
     vi.useFakeTimers();
     videojsMock.mockReset();
     durationValue = 0;
@@ -80,7 +97,10 @@ describe('useVideoJsInitialization YouTube readiness', () => {
     disposeMock = vi.fn();
 
     videojsMock.mockImplementation((element) => {
+      let source = { src: '' };
       const player = {
+        currentSource: () => source,
+        pause: vi.fn(),
         currentTime: vi.fn(() => 0),
         dispose: disposeMock,
         duration: vi.fn(() => durationValue),
@@ -94,7 +114,10 @@ describe('useVideoJsInitialization YouTube readiness', () => {
         ready: vi.fn((callback: () => void) => {
           readyCallback = callback;
         }),
-        src: vi.fn(),
+        src: (next: { src: string }) => {
+          source = next;
+          sourceChanged(next.src);
+        },
       };
       return player;
     });
@@ -126,8 +149,29 @@ describe('useVideoJsInitialization YouTube readiness', () => {
     expect(initial.setMaxSec).not.toHaveBeenCalled();
 
     view.rerender(<Harness {...latest} videoSrc="file:///match-b.mp4" />);
+    expect(videojsMock).toHaveBeenCalledTimes(1);
+    expect(disposeMock).not.toHaveBeenCalled();
+    expect(sourceChanged).toHaveBeenLastCalledWith('file:///match-b.mp4');
+    view.rerender(<Harness {...latest} />);
     expect(videojsMock).toHaveBeenCalledTimes(2);
     expect(disposeMock).toHaveBeenCalledTimes(1);
+    view.unmount();
+    expect(disposeMock).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it('creates a new source-local player for each cut in the angle alignment editor', () => {
+    const props = {
+      setMaxSec: vi.fn(),
+      setIsReady: vi.fn(),
+      setDurationSec: vi.fn(),
+      retainLocalElement: false,
+    };
+    const view = render(<Harness {...props} videoSrc="file:///angle-a.mp4" />);
+    view.rerender(<Harness {...props} videoSrc="file:///angle-b.mp4" />);
+    expect(videojsMock).toHaveBeenCalledTimes(2);
+    expect(disposeMock).toHaveBeenCalledTimes(1);
+    expect(sourceChanged).toHaveBeenLastCalledWith('file:///angle-b.mp4');
     view.unmount();
     expect(disposeMock).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
