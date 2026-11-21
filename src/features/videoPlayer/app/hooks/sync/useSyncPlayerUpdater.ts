@@ -23,7 +23,7 @@ export const useSyncPlayerUpdater = ({
   const [playerForceUpdateKey, setPlayerForceUpdateKey] = useState(0);
 
   const forceUpdateVideoPlayers = useCallback(
-    (newSyncData: VideoSyncData, isCurrent = () => true): Promise<void> => {
+    (newSyncData: VideoSyncData, isCurrent: () => boolean = () => true): Promise<void> => {
       return new Promise((resolve) => {
         setIsVideoPlaying(false);
 

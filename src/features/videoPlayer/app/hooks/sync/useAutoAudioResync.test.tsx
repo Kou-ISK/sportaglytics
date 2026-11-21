@@ -54,3 +54,34 @@ it('drops stale results after switching or resetting and retries after a decode 
     hook.unmount();
   }
 });
+
+it('can analyze a second angle added to the same open package', async () => {
+  const setSyncData = vi.fn();
+  const onSyncWarning = vi.fn();
+  const apply = vi.fn(async () => {});
+  const run = vi.mocked(runAudioSyncAnalysis);
+  run.mockClear();
+  const hook = renderHook(({ videoList }) => useAutoAudioResync({
+    videoList,
+    metaDataConfigFilePath: 'same/.metadata/config.json',
+    syncData: undefined,
+    setSyncData,
+    onSyncWarning,
+    forceUpdateVideoPlayers: apply,
+  }), { initialProps: { videoList: ['a.mp4'] } });
+  try {
+    await act(() => hook.result.current.resyncAudio());
+    expect(run).not.toHaveBeenCalled();
+    expect(onSyncWarning).toHaveBeenCalledWith('2つの映像が必要です');
+    hook.rerender({ videoList: ['a.mp4', 'b.mp4'] });
+    run.mockResolvedValueOnce(result);
+    await act(() => hook.result.current.resyncAudio());
+    expect(run).toHaveBeenCalledWith(expect.objectContaining({
+      videoPath1: 'a.mp4',
+      videoPath2: 'b.mp4',
+    }));
+    expect(setSyncData.mock.lastCall?.[0].angleOffsets).toEqual([0, 1.25]);
+  } finally {
+    hook.unmount();
+  }
+});
