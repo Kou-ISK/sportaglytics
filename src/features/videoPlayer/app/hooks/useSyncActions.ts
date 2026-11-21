@@ -66,6 +66,7 @@ export const useSyncActions = ({
   );
 
   const autoAudioResync = useAutoAudioResync({
+    metaDataConfigFilePath,
     videoList,
     syncData,
     setSyncData,

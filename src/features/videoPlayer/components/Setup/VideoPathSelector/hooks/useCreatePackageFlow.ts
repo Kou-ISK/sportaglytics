@@ -4,11 +4,10 @@ import type {
   WizardFormState,
   WizardSelectionState,
 } from '../types';
-import { createVideoPackage } from '../gateway/packageGateway';
+import { createVideoPackage, CreatedPackageOpenError } from '../gateway/packageGateway';
 import {
   buildAnglePayloads,
   buildMetaDataConfig,
-  buildPackageLoadResult,
 } from '../utils/packageCreationMappers';
 
 interface UseCreatePackageFlowParams {
@@ -94,21 +93,22 @@ export const useCreatePackageFlow = ({
 
       try {
         setIsCreating(true);
-        const packageDatas = await createVideoPackage(
+        const loaded = await createVideoPackage(
           directory,
           form.packageName,
           anglePayloads,
           metaDataConfig,
         );
 
-        if (!packageDatas) {
-          throw new Error('Failed to create package');
-        }
-
-        onPackageCreated(buildPackageLoadResult(packageDatas));
+        onPackageCreated(loaded);
         onClose();
       } catch (error) {
         console.error('パッケージ作成に失敗しました:', error);
+        if (error instanceof CreatedPackageOpenError) {
+          showError(error.message);
+          onClose();
+          return;
+        }
         showError(
           error instanceof Error && error.message === 'ELECTRON_API_UNAVAILABLE'
             ? 'この機能はElectronアプリケーション内でのみ利用できます。'

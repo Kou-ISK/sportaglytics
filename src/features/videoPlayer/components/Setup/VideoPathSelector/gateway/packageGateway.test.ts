@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { loadPackageDirectory, pickPackagePath } from './packageGateway';
+import { getAngleOffset } from '../../../../../../shared/media/mediaTimeline';
+import { createVideoPackage, loadPackageDirectory, pickPackagePath } from './packageGateway';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -231,4 +232,42 @@ it('uses one generated ID from preparation through failed binding and reservatio
   expect(typeof id).toBe('string');
   expect(bind).toHaveBeenCalledExactlyOnceWith('/native.stpkg', id);
   expect(release).toHaveBeenCalledExactlyOnceWith('/native.stpkg', id);
+});
+
+describe('audio alignment after package creation and reopen', () => {
+  it.each([
+    { syncOffset: 1.25, angleOffsets: [0, 1.25, -0.5], expected: [0, 1.25, -0.5] },
+    { syncOffset: -0.75, angleOffsets: undefined, expected: [0, -0.75, -0.75] },
+  ])('preserves the saved correction $syncOffset', async ({syncOffset, angleOffsets, expected}) => {
+    vi.stubGlobal('window', {electronAPI: {
+      checkFileExists: async () => true,
+      readJsonFile: async () => ({
+        angles: ['a','b','c'].map(id => ({id, relativePath: 'videos/' + id + '.mp4'})),
+        syncData: {isAnalyzed: true, syncOffset, angleOffsets},
+      }),
+    }});
+    const {result} = await loadPackageDirectory('/sample.stpkg');
+    expect(expected.map((_, index) => getAngleOffset(result.syncData, index))).toEqual(expected);
+  });
+
+  it('binds the saved package on creation and recovers an open failure without recreating it', async () => {
+    const path = '/fixtures/pair.stpkg';
+    const createPackage = vi.fn(async () => ({metaDataConfigFilePath: path + '/.metadata/config.json'}));
+    const bind = vi.fn(async () => true);
+    const config = {angles: ['a','b'].map(id => ({
+      id, relativePath: 'videos/' + id + '.mp4',
+      clips: [{id, relativePath: 'videos/' + id + '.mp4', durationSeconds: 32}],
+    }))};
+    vi.stubGlobal('window', {electronAPI: {
+      createPackage, bindPackageSession: bind, checkFileExists: async () => true, readJsonFile: async () => config,
+    }});
+    const fresh = await createVideoPackage('/fixtures', 'pair', [], {});
+    expect(bind).toHaveBeenCalledExactlyOnceWith(path, expect.any(String));
+    expect(fresh.videoList).toEqual([path + '/videos/a.mp4', path + '/videos/b.mp4']);
+    expect((await loadPackageDirectory(path)).result).toEqual(fresh);
+    bind.mockResolvedValueOnce(false);
+    await expect(createVideoPackage('/fixtures', 'pair', [], {})).rejects.toThrow('作成済み');
+    expect((await loadPackageDirectory(path)).result).toEqual(fresh);
+    expect(createPackage).toHaveBeenCalledTimes(2);
+  });
 });

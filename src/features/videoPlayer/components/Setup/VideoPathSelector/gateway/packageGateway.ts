@@ -1,6 +1,6 @@
 import { restoreNativeBeforeDocumentChange } from '../../../../shared/nativePlayback/nativePlaybackRegistry';
 import type { PackageOpenProgress } from '../../../../../../types/package/openProgress';
-import type { PackageDatas } from '../../../../../../renderer';
+import { createdPackagePath } from '../utils/packageCreationMappers';
 import type { VideoSyncData } from '../../../../../../types/video/sync';
 import type { PackageLoadResult } from '../types';
 import { buildVideoListFromConfig } from '../utils/angleUtils';
@@ -124,18 +124,29 @@ export const selectVideoFiles = async (): Promise<string[]> => {
   return await getElectronApi().openVideoFiles();
 };
 
+export class CreatedPackageOpenError extends Error {}
+
 export const createVideoPackage = async (
   directoryName: string,
   packageName: string,
   angles: Parameters<NonNullable<Window['electronAPI']>['createPackage']>[2],
   metaDataConfig: unknown,
-): Promise<PackageDatas> => {
-  return await getElectronApi().createPackage(
+): Promise<PackageLoadResult> => {
+  const created = await getElectronApi().createPackage(
     directoryName,
     packageName,
     angles,
     metaDataConfig,
   );
+  const path = createdPackagePath(created);
+  try {
+    return (await loadPackageDirectory(path)).result;
+  } catch (cause) {
+    throw new CreatedPackageOpenError(
+      'パッケージは作成済みです。「開く」から作成したパッケージを選択してください。',
+      { cause },
+    );
+  }
 };
 
 let latestOpen = 0;
@@ -202,7 +213,13 @@ const readPreparedPackage = async (
 
   const supportsAudioSync = angles.length >= 2;
   const persistedSyncData = toSyncData(config.syncData);
-  const angleOffsets = angles.map((angle) => angle.playbackOffsetSeconds);
+  const angleOffsets = angles.map((angle, index) =>
+    index === 0
+      ? 0
+      : (persistedSyncData?.angleOffsets?.[index] ??
+        persistedSyncData?.syncOffset ??
+        angle.playbackOffsetSeconds),
+  );
   const hasAngleOffset = angleOffsets.some((offset) => offset !== 0);
   const syncData =
     persistedSyncData || hasAngleOffset

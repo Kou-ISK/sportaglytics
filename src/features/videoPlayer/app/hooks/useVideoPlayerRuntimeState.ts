@@ -1,3 +1,4 @@
+import { useNotification } from '../../../../contexts/NotificationContext';
 import type { VideoSeekMode } from '../../../../types/video/seek';
 import { useCallback, useState } from 'react';
 import type { Dispatch, SetStateAction, SyntheticEvent } from 'react';
@@ -103,6 +104,7 @@ export const useVideoPlayerRuntimeState =
       mediaAngles,
     });
 
+    const { info, warning } = useNotification();
     const syncActions = useSyncActions({
       videoList,
       syncData,
@@ -111,6 +113,8 @@ export const useVideoPlayerRuntimeState =
       metaDataConfigFilePath,
       setSyncMode,
       onSyncError: setError,
+      onSyncInfo: info,
+      onSyncWarning: warning,
     });
 
     useVideoMetadataSync({

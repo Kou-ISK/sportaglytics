@@ -1,3 +1,4 @@
+import { BrowserWindow } from 'electron';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const {
@@ -33,7 +34,7 @@ vi.mock('electron', () => ({
   app: { name: 'SporTagLytics' },
   BrowserWindow: {
     getAllWindows: () => [mainWindow, otherWindow, auxiliaryWindow],
-    getFocusedWindow: () => null,
+    getFocusedWindow: vi.fn(() => null),
   },
 }));
 vi.mock('../packageSessionRegistry', () => ({
@@ -60,6 +61,7 @@ vi.mock('./menuWindowActions', () => ({
 }));
 
 import {
+  buildSyncMenuItems,
   buildFileMenuItems,
   buildHelpMenuItems,
   buildWindowMenuItems,
@@ -206,4 +208,20 @@ describe('document menus', () => {
       'コードウィンドウを開く',
     );
   });
+});
+
+it('delivers the sync menu from a Timeline to its owner only', () => {
+  send.mockClear();
+  otherSend.mockClear();
+  vi.mocked(BrowserWindow.getFocusedWindow).mockReturnValue(auxiliaryWindow as unknown as Electron.BrowserWindow);
+  const command = buildSyncMenuItems().find(item => item.id === 'resync-package-audio');
+  command?.click?.(
+    {} as Electron.MenuItem,
+    auxiliaryWindow as unknown as Electron.BrowserWindow,
+    {} as Electron.KeyboardEvent,
+  );
+  vi.mocked(BrowserWindow.getFocusedWindow).mockReturnValue(null);
+  expect(send).toHaveBeenCalledExactlyOnceWith('menu-resync-audio');
+  expect(otherSend).not.toHaveBeenCalled();
+  expect(auxiliaryWindow.webContents.send).not.toHaveBeenCalledWith('menu-resync-audio');
 });
