@@ -271,3 +271,20 @@ describe('audio alignment after package creation and reopen', () => {
     expect(createPackage).toHaveBeenCalledTimes(2);
   });
 });
+
+it('keeps the more recently opened package when an earlier creation finishes copying', async () => {
+  let finish!: (value: { metaDataConfigFilePath: string }) => void;
+  const created = new Promise<{ metaDataConfigFilePath: string }>((resolve) => { finish = resolve; });
+  const bind = vi.fn(async () => true);
+  vi.stubGlobal('window', { electronAPI: {
+    createPackage: () => created,
+    bindPackageSession: bind,
+    checkFileExists: async () => true,
+    readJsonFile: async () => ({angles: [{id: 'a', relativePath: 'videos/a.mp4'}]}),
+  }});
+  const first = createVideoPackage('/fixtures', 'first', [], {});
+  await loadPackageDirectory('/fixtures/second.stpkg');
+  finish({metaDataConfigFilePath: '/fixtures/first.stpkg/.metadata/config.json'});
+  await expect(first).rejects.toThrow('作成済み');
+  expect(bind).toHaveBeenCalledExactlyOnceWith('/fixtures/second.stpkg', expect.any(String));
+});

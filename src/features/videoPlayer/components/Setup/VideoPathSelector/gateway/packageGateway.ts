@@ -124,6 +124,8 @@ export const selectVideoFiles = async (): Promise<string[]> => {
   return await getElectronApi().openVideoFiles();
 };
 
+let latestOpen = 0;
+
 export class CreatedPackageOpenError extends Error {}
 
 export const createVideoPackage = async (
@@ -132,6 +134,7 @@ export const createVideoPackage = async (
   angles: Parameters<NonNullable<Window['electronAPI']>['createPackage']>[2],
   metaDataConfig: unknown,
 ): Promise<PackageLoadResult> => {
+  const creation = ++latestOpen;
   const created = await getElectronApi().createPackage(
     directoryName,
     packageName,
@@ -140,6 +143,7 @@ export const createVideoPackage = async (
   );
   const path = createdPackagePath(created);
   try {
+    if (creation !== latestOpen) throw new Error('PACKAGE_OPEN_CANCELLED');
     return (await loadPackageDirectory(path)).result;
   } catch (cause) {
     throw new CreatedPackageOpenError(
@@ -149,7 +153,6 @@ export const createVideoPackage = async (
   }
 };
 
-let latestOpen = 0;
 export const loadPackageDirectory = async (
   packagePath: string,
   requestId?: string,

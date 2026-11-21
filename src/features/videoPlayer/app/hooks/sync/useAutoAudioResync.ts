@@ -42,6 +42,15 @@ export const useAutoAudioResync = ({
   const [syncStage, setSyncStage] = useState('');
 
   const generation = useRef(0);
+  const editRevision = useRef(0);
+  const ownWrite = useRef<VideoSyncData | null>(null);
+
+  // A committed manual edit supersedes the analysis and its delayed player update.
+  useLayoutEffect(() => {
+    if (syncData !== ownWrite.current) editRevision.current++;
+    ownWrite.current = null;
+  }, [syncData]);
+
   useLayoutEffect(() => {
     setIsAnalyzing(false);
     setSyncProgress(0);
@@ -90,7 +99,9 @@ export const useAutoAudioResync = ({
     }
 
     const request = ++generation.current;
-    const isCurrent = (): boolean => generation.current === request;
+    const revision = editRevision.current;
+    const isCurrent = (): boolean =>
+      generation.current === request && editRevision.current === revision;
     setIsAnalyzing(true);
     setSyncProgress(0);
     setSyncStage('');
@@ -148,6 +159,7 @@ export const useAutoAudioResync = ({
         isAnalyzed: true,
         confidenceScore: result.confidence,
       };
+      ownWrite.current = newSyncData;
       setSyncData(newSyncData);
       notifyInfo('音声同期完了');
       await forceUpdateVideoPlayers(newSyncData, isCurrent);
@@ -162,7 +174,7 @@ export const useAutoAudioResync = ({
         detail: error instanceof Error ? error.message : String(error),
       });
     } finally {
-      if (isCurrent()) {
+      if (generation.current === request) {
         setIsAnalyzing(false);
         setSyncProgress(0);
         setSyncStage('');
@@ -190,9 +202,13 @@ export const useAutoAudioResync = ({
       isAnalyzed: Boolean(angleOffsets?.some((offset) => offset !== 0)),
       confidenceScore: 0,
     };
+    const revision = editRevision.current;
+    ownWrite.current = resetSyncData;
     setSyncData(resetSyncData);
     notifyInfo('同期をリセットしました');
-    void forceUpdateVideoPlayers(resetSyncData, () => generation.current === request);
+    void forceUpdateVideoPlayers(resetSyncData, () =>
+      generation.current === request && editRevision.current === revision,
+    );
   }, [
     forceUpdateVideoPlayers,
     notifyInfo,

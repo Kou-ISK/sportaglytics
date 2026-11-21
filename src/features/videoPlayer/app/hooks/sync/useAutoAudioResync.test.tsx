@@ -14,11 +14,12 @@ it('drops stale results after switching or resetting and retries after a decode 
   const set = vi.fn();
   const error = vi.fn();
   const run = vi.mocked(runAudioSyncAnalysis);
-  const hook = renderHook(({document}) => useAutoAudioResync({
+  const initialSync = {syncOffset: 4, angleOffsets: [0, 4, -0.5], isAnalyzed: true};
+  const hook = renderHook(({document, sync}) => useAutoAudioResync({
     videoList: paths, metaDataConfigFilePath: document,
-    syncData: {syncOffset: 4, angleOffsets: [0, 4, -0.5], isAnalyzed: true},
+    syncData: sync,
     setSyncData: set, forceUpdateVideoPlayers: apply, onSyncError: error,
-  }), {initialProps: {document: 'A'}});
+  }), {initialProps: {document: 'A', sync: initialSync}});
   const pending = async () => {
     let resolve!: (value: AudioAnalysisResult) => void;
     run.mockImplementationOnce(() => new Promise(done => { resolve = done; }));
@@ -29,7 +30,7 @@ it('drops stale results after switching or resetting and retries after a decode 
   };
   try {
     const old = await pending();
-    hook.rerender({document: 'B'});
+    hook.rerender({document: 'B', sync: initialSync});
     await act(async () => { old.resolve(result); await old.work; });
     expect(set).not.toHaveBeenCalled();
     expect(apply).not.toHaveBeenCalled();
@@ -45,6 +46,12 @@ it('drops stale results after switching or resetting and retries after a decode 
     await act(async () => { cancelled.resolve(result); await cancelled.work; });
     expect(set).not.toHaveBeenCalled();
     expect(apply).not.toHaveBeenCalled();
+    const superseded = await pending();
+    hook.rerender({document: 'B', sync: {...initialSync, syncOffset: 2, angleOffsets: [0, 2, -0.5]}});
+    await act(async () => { superseded.resolve(result); await superseded.work; });
+    expect(set).not.toHaveBeenCalled();
+    expect(apply).not.toHaveBeenCalled();
+    expect(hook.result.current.isAnalyzing).toBe(false);
     run.mockResolvedValueOnce(result);
     await act(() => hook.result.current.resyncAudio());
     expect(set.mock.lastCall?.[0].angleOffsets).toEqual([0, 1.25, -0.5]);
