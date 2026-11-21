@@ -81,3 +81,65 @@ describe('useGlobalHotkeys', () => {
     expect(stopReverse).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('owned reverse key release after editor focus', () => {
+  it.each([
+    ['slow', 'Left', {}],
+    ['2x', 'Shift+Left', { shiftKey: true }],
+    ['4x', 'Alt+Left', { altKey: true }],
+    ['6x', 'CommandOrControl+Left', { metaKey: true }],
+  ] as const)(
+    'finishes %s without consuming an editor keyup',
+    (suffix, key, modifiers) => {
+      const platform = vi
+        .spyOn(navigator, 'platform', 'get')
+        .mockReturnValue('MacIntel');
+      const id = 'reverse-playback-' + suffix;
+      const start = vi.fn();
+      const finish = vi.fn();
+      const binding = [{ id, key, label: id }];
+      const hook = renderHook(() =>
+        useGlobalHotkeys(binding, { [id]: start }, { [id]: finish }),
+      );
+      const editor = document.body.appendChild(
+        document.createElement('textarea'),
+      );
+      const edit = vi.fn((event: Event) => event.stopPropagation());
+      editor.addEventListener('keyup', edit);
+      const send = (
+        where: EventTarget,
+        type: string,
+        k = 'ArrowLeft',
+      ): boolean =>
+        where.dispatchEvent(
+          new KeyboardEvent(type, {
+            key: k,
+            code: k,
+            ...modifiers,
+            bubbles: true,
+            cancelable: true,
+          }),
+        );
+      try {
+        send(editor, 'keydown');
+        send(editor, 'keyup');
+        expect(start).not.toHaveBeenCalled();
+        expect(finish).not.toHaveBeenCalled();
+        send(window, 'keydown');
+        expect(start).toHaveBeenCalledOnce();
+        editor.focus();
+        send(editor, 'keyup', 'ArrowRight');
+        expect(finish).not.toHaveBeenCalled();
+        expect(send(editor, 'keyup')).toBe(true);
+        expect(finish).toHaveBeenCalledOnce();
+        send(editor, 'keyup');
+        expect(edit).toHaveBeenCalledTimes(4);
+        expect(finish).toHaveBeenCalledOnce();
+      } finally {
+        hook.unmount();
+        editor.remove();
+        platform.mockRestore();
+      }
+    },
+  );
+});

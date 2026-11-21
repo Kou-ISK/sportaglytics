@@ -24,6 +24,8 @@ export const useGlobalHotkeys = (
   const keyUpHandlersRef = useRef(keyUpHandlers);
   keyUpHandlersRef.current = keyUpHandlers;
 
+  const heldReverse = useRef<{ id: string; physicalKey: string } | null>(null);
+
   useEffect(() => {
     const sortedHotkeys = sortHotkeysBySpecificity(hotkeys);
 
@@ -50,7 +52,27 @@ export const useGlobalHotkeys = (
       if (event.repeat) {
         return;
       }
+      if (
+        hotkey.id.startsWith('reverse-playback-') &&
+        keyUpHandlersRef.current?.[hotkey.id]
+      ) {
+        heldReverse.current = {
+          id: hotkey.id,
+          physicalKey: event.code || event.key.toLowerCase(),
+        };
+      }
       handler();
+    };
+
+    // Editors can consume keyup before it bubbles to the window. Finish only
+    // a hold started by this hook and leave the editor's event untouched.
+    const captureReverseRelease = (event: KeyboardEvent): void => {
+      const held = heldReverse.current;
+      if (!held || held.physicalKey !== (event.code || event.key.toLowerCase()))
+        return;
+      heldReverse.current = null;
+      if (shouldIgnoreHotkeyTarget(event.target))
+        keyUpHandlersRef.current?.[held.id]?.();
     };
 
     const handleKeyUp = (event: KeyboardEvent) => {
@@ -95,6 +117,7 @@ export const useGlobalHotkeys = (
         'reverse-playback-6x',
       ];
       if (shouldResetPlaybackHotkeyState(event)) {
+        heldReverse.current = null;
         for (const id of resetIds) {
           const h = keyUpHandlersRef.current[id];
           if (h) {
@@ -107,6 +130,7 @@ export const useGlobalHotkeys = (
     };
 
     const handleBlur = (): void => {
+      heldReverse.current = null;
       const handlers = keyUpHandlersRef.current;
       if (!handlers) return;
       for (const id of [
@@ -124,11 +148,17 @@ export const useGlobalHotkeys = (
     };
 
     globalThis.window.addEventListener('keydown', handleKeyDown);
+    globalThis.window.addEventListener('keyup', captureReverseRelease, true);
     globalThis.window.addEventListener('keyup', handleKeyUp);
     globalThis.window.addEventListener('blur', handleBlur);
 
     return () => {
       globalThis.window.removeEventListener('keydown', handleKeyDown);
+      globalThis.window.removeEventListener(
+        'keyup',
+        captureReverseRelease,
+        true,
+      );
       globalThis.window.removeEventListener('keyup', handleKeyUp);
       globalThis.window.removeEventListener('blur', handleBlur);
     };

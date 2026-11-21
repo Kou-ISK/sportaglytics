@@ -129,6 +129,34 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it.each([
+  ['slow', 0.5],
+  ['2x', 2],
+  ['4x', 4],
+  ['6x', 6],
+] as const)(
+  'uses the %s playlist rate and discards pending motion on release',
+  async (suffix, rate) => {
+    const h = setup();
+    const id = 'reverse-playback-' + suffix;
+    try {
+      act(() => {
+        mocks.handlers[id]();
+        h.tick(1000);
+        h.tick(1050);
+        h.tick(1100);
+        mocks.up[id]();
+      });
+      expect(mocks.seek).toHaveBeenCalledTimes(1);
+      expect(mocks.seek.mock.calls[0][0]).toBeCloseTo(10 - 0.05 * rate, 6);
+      await h.finish();
+      expect(mocks.seek).toHaveBeenCalledTimes(1);
+    } finally {
+      h.hook.unmount();
+    }
+  },
+);
+
 it('does not send the old pending seek when playlist reverse is released', async () => {
   const h = setup();
   h.initiate();
