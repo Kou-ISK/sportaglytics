@@ -4,7 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { _electron as electron } from 'playwright';
-import { getTimelineWindow, seekSyncTime } from './e2e-angle-sync-workspace.mjs';
+import { getTimelineWindow } from './e2e-angle-sync-workspace.mjs';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder } from './e2e-platform.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
@@ -114,12 +114,17 @@ try {
   await page.reload();
   await createFromWizard(app, page);
   const fresh = await analyze(app, page);
+  console.log('Fresh package offset (seconds):', fresh);
   await app.close();
   app = undefined;
   app = await electron.launch(getElectronLaunchOptions(profile, [folder]));
   page = await mainPage(app);
   await page.locator('#video_1 video').waitFor();
-  await seekSyncTime(await getTimelineWindow(app), 4);
+  const timeline = await getTimelineWindow(app);
+  await timeline.getByTestId('timeline-ruler').waitFor();
+  await timeline.evaluate(() => {
+    window.electronAPI.timelineWindow.sendCommand({type: 'seek', time: 4});
+  });
   await verifyPlayers(page, 4);
   const reopened = await analyze(app, page);
   assert.ok(Math.abs(fresh - reopened) < 0.02);
