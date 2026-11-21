@@ -3,6 +3,7 @@
 import { renderHook } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { HotkeyConfig } from '../types/settings/coreTypes';
+import { useHeldPlayback } from '../shared/hooks/useHeldPlayback';
 import { useGlobalHotkeys } from './useGlobalHotkeys';
 
 const playPauseHotkey: HotkeyConfig = {
@@ -143,3 +144,53 @@ describe('owned reverse key release after editor focus', () => {
     },
   );
 });
+
+it.each([false, true])(
+  'restores the prior playing=%s state and rate after a forward hold ends in a note',
+  (playing) => {
+    const id = 'skip-forward-medium';
+    const binding = [{ id, label: id, key: 'Shift+Right' }];
+    const before = { playing, rate: 1.25 };
+    let state = before;
+    const hook = renderHook(() => {
+      const forward = useHeldPlayback(
+        () => state,
+        (next) => {
+          state = next;
+        },
+      );
+      useGlobalHotkeys(
+        binding,
+        { [id]: () => forward.start(id, 2) },
+        { [id]: () => forward.stop(id) },
+      );
+    });
+    const editor = document.body.appendChild(
+      document.createElement('textarea'),
+    );
+    editor.addEventListener('keyup', (event) => event.stopPropagation());
+    try {
+      window.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'ArrowRight',
+          code: 'ArrowRight',
+          shiftKey: true,
+        }),
+      );
+      expect(state).toEqual({ playing: true, rate: 2 });
+      editor.focus();
+      const release = new KeyboardEvent('keyup', {
+        key: 'ArrowRight',
+        code: 'ArrowRight',
+        bubbles: true,
+        cancelable: true,
+      });
+      editor.dispatchEvent(release);
+      expect(state).toEqual(before);
+      expect(release.defaultPrevented).toBe(false);
+    } finally {
+      hook.unmount();
+      editor.remove();
+    }
+  },
+);

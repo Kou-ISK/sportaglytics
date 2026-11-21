@@ -8,6 +8,17 @@ import {
   sortHotkeysBySpecificity,
 } from './globalHotkeyUtils';
 
+const heldPlaybackIds = new Set([
+  'skip-forward-small',
+  'skip-forward-medium',
+  'skip-forward-large',
+  'skip-forward-xlarge',
+  'reverse-playback-slow',
+  'reverse-playback-2x',
+  'reverse-playback-4x',
+  'reverse-playback-6x',
+]);
+
 /**
  * グローバルホットキーを処理するHook
  * ウィンドウにフォーカスがある時のみ動作し、他のアプリケーションを妨害しません
@@ -24,7 +35,7 @@ export const useGlobalHotkeys = (
   const keyUpHandlersRef = useRef(keyUpHandlers);
   keyUpHandlersRef.current = keyUpHandlers;
 
-  const heldReverse = useRef<{ id: string; physicalKey: string } | null>(null);
+  const heldPlayback = useRef<{ id: string; physicalKey: string } | null>(null);
 
   useEffect(() => {
     const sortedHotkeys = sortHotkeysBySpecificity(hotkeys);
@@ -53,10 +64,10 @@ export const useGlobalHotkeys = (
         return;
       }
       if (
-        hotkey.id.startsWith('reverse-playback-') &&
+        heldPlaybackIds.has(hotkey.id) &&
         keyUpHandlersRef.current?.[hotkey.id]
       ) {
-        heldReverse.current = {
+        heldPlayback.current = {
           id: hotkey.id,
           physicalKey: event.code || event.key.toLowerCase(),
         };
@@ -66,11 +77,11 @@ export const useGlobalHotkeys = (
 
     // Editors can consume keyup before it bubbles to the window. Finish only
     // a hold started by this hook and leave the editor's event untouched.
-    const captureReverseRelease = (event: KeyboardEvent): void => {
-      const held = heldReverse.current;
+    const captureHeldRelease = (event: KeyboardEvent): void => {
+      const held = heldPlayback.current;
       if (!held || held.physicalKey !== (event.code || event.key.toLowerCase()))
         return;
-      heldReverse.current = null;
+      heldPlayback.current = null;
       if (shouldIgnoreHotkeyTarget(event.target))
         keyUpHandlersRef.current?.[held.id]?.();
     };
@@ -106,19 +117,9 @@ export const useGlobalHotkeys = (
         }
       }
 
-      const resetIds = [
-        'skip-forward-small',
-        'skip-forward-medium',
-        'skip-forward-large',
-        'skip-forward-xlarge',
-        'reverse-playback-slow',
-        'reverse-playback-2x',
-        'reverse-playback-4x',
-        'reverse-playback-6x',
-      ];
       if (shouldResetPlaybackHotkeyState(event)) {
-        heldReverse.current = null;
-        for (const id of resetIds) {
+        heldPlayback.current = null;
+        for (const id of heldPlaybackIds) {
           const h = keyUpHandlersRef.current[id];
           if (h) {
             event.preventDefault();
@@ -130,35 +131,22 @@ export const useGlobalHotkeys = (
     };
 
     const handleBlur = (): void => {
-      heldReverse.current = null;
+      heldPlayback.current = null;
       const handlers = keyUpHandlersRef.current;
       if (!handlers) return;
-      for (const id of [
-        'skip-forward-small',
-        'skip-forward-medium',
-        'skip-forward-large',
-        'skip-forward-xlarge',
-        'reverse-playback-slow',
-        'reverse-playback-2x',
-        'reverse-playback-4x',
-        'reverse-playback-6x',
-      ]) {
+      for (const id of heldPlaybackIds) {
         handlers[id]?.();
       }
     };
 
     globalThis.window.addEventListener('keydown', handleKeyDown);
-    globalThis.window.addEventListener('keyup', captureReverseRelease, true);
+    globalThis.window.addEventListener('keyup', captureHeldRelease, true);
     globalThis.window.addEventListener('keyup', handleKeyUp);
     globalThis.window.addEventListener('blur', handleBlur);
 
     return () => {
       globalThis.window.removeEventListener('keydown', handleKeyDown);
-      globalThis.window.removeEventListener(
-        'keyup',
-        captureReverseRelease,
-        true,
-      );
+      globalThis.window.removeEventListener('keyup', captureHeldRelease, true);
       globalThis.window.removeEventListener('keyup', handleKeyUp);
       globalThis.window.removeEventListener('blur', handleBlur);
     };
