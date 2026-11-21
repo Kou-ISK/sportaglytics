@@ -15,6 +15,7 @@ const scenarios = [
   'capture-gaps',
   'unified-open',
   'clip-sync',
+  'new-package-audio-sync',
   'multi-clip-playback',
   'playback-buffering',
   'angle-sync-multi',

@@ -259,9 +259,11 @@ try {
   );
   assert.equal(request.clips.length, 2);
   assert.deepEqual(
-    request.clips.map((clip) => path.normalize(clip.videoPath)),
-    config.angles[0].clips.map((clip) =>
-      path.join(packagePath, clip.relativePath),
+    await Promise.all(request.clips.map((clip) => fs.realpath(clip.videoPath))),
+    await Promise.all(
+      config.angles[0].clips.map((clip) =>
+        fs.realpath(path.join(packagePath, clip.relativePath)),
+      ),
     ),
   );
   assert.equal(
@@ -271,7 +273,7 @@ try {
   const recent = await page.evaluate(() =>
     JSON.parse(localStorage.getItem('sportaglytics-recent-packages')),
   );
-  assert.equal(path.normalize(recent[0].path), packagePath);
+  assert.equal(await fs.realpath(recent[0].path), await fs.realpath(packagePath));
   const deadline = Date.now() + 5000;
   let timeline;
   do {

@@ -56,9 +56,7 @@ export const buildMetaDataConfig = (
   };
 };
 
-export const buildPackageLoadResult = (
-  packageDatas: PackageDatas,
-): PackageLoadResult => {
+export const createdPackagePath = (packageDatas: PackageDatas): string => {
   // Main adds the package extension. Use its persisted location, not the form name.
   const packagePath = packageDatas.metaDataConfigFilePath.replace(
     /[/\\]\.metadata[/\\]config\.json$/,
@@ -67,6 +65,13 @@ export const buildPackageLoadResult = (
   if (packagePath === packageDatas.metaDataConfigFilePath || !packagePath) {
     throw new Error('作成したパッケージの保存先を確認できませんでした。');
   }
+  return packagePath;
+};
+
+export const buildPackageLoadResult = (
+  packageDatas: PackageDatas,
+): PackageLoadResult => {
+  const packagePath = createdPackagePath(packageDatas);
   const videoList = packageDatas.angles
     .map((angle) => angle.absolutePath)
     .filter((source) => source.trim().length > 0);
