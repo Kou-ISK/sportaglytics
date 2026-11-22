@@ -10,7 +10,7 @@ import { getTimelineWindow } from './e2e-angle-sync-workspace.mjs';
 const out = path.resolve('visual-results');
 await fs.mkdir(out);
 const root = await fs.mkdtemp(path.join(process.env.RUNNER_TEMP,'visual-'));
-process.env.E2E_APP_PATH = path.join(process.env.RUNNER_TEMP,'signed/SporTagLytics.app/Contents/MacOS/SporTagLytics');
+process.env.E2E_APP_PATH = path.join(process.env.RUNNER_TEMP,'test-Applications/SporTagLytics.app/Contents/MacOS/SporTagLytics');
 execFileSync('unzip',['-q','samples/synthetic-first-run.stpkg.zip','-d',root]);
 const single = path.join(root,'Synthetic-first-run.stpkg');
 const pair = path.join(root,'Pair.stpkg');
@@ -61,6 +61,24 @@ async function sample(app, page, count) {
   return boxes;
 }
 
+const installed=path.join(process.env.RUNNER_TEMP,'test-Applications/SporTagLytics.app');
+const oldProfile=path.join(root,'profile-single');
+const savedTimeline=path.join(single,'timeline.json');
+const savedBytes=await fs.readFile(savedTimeline);
+const old=await electron.launch(getElectronLaunchOptions(oldProfile,[single]));
+try {
+  const identity=await old.evaluate(({app})=>[app.getVersion(),app.isPackaged,app.getPath('exe'),app.getPath('userData')]);
+  assert.deepEqual(identity,['0.17.31',true,process.env.E2E_APP_PATH,oldProfile]);
+  const page=await old.firstWindow();
+  await page.locator('#video_0 video').waitFor();
+  await page.getByRole('button',{name:'スキップ',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('#video_0 video')?.readyState>=2);
+  assert.equal(await page.evaluate(()=>localStorage.getItem('sportaglytics-onboarding-completed')),'true');
+} finally {await old.close();}
+await fs.rename(installed,path.join(process.env.RUNNER_TEMP,'preserved-old.app'));
+execFileSync('ditto',[path.join(process.env.RUNNER_TEMP,'signed/SporTagLytics.app'),installed]);
+execFileSync('codesign',['--verify','--deep','--strict',installed]);
+assert.ok((await fs.readFile(savedTimeline)).equals(savedBytes));
 const records=[];
 async function exercise(mode) {
   const profile=path.join(root,'profile-'+mode);
@@ -72,9 +90,16 @@ async function exercise(mode) {
     const main=await app.firstWindow();
     await main.locator('#video_0 video').waitFor({timeout:30000});
     const skip=main.getByRole('button',{name:'スキップ',exact:true});
-    await skip.waitFor({timeout:10000});
-    await skip.click();
-    await skip.waitFor({state:'hidden'});
+    if(mode==='single'){
+      assert.equal(await main.evaluate(()=>localStorage.getItem('sportaglytics-onboarding-completed')),'true');
+      assert.equal(await skip.count(),0);
+      assert.ok((await fs.readFile(savedTimeline)).equals(savedBytes));
+      console.log('Public 0.17.31 -> 0.17.34 update reopened the saved package in the same profile.');
+    } else {
+      await skip.waitFor({timeout:10000});
+      await skip.click();
+      await skip.waitFor({state:'hidden'});
+    }
     let bar,slider;
     if(mode==='playlist'){
       const [review]=await Promise.all([app.waitForEvent('window'),main.evaluate(p=>window.electronAPI.playlist.loadPlaylistFile(p),playlist)]);

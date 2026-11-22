@@ -4,11 +4,10 @@ on:
     branches: [test/signed-01734-scrub-acceptance]
 permissions:
   contents: read
-  actions: read
 jobs:
   visual:
     runs-on: macos-latest
-    timeout-minutes: 15
+    timeout-minutes: 18
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,22 +19,31 @@ jobs:
         with:
           version: 9.1.0
       - run: pnpm install --frozen-lockfile --ignore-scripts
-      - uses: actions/download-artifact@v4
-        with:
-          name: macos-0.17.34-252aebbb0a9878b04af913c3844a8126ab0fd306
-          run-id: 45010759226
-          github-token: ${{ github.token }}
-          path: candidate
-      - name: Verify and mount the exact signed candidate
+      - name: Install old public app and verify the released replacement
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          cd candidate
-          echo '7645af5a096189beb89111ec3a16e9bc3c13ff364f840d529e023f13a5e36738  SporTagLytics-0.17.34-arm64.dmg' | shasum -a 256 -c -
-          mkdir "$RUNNER_TEMP/signed"
-          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/signed" SporTagLytics-0.17.34-arm64.dmg
-          codesign --verify --deep --strict "$RUNNER_TEMP/signed/SporTagLytics.app"
-          xcrun stapler validate "$RUNNER_TEMP/signed/SporTagLytics.app"
-          spctl --assess -vv --type execute "$RUNNER_TEMP/signed/SporTagLytics.app"
+          mkdir previous current "$RUNNER_TEMP/old-volume" "$RUNNER_TEMP/signed" "$RUNNER_TEMP/test-Applications"
+          gh release download v0.17.31 --repo "$GITHUB_REPOSITORY" --pattern 'SporTagLytics-0.17.31-arm64.dmg' --dir previous
+          gh release download v0.17.34 --repo "$GITHUB_REPOSITORY" --pattern 'SporTagLytics-0.17.34-arm64.dmg' --dir current
+          echo 'e9d4a527acc09aa89b1eef700401567e186bd7888f7f217252128fede47d5d8d  previous/SporTagLytics-0.17.31-arm64.dmg' | shasum -a 256 -c -
+          echo 'c9b966abe7831bc85012105d6a599e34575a1a9f8faf562610237e58f43598ab  current/SporTagLytics-0.17.34-arm64.dmg' | shasum -a 256 -c -
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/old-volume" previous/SporTagLytics-0.17.31-arm64.dmg
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/signed" current/SporTagLytics-0.17.34-arm64.dmg
+          for volume in old-volume signed; do
+            app="$RUNNER_TEMP/$volume/SporTagLytics.app"
+            codesign --verify --deep --strict "$app"
+            xcrun stapler validate "$app"
+            spctl --assess -vv --type execute "$app"
+          done
+          ditto "$RUNNER_TEMP/old-volume/SporTagLytics.app" "$RUNNER_TEMP/test-Applications/SporTagLytics.app"
       - run: node scripts/signed-scrub-acceptance.mjs
+      - name: Verify the installed release handles all four document types
+        run: |
+          app="$RUNNER_TEMP/test-Applications/SporTagLytics.app"
+          /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$app"
+          clang -fobjc-arc -framework AppKit -framework UniformTypeIdentifiers scripts/verify-installed-document-types.m -o "$RUNNER_TEMP/check-document-types"
+          "$RUNNER_TEMP/check-document-types" "$app"
       - uses: actions/upload-artifact@v4
         if: always()
         with:
