@@ -71,11 +71,17 @@ async function exercise(mode) {
     assert.deepEqual(identity,['0.17.34',true,process.env.E2E_APP_PATH,profile]);
     const main=await app.firstWindow();
     await main.locator('#video_0 video').waitFor({timeout:30000});
-    await main.evaluate(()=>localStorage.setItem('sportaglytics-onboarding-completed','true'));
+    const skip=main.getByRole('button',{name:'スキップ',exact:true});
+    await skip.waitFor({timeout:10000});
+    await skip.click();
+    await skip.waitFor({state:'hidden'});
     let bar,slider;
     if(mode==='playlist'){
       const [review]=await Promise.all([app.waitForEvent('window'),main.evaluate(p=>window.electronAPI.playlist.loadPlaylistFile(p),playlist)]);
       media=control=review;
+      const rw=await app.browserWindow(review);
+      await rw.evaluate(w=>w.setBounds({x:0,y:0,width:1024,height:740}));
+      await rw.dispose();
       await review.getByTestId('organizer-clip-marker').dblclick();
       const input=review.getByRole('slider',{name:'映像の再生位置'});
       slider=input;
@@ -100,8 +106,11 @@ async function exercise(mode) {
     const states=()=>media.evaluate(()=>[...document.querySelectorAll('video')].filter(v=>v.videoWidth && v.clientWidth).map(v=>({time:v.currentTime,paused:v.paused})));
     async function playing(want) {
       if ((await states()).every(v=>v.paused!==want))return;
-      if(mode==='playlist')await media.keyboard.press('Space');
-      else await media.getByRole('button',{name:want?'再生':'一時停止',exact:true}).click({force:true});
+      if(mode==='playlist') {
+        const box=await media.locator('video').first().boundingBox();
+        await media.mouse.move(box.x+box.width/2,box.y+box.height/2);
+      }
+      await media.getByRole('button',{name:want?'再生':'一時停止',exact:true}).first().click({timeout:6000});
       await media.waitForFunction(w=>[...document.querySelectorAll('video')].filter(v=>v.videoWidth && v.clientWidth).every(v=>v.paused!==w),want,{timeout:5000});
     }
     async function match(t) {
@@ -115,7 +124,7 @@ async function exercise(mode) {
     }
     await playing(false);
     await control.mouse.move(x(4),y);await control.mouse.down();
-    for(const t of [4,9,6]){
+    for(const t of [4,10,6]){
       await control.mouse.move(x(t),y);
       const seen=await match(actual(t));
       records.push({mode,stage:'held',target:actual(t),seen});
@@ -128,13 +137,13 @@ async function exercise(mode) {
     records.push({mode,stage:'released-paused',target:actual(6),landed});
     await playing(true);
     await control.mouse.move(x(5),y);await control.mouse.down();
-    await control.mouse.move(x(8),y);
-    await match(actual(8));
+    await control.mouse.move(x(10.6),y);
+    await match(actual(10.6));
     await control.mouse.up();
     await media.waitForFunction(()=>[...document.querySelectorAll('video')].filter(v=>v.videoWidth && v.clientWidth).every(v=>!v.paused),undefined,{timeout:4000});
     const one=await sample(app,media,count);await sleep(380);const two=await sample(app,media,count);
-    assert.ok(one.every((v,j)=>Math.abs(v.time-actual(8)-offsets[j])<.5 && two[j].time>v.time+.15 && two[j].marker && v.marker && Math.abs(two[j].marker.x-v.marker.x)>3),JSON.stringify({one,two,target:actual(8)}));
-    records.push({mode,stage:'released-playing',target:actual(8),one,two});
+    assert.ok(one.every((v,j)=>Math.abs(v.time-actual(10.6)-offsets[j])<.5 && two[j].time>v.time+.15 && two[j].marker && v.marker && Math.abs(two[j].marker.x-v.marker.x)>3),JSON.stringify({one,two,target:actual(10.6)}));
+    records.push({mode,stage:'released-playing',target:actual(10.6),one,two});
     console.log(mode,'held image, release and resumed image verified');
   } catch(err) {
     if(media){await media.screenshot({path:path.join(out,mode+'-failure.png')}).catch(()=>{});}
