@@ -44,6 +44,8 @@
 
 | ARCH-EX-017 | 2026-11-19 | Git / release | 0.17.33のみdevelop先行統合後にmain基点の限定release PRを使用 | 未公開0.17.32タグを保持し、モデル配布方針の混入を防ぐ | PR #298・#301の停止中シーク修正・検査と必要な版準備のみ。両PRのレビューとCI、署名・公証・同一DMGの実機受入を維持 | 0.17.33の配布確認または2026-12-03の早い方 | maintainers | [#298](https://github.com/Kou-ISK/sportaglytics/pull/298) / [#301](https://github.com/Kou-ISK/sportaglytics/pull/301) | Open |
 
+| ARCH-EX-018 | 2026-11-22 | Git / release | 0.17.34 に限り、0.17.33 の実機受入を確認した後に main 基点の限定 PR で音声同期修正を配布する案 | 未公開モデル方針を配布に混ぜず、既存候補と不変タグを保つため | [#303](https://github.com/Kou-ISK/sportaglytics/pull/303) と版準備のみ。develop 先行、両 PR のレビュー・CI、署名・公証・同一 DMG の受入、更新確認を維持 | 0.17.34 の配布照合または 2026-12-06 の早い方 | maintainers | [#303](https://github.com/Kou-ISK/sportaglytics/pull/303) | Proposed |
+
 ## 月次レビュー
 
 - 毎月 1 回、Open の例外を見直して優先順位を更新する。

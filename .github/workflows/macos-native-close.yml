@@ -43,6 +43,8 @@ jobs:
           node scripts/e2e-export-text-geometry.mjs
       - name: Verify native close and quit persistence
         run: node scripts/e2e-timeline-close.mjs
+      - name: Verify audio sync after package creation and reopen
+        run: node scripts/e2e-new-package-audio-sync.mjs
       - name: Verify timeline row and selection interactions
         run: node scripts/e2e-timeline-rows.mjs
       - name: Verify cross-clip ruler presentation on macOS

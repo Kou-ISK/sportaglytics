@@ -13,7 +13,7 @@ interface UseSyncPlayerUpdaterParams {
 
 interface UseSyncPlayerUpdaterResult {
   playerForceUpdateKey: number;
-  forceUpdateVideoPlayers: (newSyncData: VideoSyncData) => Promise<void>;
+  forceUpdateVideoPlayers: (newSyncData: VideoSyncData, isCurrent?: () => boolean) => Promise<void>;
 }
 
 export const useSyncPlayerUpdater = ({
@@ -23,11 +23,12 @@ export const useSyncPlayerUpdater = ({
   const [playerForceUpdateKey, setPlayerForceUpdateKey] = useState(0);
 
   const forceUpdateVideoPlayers = useCallback(
-    (newSyncData: VideoSyncData): Promise<void> => {
+    (newSyncData: VideoSyncData, isCurrent: () => boolean = () => true): Promise<void> => {
       return new Promise((resolve) => {
         setIsVideoPlaying(false);
 
         requestAnimationFrame(() => {
+          if (!isCurrent()) { resolve(); return; }
           syncPlayersToGlobalTime(
             videoList,
             newSyncData,
@@ -37,7 +38,7 @@ export const useSyncPlayerUpdater = ({
           setPlayerForceUpdateKey((previous) => previous + 1);
 
           globalThis.setTimeout(() => {
-            setIsVideoPlaying(true);
+            if (isCurrent()) setIsVideoPlaying(true);
             resolve();
           }, 300);
         });
