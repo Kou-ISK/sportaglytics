@@ -1,0 +1,44 @@
+name: Signed scrub visual acceptance
+on:
+  push:
+    branches: [test/signed-01734-scrub-acceptance]
+permissions:
+  contents: read
+  actions: read
+jobs:
+  visual:
+    runs-on: macos-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - uses: actions/download-artifact@v4
+        with:
+          name: macos-0.17.34-252aebbb0a9878b04af913c3844a8126ab0fd306
+          run-id: 45010759226
+          github-token: ${{ github.token }}
+          path: candidate
+      - name: Verify and mount the exact signed candidate
+        run: |
+          cd candidate
+          echo '7645af5a096189beb89111ec3a16e9bc3c13ff364f840d529e023f13a5e36738  SporTagLytics-0.17.34-arm64.dmg' | shasum -a 256 -c -
+          mkdir "$RUNNER_TEMP/signed"
+          hdiutil attach -nobrowse -readonly -mountpoint "$RUNNER_TEMP/signed" SporTagLytics-0.17.34-arm64.dmg
+          codesign --verify --deep --strict "$RUNNER_TEMP/signed/SporTagLytics.app"
+          xcrun stapler validate "$RUNNER_TEMP/signed/SporTagLytics.app"
+          spctl --assess -vv --type execute "$RUNNER_TEMP/signed/SporTagLytics.app"
+      - run: node scripts/signed-scrub-acceptance.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: synthetic-window-evidence
+          path: visual-results
+          if-no-files-found: ignore
