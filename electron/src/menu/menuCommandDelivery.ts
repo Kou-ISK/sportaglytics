@@ -31,17 +31,6 @@ export const sendToAllWindows = (channel: string, ...args: unknown[]): void => {
   }
 };
 
-export const sendToFocusedWindow = (
-  channel: string,
-  ...args: unknown[]
-): void => {
-  sendMenuCommand(
-    BrowserWindow.getFocusedWindow() ?? BrowserWindow.getAllWindows()[0],
-    channel,
-    ...args,
-  );
-};
-
 export const sendCodeWindowCommand = (channel: string): void => {
   const session = getPackageSessionForWindow(BrowserWindow.getFocusedWindow());
   const target =

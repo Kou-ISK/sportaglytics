@@ -17,7 +17,6 @@ import {
   sendCodeWindowCommand,
   sendMenuCommand,
   sendToAllWindows,
-  sendToFocusedWindow,
 } from './menuCommandDelivery';
 
 const getBrowserWindowOwner = (
@@ -217,22 +216,32 @@ export const buildEditMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   { role: 'selectAll' as const, label: 'すべて選択' },
 ];
 
+const sendSyncCommand = (
+  window: Electron.BaseWindow | undefined,
+  channel: string,
+  ...args: unknown[]
+): void => {
+  const owner = window ? getBrowserWindowOwner(window) : BrowserWindow.getFocusedWindow();
+  sendMenuCommand(getPackageSessionForWindow(owner)?.mainWindow, channel, ...args);
+};
+
 export const buildSyncMenuItems = (): Electron.MenuItemConstructorOptions[] => [
   {
+    id: 'resync-package-audio',
     label: '自動同期（音声解析）',
     accelerator: 'CmdOrCtrl+Shift+S',
-    click: () => sendToFocusedWindow('menu-resync-audio'),
+    click: (_item, window) => sendSyncCommand(window, 'menu-resync-audio'),
   },
   {
     label: '手動同期モード',
     accelerator: 'CmdOrCtrl+Shift+T',
-    click: () => sendToFocusedWindow('menu-set-sync-mode', 'manual'),
+    click: (_item, window) => sendSyncCommand(window, 'menu-set-sync-mode', 'manual'),
   },
   { type: 'separator' },
   {
     label: '同期オフセットをリセット',
     accelerator: 'CmdOrCtrl+Shift+R',
-    click: () => sendToFocusedWindow('menu-reset-sync'),
+    click: (_item, window) => sendSyncCommand(window, 'menu-reset-sync'),
   },
 ];
 
