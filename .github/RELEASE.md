@@ -2,6 +2,15 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.34 の音声同期修正（公開準備）
+
+対象は [PR #303](https://github.com/Kou-ISK/sportaglytics/pull/303) と版準備です。公開版は現在 0.17.31、main は未公開の 0.17.33 です。0.17.31 に音声同期修正のみを適用できても、そのコミットは現行の署名ワークフローの対象外です。タグ・checkout・workflow・origin/main の照合は維持します。
+
+1. 既存の 0.17.33 タグが main の先端にある間に、同一の署名済み DMG で単画面・2画面・プレイリストの押下中の表示、離した位置、再生復帰とスピーカー出音を確認します。受入結果を記録します。0.17.33 自体を公開する場合は main を進める前に公開・配布照合まで終えます。受入済みの内容を次版でまとめて配布する場合は、その判断を release PR に明記します。
+2. develop に統合した #303 と本版準備のみを対象に、ARCH-EX-018 の限定ルートをレビューします。main 向けの差分で #302、#288、モデル選定方針・catalog・lock が入らないことを確認します。develop のモデル lock は appVersion の整合のみであり、main へ転記しません。
+3. 両 PR のチェックとレビュー後、main の版・SHA・未使用タグを再確認します。署名候補は既存の Release desktop を main で明示実行し、`include_windows=false` と `publish=false` を指定します。同一 DMG の署名・公証・staple・Gatekeeper・配布物ハッシュ・インストールを確認します。合成2映像を用い、作成直後と再起動後にともに 1.25 秒の補正が計算され、4 秒へのシークにも反映されることを同梱アプリで確認します。スクラブを含む最終配布物では、画面・出音を含む既存の受入も同一 DMG で実施します。
+4. 隔離した更新先で、直前の公開版からのアプリ差し替えと保存済みパッケージの再オープンを確認します。公開実行でも同じゲートを通し、Release の DMG・SHA256SUMS・検証要約と Homebrew Cask の両 architecture のハッシュを照合します。
+
 ## 0.17.33 のライブスクラブ候補
 
 0.17.32 は署名前の複数クリップ受入で停止しました。既存タグを保持し、[PR #298](https://github.com/Kou-ISK/sportaglytics/pull/298) と [PR #301](https://github.com/Kou-ISK/sportaglytics/pull/301) の停止中シーク修正と同じシナリオのmacOS PR検査をdevelopに先行統合します。[ARCH-EX-017](../docs/architecture-exceptions.md)に従いmainの0.17.32から今回の修正・回帰と版準備だけを取り込みます。実験用PR #297、逆再生PR #288、未公開モデル方針・catalog・lockは対象外です。
