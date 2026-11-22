@@ -45,13 +45,13 @@ async function sample(app, page, count) {
         const bitmap=img.resize({width:640,height:360}).toBitmap();
         // The MIT sample has one moving white square, 16x16, and a narrow midfield line.
         const points=[];
-        for(let y=80;y<265;y++){
-          let start=-1;
-          for(let x=5;x<635;x++){
-            const i=4*(y*640+x);
-            if(Math.min(bitmap[i],bitmap[i+1],bitmap[i+2])>=220){if(start<0)start=x;}
-            else if(start>=0){if(x-start>=9 && x-start<=22)points.push([(start+x-1)/2,y]);start=-1;}
-          }
+        const white=(x,y)=>{const i=4*(y*640+x);return Math.min(bitmap[i],bitmap[i+1],bitmap[i+2])>=220;};
+        const field=(x,y)=>{const i=4*(y*640+x);return bitmap[i+1]-bitmap[i+2]>25;};
+        // Require the opaque white interior and a teal surround in both dimensions.
+        // Excludes white transport icons, text and the narrow stationary field line.
+        for(let y=81;y<264;y++)for(let x=15;x<625;x++){
+          if(white(x,y) && white(x-4,y-4) && white(x+4,y-4) && white(x-4,y+4) && white(x+4,y+4)
+            && field(x-13,y-13) && field(x+13,y-13) && field(x-13,y+13) && field(x+13,y+13))points.push([x,y]);
         }
         return points.length<6?null:{x:points.reduce((s,p)=>s+p[0],0)/points.length,y:points.reduce((s,p)=>s+p[1],0)/points.length};
       },b.rect);
