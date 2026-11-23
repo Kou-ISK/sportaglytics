@@ -150,7 +150,7 @@ export const usePlaylistPlaybackActions = ({
         if (index !== -1) {
           clearFreezeTimer();
           const item = items[index];
-          if (!seekMedia?.(item.startTime)) {
+          if (!item.slide && !seekMedia?.(item.startTime)) {
             if (videoRef.current) videoRef.current.currentTime = item.startTime;
             if (videoRef2.current && currentVideoSource2)
               videoRef2.current.currentTime = item.startTime;
@@ -281,6 +281,7 @@ export const usePlaylistPlaybackActions = ({
   return {
     handlePlayItem,
     handlePlayRow,
+    clearRowScope: () => { rowScope.current = null; },
     handleTogglePlay,
     handlePrevious,
     handleNext,

@@ -1,13 +1,7 @@
-import type { ClipExportTextPreviewState } from '../../../shared/clipExport/useClipExportTextPreview';
 import React from 'react';
 import type { PlaylistType } from '../../../types/playlist/core';
 import { PlaylistSaveDialog } from './PlaylistSaveDialog';
-import {
-  PlaylistExportDialog,
-  type AngleOption,
-  type ExportMode,
-  type OverlaySettings,
-} from './PlaylistExportDialog';
+import { PlaylistExportDialog } from './PlaylistExportDialog';
 import { PlaylistNoteDialog } from './PlaylistNoteDialog';
 import { PlaylistSaveProgressDialog } from './PlaylistSaveProgressDialog';
 
@@ -24,32 +18,7 @@ type PlaylistWindowDialogsProps = {
     defaultType: PlaylistType;
     closeAfterSave: boolean;
   };
-  exportDialog: {
-    open: boolean;
-    onClose: () => void;
-    onExport: () => void;
-    exportFileName: string;
-    setExportFileName: (value: string) => void;
-    exportScope: 'all' | 'selected';
-    setExportScope: (value: 'all' | 'selected') => void;
-    selectedItemCount: number;
-    exportMode: ExportMode;
-    setExportMode: (value: ExportMode) => void;
-    angleOption: AngleOption;
-    setAngleOption: (value: AngleOption) => void;
-    videoSources: string[];
-    selectedAngleIndex: number;
-    setSelectedAngleIndex: (value: number) => void;
-    overlayChoice: boolean | null;
-    onOverlayChoice: (enabled: boolean) => void;
-    notePreview: string;
-    textPreview?: ClipExportTextPreviewState;
-    overlaySettings: OverlaySettings;
-    setOverlaySettings: (
-      updater: (prev: OverlaySettings) => OverlaySettings,
-    ) => void;
-    disableExport: boolean;
-  };
+  exportDialog: React.ComponentProps<typeof PlaylistExportDialog>;
   noteDialog: {
     open: boolean;
     onClose: () => void;
@@ -78,30 +47,7 @@ export const PlaylistWindowDialogs = ({
         defaultType={saveDialog.defaultType}
         closeAfterSave={saveDialog.closeAfterSave}
       />
-      <PlaylistExportDialog
-        open={exportDialog.open}
-        onClose={exportDialog.onClose}
-        onExport={exportDialog.onExport}
-        exportFileName={exportDialog.exportFileName}
-        setExportFileName={exportDialog.setExportFileName}
-        exportScope={exportDialog.exportScope}
-        setExportScope={exportDialog.setExportScope}
-        selectedItemCount={exportDialog.selectedItemCount}
-        exportMode={exportDialog.exportMode}
-        setExportMode={exportDialog.setExportMode}
-        angleOption={exportDialog.angleOption}
-        setAngleOption={exportDialog.setAngleOption}
-        videoSources={exportDialog.videoSources}
-        selectedAngleIndex={exportDialog.selectedAngleIndex}
-        setSelectedAngleIndex={exportDialog.setSelectedAngleIndex}
-        overlayChoice={exportDialog.overlayChoice}
-        onOverlayChoice={exportDialog.onOverlayChoice}
-        notePreview={exportDialog.notePreview}
-        textPreview={exportDialog.textPreview}
-        overlaySettings={exportDialog.overlaySettings}
-        setOverlaySettings={exportDialog.setOverlaySettings}
-        disableExport={exportDialog.disableExport}
-      />
+      <PlaylistExportDialog {...exportDialog} />
       <PlaylistNoteDialog
         open={noteDialog.open}
         onClose={noteDialog.onClose}

@@ -68,6 +68,10 @@ export const usePlaylistWindowSections = ({
   handleToggleDrawingMode,
   defaultFreezeDuration,
 }: UsePlaylistWindowSectionsParams) => {
+  const selectItem: typeof selection.selectWithModifiers = (...args) => {
+    playback.clearRowScope();
+    selection.selectWithModifiers(...args);
+  };
   const instanceAngles = usePlaylistInstanceAngles({
     currentItem: currentItemState.currentItem,
     setItems: history.setItems,
@@ -180,7 +184,7 @@ export const usePlaylistWindowSections = ({
     items: history.items,
     currentIndex: core.currentIndex,
     selectedItemIds: selection.selectedItemIds,
-    onSelectItem: selection.selectWithModifiers,
+    onSelectItem: selectItem,
     onPlayItem: playback.handlePlayItem,
     onDeleteSelected: selection.deleteSelected,
     onReorder: itemOperations.handleReorder,
@@ -193,7 +197,7 @@ export const usePlaylistWindowSections = ({
     rows: rowEditing.document.rows ?? [],
     currentIndex: core.currentIndex,
     selectedItemIds: selection.selectedItemIds,
-    onSelectItem: selection.selectWithModifiers,
+    onSelectItem: selectItem,
     onPlayItem: playback.handlePlayItem,
   }), actions: rowEditing.actions };
   const sourceItems = exportState.exportScope === 'selected' ? selection.selectedItems : history.items;
@@ -232,6 +236,8 @@ export const usePlaylistWindowSections = ({
     setExportScope: exportState.setExportScope,
     selectedCount: selection.selectedCount,
     rowSummary,
+    slideCount: sourceItems.filter((item) => item.slide).length,
+    onlySlides: sourceItems.length > 0 && sourceItems.every((item) => item.slide),
     exportMode: exportState.exportMode,
     setExportMode: exportState.setExportMode,
     angleOption: exportState.angleOption,

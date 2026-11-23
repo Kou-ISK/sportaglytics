@@ -150,6 +150,48 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   assert.ok(Math.abs(Number(info.format.duration)-6)<.25);
   assert.ok(info.streams.some((stream) => stream.codec_type === 'audio'));
   await close(progress);
+
+  const addRow = async (name) => {
+    await page.getByRole('button',{name:'行を追加',exact:true}).click();
+    const prompt = page.getByRole('dialog',{name:'行を追加'});
+    await prompt.getByLabel('行名').fill(name);
+    await prompt.getByRole('button',{name:'確定'}).click();
+    return page.getByRole('button',{name:name + ' の行操作'});
+  };
+  await (await addRow('Unused')).click();
+  await page.getByRole('menuitem',{name:'空の行を削除'}).click();
+  await page.getByRole('button',{name:'Unused の行操作'}).waitFor({state:'detached'});
+  await (await addRow('New theme')).click();
+  await page.getByRole('menuitem',{name:'行名を変更'}).click();
+  const rename = page.getByRole('dialog',{name:'行名を変更'});
+  await rename.getByLabel('行名').fill('Introduction');
+  await rename.getByRole('button',{name:'確定'}).click();
+  const intro = page.getByRole('button',{name:'Introduction の行操作'});
+  await intro.click();
+  await page.getByRole('menuitem',{name:'行の先頭にスライドを追加'}).click();
+  editor = page.getByRole('dialog',{name:'Introduction に追加（全体の最後）'});
+  await editor.getByLabel('タイトル').fill('Opening');
+  await editor.getByLabel('表示秒数').fill('1');
+  await editor.getByRole('button',{name:'確定'}).click();
+  await intro.click();
+  assert.equal(await page.getByRole('menuitem',{name:'空の行を削除'}).isDisabled(),true);
+  await page.getByRole('menuitem',{name:'この行を MP4 に書き出す'}).click();
+  await dialog.getByText('Introduction · 1 件').waitFor();
+  await dialog.getByLabel('ファイル名 (拡張子不要)').fill('single-slide');
+  await dialog.getByRole('radio',{name:'含めない',exact:true}).check();
+  const finalProgress = app.waitForEvent('window');
+  await dialog.getByRole('button',{name:'書き出す',exact:true}).click();
+  const last = await finalProgress;
+  await last.getByText('書き出し完了',{exact:true}).waitFor({timeout:60000});
+  const names = (await fs.readdir(output)).filter((name) => name.startsWith('single-slide') && name.endsWith('.mp4'));
+  assert.equal(names.length,1);
+  const slideMovie = path.join(output,names[0]);
+  const seconds = Number(execFileSync(ffprobePath,['-v','error','-show_entries','format=duration','-of','csv=p=0',slideMovie]));
+  assert.ok(Math.abs(seconds - 1) < .1);
+  assert.equal(colorAt(slideMovie,.5),'blue');
+  await close(last);
+  await page.keyboard.press(primaryModifier + '+s');
+  await page.waitForFunction(() => !document.title.includes('*'));
   await close(page);
   console.log('Organizer membership, row playback, no-op drop, Undo, save/reopen, row and action MP4 frame order passed');
 }

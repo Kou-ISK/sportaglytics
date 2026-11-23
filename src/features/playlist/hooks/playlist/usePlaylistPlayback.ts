@@ -331,7 +331,11 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     scrubbing,
     seekReverse,
     cancelReverseSeek,
-    handlePlayItem: actions.handlePlayItem,
+    handlePlayItem: (id?: string): void => {
+      if (params.currentItem?.slide && id === params.currentItem.id) seekSlide(0);
+      actions.handlePlayItem(id);
+    },
+    clearRowScope: actions.clearRowScope,
     handlePlayRow: actions.handlePlayRow,
     handleTogglePlay: actions.handleTogglePlay,
     handlePrevious: actions.handlePrevious,

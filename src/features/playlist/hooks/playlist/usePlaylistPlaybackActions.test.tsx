@@ -80,3 +80,20 @@ describe('usePlaylistPlaybackActions', () => {
     expect(params.setIsPlaying).toHaveBeenLastCalledWith(true);
   });
 });
+
+it('clears row playback on manual selection and document replacement', () => {
+  const items = ['A1', 'B1', 'A2'].map((id) => ({ ...item, id }));
+  const params = { ...createParams(), items, currentItem: items[0] };
+  const { result, rerender } = renderHook(({ generation }) =>
+    usePlaylistPlaybackActions({ ...params, documentGeneration: generation }), { initialProps: { generation: 1 } });
+  act(() => result.current.handlePlayRow(['A2', 'A1']));
+  act(() => result.current.handleNext());
+  expect(params.setCurrentIndex).toHaveBeenLastCalledWith(2);
+  act(() => result.current.clearRowScope());
+  act(() => result.current.handleNext());
+  expect(params.setCurrentIndex).toHaveBeenLastCalledWith(1);
+  act(() => result.current.handlePlayRow(['A1', 'A2']));
+  rerender({ generation: 2 });
+  act(() => result.current.handleNext());
+  expect(params.setCurrentIndex).toHaveBeenLastCalledWith(1);
+});

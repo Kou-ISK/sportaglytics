@@ -40,6 +40,7 @@ export interface UsePlaylistPlaybackParams {
 export interface PlaylistPlaybackActions {
   handlePlayItem: (id?: string) => void;
   handlePlayRow: (ids: readonly string[]) => void;
+  clearRowScope: () => void;
   handleTogglePlay: () => void;
   handlePrevious: () => void;
   handleNext: () => void;
