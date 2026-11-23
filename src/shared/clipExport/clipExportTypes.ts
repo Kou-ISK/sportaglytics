@@ -1,6 +1,6 @@
 import type { ChromaKey } from '../tactics/chromaKey';
 export type ClipExportScope = 'all' | 'selected';
-export type ClipExportMode = 'single' | 'perInstance' | 'perRow';
+export type ClipExportMode = 'single' | 'perInstance' | 'perRow' | 'organizerRows';
 export type ClipExportAngleOption =
   | 'allAngles'
   | 'single'
@@ -47,8 +47,10 @@ export interface ClipExportMotionOverlay {
 }
 
 export interface ClipExportItem {
+  slideFrame?: string;
   /** Audio index in the selected angle source; omitted retains the first-track encoder default. */
   audioTrackIndex?: number;
+  organizerRow?: { id: string; name: string };
   chromaKey?: Partial<Record<'primary' | 'secondary', ChromaKey>>;
   motionOverlays?: ClipExportMotionOverlay[];
   freezeFrames?: ClipExportFreezeFrame[];

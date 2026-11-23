@@ -20,6 +20,7 @@ interface SourceSize {
 }
 
 interface BuildPlaylistExportClipsParams {
+  slideFrames?: ReadonlyMap<string, string>;
   sourceItems: PlaylistItem[];
   itemAnnotations: Record<string, ItemAnnotation>;
   minFreezeDuration: number;
@@ -51,8 +52,9 @@ const buildActionIndexLookup = (items: PlaylistItem[]): Map<string, number> => {
 export const buildPlaylistTextClips = (
   sourceItems: PlaylistItem[],
 ): ClipExportItem[] => {
-  const indices = buildActionIndexLookup(sourceItems);
-  return sourceItems.map((item) => ({
+  const media = sourceItems.filter((item) => !item.slide);
+  const indices = buildActionIndexLookup(media);
+  return media.map((item) => ({
     id: item.id,
     actionName: item.actionName,
     startTime: item.startTime,
@@ -70,6 +72,7 @@ export const buildPlaylistTextClips = (
 };
 
 export const buildPlaylistExportClips = ({
+  slideFrames,
   sourceItems,
   itemAnnotations,
   minFreezeDuration,
@@ -79,9 +82,14 @@ export const buildPlaylistExportClips = ({
   secondarySourceSize,
   renderAnnotationPng,
 }: BuildPlaylistExportClipsParams): ClipExportItem[] => {
-  const actionIndexLookup = buildActionIndexLookup(sourceItems);
+  const actionIndexLookup = buildActionIndexLookup(sourceItems.filter((item) => !item.slide));
 
   return sourceItems.map((item) => {
+    if (item.slide) {
+      const slideFrame = slideFrames?.get(item.id);
+      if (!slideFrame) throw new Error('スライド画像の準備が完了していません。');
+      return { id: item.id, actionName: item.actionName, startTime: 0, endTime: item.endTime, slideFrame };
+    }
     const annotation = itemAnnotations[item.id] || item.annotation;
     const freezeDuration = Math.max(
       minFreezeDuration,

@@ -168,6 +168,10 @@ it('keeps Studio overlays on their own frames after inserted pauses', async () =
   const filters = args[args.indexOf('-filter_complex') + 1];
   expect(filters).toContain('tpad=start_mode=clone:start_duration=2');
   expect(filters).toContain('trim=end=7');
+  expect(filters).toContain('atrim=start=0:end=5,asetpts=PTS-STARTPTS');
+  expect(filters).toContain('atrim=start=5:end=10,asetpts=PTS-STARTPTS');
+  expect(filters).not.toContain('adelay=');
+  expect(filters).toContain('concat=n=4:v=0:a=1');
   expect(filters).toContain('between(t,0,2)');
   expect(filters).toContain('between(t,7,10)');
   expect(args).toContain('/first.png');

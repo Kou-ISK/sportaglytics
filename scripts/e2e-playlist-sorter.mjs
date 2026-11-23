@@ -1,3 +1,4 @@
+import { exerciseOrganizerRows } from './e2e-organizer-rows.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -396,4 +397,9 @@ export async function exercisePlaylistSorter({
   console.log(
     'Preview, overflow blocking, main-process guard and recovery passed',
   );
+  const finishSorter = page.waitForEvent('close');
+  await (await app.browserWindow(page)).evaluate((window) => window.close());
+  await finishSorter;
+  await exerciseOrganizerRows({ app, main, dir, output, clickExportMenu });
+
 }

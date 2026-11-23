@@ -51,3 +51,7 @@ jobs:
         run: |
           pnpm run native:build
           node scripts/e2e-multi-clip-playback.mjs
+      - name: Verify Organizer presentation and MP4 contents on macOS
+        run: |
+          node scripts/e2e-export-menu.mjs
+          node scripts/e2e-paint-export.mjs

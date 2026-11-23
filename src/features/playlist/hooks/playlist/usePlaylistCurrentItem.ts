@@ -32,7 +32,7 @@ export const usePlaylistCurrentItem = ({
   }, [currentIndex, items]);
 
   const currentVideoSource = useMemo(() => {
-    if (!currentItem) return null;
+    if (!currentItem || currentItem.slide) return null;
     return (
       currentItem.videoSource ||
       (currentItem.mediaReference ? null : videoSources[0]) ||
@@ -41,7 +41,7 @@ export const usePlaylistCurrentItem = ({
   }, [currentItem, videoSources]);
 
   const currentVideoSource2 = useMemo(() => {
-    if (!currentItem) return null;
+    if (!currentItem || currentItem.slide) return null;
     return (
       currentItem.videoSource2 ||
       (currentItem.mediaReference2 ? null : videoSources[1]) ||

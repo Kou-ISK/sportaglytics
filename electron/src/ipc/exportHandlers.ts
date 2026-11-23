@@ -1,3 +1,5 @@
+import { clipPresentationDuration } from './clipPresentationDuration';
+import { groupExportClips } from './groupExportClips';
 import { prioritizeClipExport } from '../scrubPreview/exportPriority';
 import { createExportResourceGate } from './exportResourceGate';
 import { retainedFor } from './exportRetainedRecords';
@@ -18,7 +20,6 @@ import * as path from 'path';
 import { renderExportClipGroup } from './exportClipGroup';
 import { ensureMp4, normalizeAngleOption } from './exportOptions';
 import { createPreparedClipRenderer } from './exportPreparedClipRenderer';
-import type { ExportClipsPayload } from './exportHandlers.types';
 import {
   updateExportProgressWindow,
   openExportProgressWindow,
@@ -194,11 +195,7 @@ export const registerExportHandlers = ({
               progressId,
             } = payload;
             const progressStartedAt = Date.now();
-            const getClipOutputDuration = (
-              clip: ExportClipsPayload['clips'][number],
-            ): number =>
-              (clip.endTime - clip.startTime) +
-              Math.max(0, clip.freezeDuration ?? 0);
+            const getClipOutputDuration = clipPresentationDuration;
             const renderDurationTotal = clips.reduce(
               (total, clip) => total + getClipOutputDuration(clip),
               0,
@@ -265,7 +262,7 @@ export const registerExportHandlers = ({
 
             updateProgress('書き出し準備中...');
 
-            if (!sourcePath || clips.length === 0) {
+            if ((!sourcePath && clips.some((clip) => !clip.slideFrame)) || clips.length === 0) {
               failProgress('ソースまたはクリップがありません');
               return {
                 success: false,
@@ -366,19 +363,10 @@ export const registerExportHandlers = ({
                   `${i + 1} / ${clips.length} クリップを書き出しました`,
                 );
               }
-            } else if (exportMode === 'perRow') {
-              const byAction = new Map<
-                string,
-                ExportClipsPayload['clips'][number][]
-              >();
-              clips.forEach((clip) => {
-                const arr = byAction.get(clip.actionName) || [];
-                arr.push(clip);
-                byAction.set(clip.actionName, arr);
-              });
-
+            } else if (exportMode === 'perRow' || exportMode === 'organizerRows') {
+              const groups = groupExportClips(clips, exportMode);
               let rowIndex = 0;
-              for (const [actionName, group] of byAction.entries()) {
+              for (const { label: actionName, clips: group } of groups) {
                 const safeAction = portableExportStem(actionName);
                 let angleSuffix = '';
                 if (useDual) angleSuffix = '_multi';
@@ -428,7 +416,7 @@ export const registerExportHandlers = ({
                       },
                     }),
                   shutdown.signal,
-                  commit(rowIndex === byAction.size - 1, outPath),
+                  commit(rowIndex === groups.length - 1, outPath),
                 );
                 rowIndex++;
                 advanceProgress(

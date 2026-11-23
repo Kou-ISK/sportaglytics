@@ -5,6 +5,9 @@ import {
   moveItemsToRow,
   normalizePlaylistDocument,
   reorderItemsWithinRow,
+  reorderPlaylistRows,
+  removePlaylistRow,
+  renamePlaylistRow,
 } from './playlistDocument';
 
 const legacyPlaylist = (): Playlist => ({
@@ -77,8 +80,27 @@ describe('playlist document model', () => {
       'second',
     );
     expect(getPresentationItems(reordered).map((item) => item.id)).toEqual([
-      'b',
       'a',
+      'b',
     ]);
   });
+});
+
+it('keeps interleaved presentation ranks when organizing equally named rows', () => {
+  const base = legacyPlaylist();
+  const doc = normalizePlaylistDocument({
+    ...base,
+    rows: ['A', 'B'].map((id, order) => ({ id, name: 'Theme', enabled: true, order })),
+    items: ['A1', 'B1', 'A2'].map((id, presentationOrder) => ({
+      ...base.items[0], id, rowId: id[0], presentationOrder,
+    })),
+  });
+  const moved = moveItemsToRow(reorderPlaylistRows(doc, 0, 1), ['A1', 'B1'], 'B');
+  const reopened = normalizePlaylistDocument(JSON.parse(JSON.stringify(moved)));
+  expect(getPresentationItems(reopened).map((item) => item.id)).toEqual(['A1', 'B1', 'A2']);
+  expect(reopened.rows?.map((row) => row.id)).toEqual(['B', 'A']);
+  expect(moveItemsToRow(moved, ['A1', 'B1'], 'B')).toBe(moved);
+  expect(removePlaylistRow(moved, 'B')).toBe(moved);
+  expect(renamePlaylistRow(moved, 'A', ' Theme ')).toBe(moved);
+  expect(reorderPlaylistRows(moved, 1, 1)).toBe(moved);
 });
