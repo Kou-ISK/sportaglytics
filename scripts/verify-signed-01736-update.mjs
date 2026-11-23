@@ -69,6 +69,10 @@ async function persist() {
 }
 
 let app;
+function stage(name) {
+  observations.stage = name;
+  console.log('Update check:',name);
+}
 try {
   execFileSync('unzip', ['-q', 'samples/synthetic-first-run.stpkg.zip', '-d', root]);
   const sample = path.join(root, 'Synthetic-first-run.stpkg');
@@ -94,12 +98,14 @@ try {
   await main.getByRole('button',{name:'パッケージを作成…'}).click();
   await main.locator('#video_0 video').waitFor();
   await readyVideo(main);
+  stage('old wizard saved the package; recording timeline tag');
   const marker = await savedTag(app,main,true);
   assert.deepEqual(marker,['Synthetic upgrade marker',2,6]);
   const created = await json(path.join(folder,'.metadata/config.json'));
   const media = path.join(folder,created.angles[0].clips[0].relativePath);
   assert.equal(await hash(media),await hash(source));
   const item = {id:'marker', timelineItemId:null, actionName:'Marker', startTime:2, endTime:6, addedAt:1, videoSource:media, note:'Saved by 0.17.34'};
+  stage('old playlist window; add and save a new clip');
   let page = await newWindow(app, () => main.evaluate(() => window.electronAPI.playlist.openWindow()));
   await page.getByRole('button',{name:'Organizer',exact:true}).click();
   await main.evaluate(item => window.electronAPI.playlist.addItemToAllWindows(item),item);
@@ -111,8 +117,10 @@ try {
   await save.getByRole('button',{name:'保存',exact:true}).click();
   await expect.poll(async () => (await json(path.join(playlist,'playlist.json')).catch(()=>null))?.items?.[0]?.note,{timeout:15000}).toBe(item.note);
   await app.close(); app = undefined;
+  stage('read old documents after normal exit');
   const before = await fingerprint();
-  assert.ok((await json(path.join(folder,'timeline.json'))).instances.some(i=>i.actionName==='Synthetic upgrade marker' || i.code==='Synthetic upgrade marker') || (await fs.readFile(path.join(folder,'timeline.json'),'utf8')).includes('Synthetic upgrade marker'));
+  const storedTimeline = await json(path.join(folder,'timeline.json'));
+  assert.ok(storedTimeline.instances.length > 0 && JSON.stringify(storedTimeline).includes('Synthetic upgrade marker'));
   observations.oldVersion = '0.17.34';
   observations.saved = before;
   await persist();
@@ -121,6 +129,7 @@ try {
   await fs.rename(installed,path.join(temp,'preserved-old.app'));
   execFileSync('ditto',[path.join(temp,'signed/SporTagLytics.app'),installed]);
   execFileSync('codesign',['--verify','--deep','--strict',installed]);
+  stage('reopen old package and saved tag in updated app');
   app = await launch(installed,'0.17.36',profile,[folder]);
   main = await mainPage(app);
   await main.locator('#video_0 video').waitFor();
@@ -130,6 +139,7 @@ try {
   const loaded = await main.evaluate(()=>document.querySelector('#video_0 video').currentSrc);
   assert.ok(decodeURIComponent(loaded).includes(path.basename(media)),loaded);
   const open = p => newWindow(app, () => main.evaluate(file=>window.electronAPI.playlist.loadPlaylistFile(file),p));
+  stage('open and play the old clip in the signed candidate');
   page = await open(playlist);
   await page.getByTestId('organizer-clip-marker').dblclick();
   await readyVideo(page);
@@ -141,6 +151,7 @@ try {
   await persist();
   console.log('Signed .36 reopened both documents on the same installation path and profile; media decoded and clip played.');
 
+  stage('add and save a slide in a copy');
   await fs.cp(playlist,slides,{recursive:true});
   const meeting = await open(slides);
   const clip = meeting.getByTestId('organizer-clip-marker');
@@ -161,6 +172,7 @@ try {
   const protectedHash = await hash(manifest);
   await app.close(); app = undefined;
 
+  stage('reject candidate slide document in old signed editor');
   app = await launch(path.join(temp,'preserved-old.app'),'0.17.34',path.join(root,'old-guard-profile'));
   main = await mainPage(app);
   const mainWindow=await app.browserWindow(main);
@@ -186,6 +198,18 @@ try {
   assert.equal(await hash(manifest),protectedHash);
   observations.downgrade = {v6SavedByCandidate:true, oldVersion:'0.17.34', rejectionObserved:true, newWindow:false, manifestSha256:protectedHash, unchangedAfterExit:true};
   console.log('Signed .34 rejected the signed .36 slide file without opening an editor or changing its bytes.');
+  stage('complete');
+} catch (error) {
+  observations.failure = error.message;
+  if (app) {
+    for (const page of app.windows()) {
+      try {
+        console.log('Synthetic window:',new URL(page.url()).hash,
+          (await page.locator('body').innerText({timeout:1000})).slice(-1600));
+      } catch { /* A closing window has no DOM. */ }
+    }
+  }
+  throw error;
 } finally {
   await persist();
   await app?.close();
