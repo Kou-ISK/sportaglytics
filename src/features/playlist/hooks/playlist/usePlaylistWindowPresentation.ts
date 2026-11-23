@@ -32,6 +32,7 @@ export const usePlaylistWindowPresentation = ({
   const exportFlow = usePlaylistWindowExportFlow({
     items: runtime.history.items,
     selectedItems: runtime.selection.selectedItems,
+    rows: runtime.core.playlistRows,
     videoSources: runtime.core.videoSources,
     exportScope: runtime.exportState.exportScope,
     angleOption: runtime.exportState.angleOption,

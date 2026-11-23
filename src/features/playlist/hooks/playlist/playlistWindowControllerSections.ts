@@ -46,6 +46,7 @@ export const buildPlaylistHeaderSection = ({
 };
 
 export const buildPlaylistVideoAreaSection = ({
+  slide,
   currentVideoSource,
   currentVideoSource2,
   viewMode,
@@ -94,6 +95,7 @@ export const buildPlaylistVideoAreaSection = ({
   height,
 }: BuildVideoAreaSectionParams) => {
   return {
+    slide,
     currentVideoSource,
     currentVideoSource2,
     viewMode,
@@ -215,6 +217,9 @@ export const buildPlaylistDialogsSection = ({
   exportScope,
   setExportScope,
   selectedCount,
+  rowSummary,
+  slideCount,
+  onlySlides,
   exportMode,
   setExportMode,
   angleOption,
@@ -254,6 +259,9 @@ export const buildPlaylistDialogsSection = ({
       exportScope,
       setExportScope,
       selectedItemCount: selectedCount,
+      rowSummary,
+      slideCount,
+      onlySlides,
       exportMode,
       setExportMode,
       angleOption,

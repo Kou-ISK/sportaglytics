@@ -50,6 +50,7 @@ vi.mock('./usePlaylistPlayback', () => ({
 const buildRuntime = (source: string): PlaylistWindowDataRuntime =>
   ({
     core: {
+      loadQueue: { documentGeneration: 0 },
       currentTime: 10,
       currentIndex: 0,
       viewMode: 'angle1',

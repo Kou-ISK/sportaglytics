@@ -40,7 +40,7 @@ export interface PlaylistWindowDataRuntime {
 
 export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
   const core = usePlaylistWindowCoreState();
-  const history = usePlaylistHistory([]);
+  const history = usePlaylistHistory([], core.getPlaylistRows, core.setPlaylistRows);
   const selection = usePlaylistSelection({
     items: history.items,
     setItems: history.setItems,
@@ -109,6 +109,7 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
   // Register external-open first: Main sends that document boundary before the
   // request-sync response can flush queued additions to this renderer.
   const loader = usePlaylistLoader({
+    clearHistory: history.clearHistory,
     loadQueue: core.loadQueue,
     setItemsWithHistory: history.setItems,
     setHasUnsavedChanges: core.setHasUnsavedChanges,
@@ -125,6 +126,7 @@ export const usePlaylistWindowDataRuntime = (): PlaylistWindowDataRuntime => {
   });
 
   usePlaylistIpcSync({
+    clearHistory: history.clearHistory,
     loadQueue: core.loadQueue,
     setItemsWithHistory: history.setItems,
     setPlaylistName: core.setPlaylistName,

@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Superseded
 
 ## Date
 
@@ -11,7 +11,7 @@ Accepted
 ## Related ADRs
 
 - Supersedes: [0025](0025-playlist-document-presentation-order.md)
-- Superseded by: N/A
+- Superseded by: [0087](0087-organizer-row-membership.md)
 
 ## Context
 

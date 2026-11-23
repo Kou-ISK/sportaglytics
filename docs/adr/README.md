@@ -161,3 +161,5 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 
 - [ADR 0085: Detached Selection Receipts](0085-detached-selection-receipts.md)
 - [0086 Ephemeral Scrub Previews](0086-ephemeral-scrub-previews.md): 重い単一素材のドラッグ中だけ利用する短区間のメモリプレビュー（Proposed）。
+
+- [0087 Organizer row membership and presentation order](0087-organizer-row-membership.md) — Accepted

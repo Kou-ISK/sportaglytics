@@ -14,6 +14,7 @@ import { buildLoadedPlaylistSnapshot } from '../../utils/playlistFileState';
 import type { PlaylistLoadQueue, PlaylistLoadToken } from './PlaylistLoadQueue';
 
 interface UsePlaylistLoaderParams {
+  clearHistory?: () => void;
   loadQueue: PlaylistLoadQueue;
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
@@ -38,6 +39,7 @@ interface UsePlaylistLoaderResult {
 }
 
 export const usePlaylistLoader = ({
+  clearHistory,
   loadQueue,
   setItemsWithHistory,
   setHasUnsavedChanges,
@@ -86,6 +88,7 @@ export const usePlaylistLoader = ({
             setPlaylistName(snapshot.playlistName);
             setPlaylistType(snapshot.playlistType);
             setPlaylistRows(snapshot.rows ?? []);
+            clearHistory?.();
             setPackagePath(snapshot.packagePath);
             setLoadedFilePath(snapshot.loadedFilePath);
             setIsDirty(snapshot.isDirty);
@@ -102,6 +105,7 @@ export const usePlaylistLoader = ({
       return request.promise;
     },
     [
+      clearHistory,
       loadQueue,
       setCurrentIndex,
       setHasUnsavedChanges,

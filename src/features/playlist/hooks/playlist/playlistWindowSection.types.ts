@@ -40,6 +40,7 @@ export interface BuildHeaderSectionParams {
 }
 
 export interface BuildVideoAreaSectionParams {
+  slide?: PlaylistItem['slide'];
   currentVideoSource: string | null;
   currentVideoSource2: string | null;
   viewMode: PlaylistViewMode;
@@ -132,6 +133,9 @@ export interface BuildDialogsSectionParams {
   exportScope: ClipExportScope;
   setExportScope: React.Dispatch<React.SetStateAction<ClipExportScope>>;
   selectedCount: number;
+  slideCount?: number;
+  onlySlides?: boolean;
+  rowSummary?: { id: string; name: string; count: number; hasVideo?: boolean }[];
   exportMode: ExportMode;
   setExportMode: React.Dispatch<React.SetStateAction<ExportMode>>;
   angleOption: AngleOption;

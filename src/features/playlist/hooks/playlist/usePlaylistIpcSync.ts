@@ -14,6 +14,7 @@ import { buildPlaylistSyncSnapshot } from './playlistSyncSnapshot';
 import type { PlaylistLoadQueue } from './PlaylistLoadQueue';
 
 interface UsePlaylistIpcSyncParams {
+  clearHistory?: () => void;
   loadQueue: PlaylistLoadQueue;
   setItemsWithHistory: React.Dispatch<React.SetStateAction<PlaylistItem[]>>;
   setPlaylistName: React.Dispatch<React.SetStateAction<string>>;
@@ -36,6 +37,7 @@ interface UsePlaylistIpcSyncParams {
 }
 
 export const usePlaylistIpcSync = ({
+  clearHistory,
   loadQueue,
   setItemsWithHistory,
   setPlaylistName,
@@ -66,6 +68,7 @@ export const usePlaylistIpcSync = ({
         setItemAnnotations(snapshot.itemAnnotations);
         setPlaylistType(snapshot.playlistType);
         setPlaylistRows(snapshot.rows ?? []);
+        clearHistory?.();
         setPackagePath(snapshot.packagePath);
         setVideoSources(snapshot.videoSources);
         setViewMode(snapshot.viewMode);
@@ -124,7 +127,8 @@ export const usePlaylistIpcSync = ({
       }
     };
   }, [
-    loadQueue,
+    clearHistory,
+      loadQueue,
     setHasUnsavedChanges,
     setIsDirty,
     setItemAnnotations,

@@ -25,6 +25,7 @@ const createParams = () => {
     items: [item],
     currentItem: item,
     currentIndex: 0,
+    viewMode: 'dual' as const,
     setCurrentIndex: vi.fn(),
     setCurrentTime: vi.fn(),
     isPlaying: false,
@@ -50,6 +51,19 @@ describe('usePlaylistPlaybackActions', () => {
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+  });
+
+  it.each([false, true])('rewinds the same row item on every loop (package timeline %s)', (packaged) => {
+    const params = { ...createParams(), loopPlaylist: true };
+    const seekMedia = vi.fn(() => packaged);
+    const { result } = renderHook(() => usePlaylistPlaybackActions({ ...params, seekMedia }));
+    act(() => result.current.handlePlayRow([item.id]));
+    for (let cycle = 0; cycle < 2; cycle++) {
+      params.videoRef.current.currentTime = item.endTime;
+      act(() => { expect(result.current.handleItemEnd()).toBe(true); });
+      expect(seekMedia).toHaveBeenLastCalledWith(item.startTime);
+      if (!packaged) expect(params.videoRef.current.currentTime).toBe(item.startTime);
+    }
   });
 
   it('clamps seeks to the active clip range for both angles', () => {
@@ -79,4 +93,21 @@ describe('usePlaylistPlaybackActions', () => {
     expect(params.setIsFrozen).toHaveBeenLastCalledWith(false);
     expect(params.setIsPlaying).toHaveBeenLastCalledWith(true);
   });
+});
+
+it('clears row playback on manual selection and document replacement', () => {
+  const items = ['A1', 'B1', 'A2'].map((id) => ({ ...item, id }));
+  const params = { ...createParams(), items, currentItem: items[0] };
+  const { result, rerender } = renderHook(({ generation }) =>
+    usePlaylistPlaybackActions({ ...params, documentGeneration: generation }), { initialProps: { generation: 1 } });
+  act(() => result.current.handlePlayRow(['A2', 'A1']));
+  act(() => result.current.handleNext());
+  expect(params.setCurrentIndex).toHaveBeenLastCalledWith(2);
+  act(() => result.current.clearRowScope());
+  act(() => result.current.handleNext());
+  expect(params.setCurrentIndex).toHaveBeenLastCalledWith(1);
+  act(() => result.current.handlePlayRow(['A1', 'A2']));
+  rerender({ generation: 2 });
+  act(() => result.current.handleNext());
+  expect(params.setCurrentIndex).toHaveBeenLastCalledWith(1);
 });

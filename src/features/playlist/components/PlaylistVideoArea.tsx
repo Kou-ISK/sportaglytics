@@ -6,12 +6,15 @@ import type {
   DrawingObject,
 } from '../../../types/playlist/core';
 import type { AnnotationCanvasRef } from './AnnotationCanvas';
+import { PlaylistSlideView } from './PlaylistSlideView';
+import type { PlaylistSlide } from '../../../types/playlist/core';
 import { PlaylistVideoCanvas } from './PlaylistVideoCanvas';
 import { PlaylistVideoPlaceholder } from './PlaylistVideoPlaceholder';
 import { PlaylistVideoControlsOverlay } from './PlaylistVideoControlsOverlay';
 import { PlaylistDrawingExitButton } from './PlaylistDrawingExitButton';
 
 type PlaylistVideoAreaProps = {
+  slide?: PlaylistSlide;
   currentVideoSource: string | null;
   currentVideoSource2: string | null;
   viewMode: 'dual' | 'angle1' | 'angle2';
@@ -76,6 +79,7 @@ type PlaylistVideoAreaProps = {
 };
 
 export const PlaylistVideoArea = ({
+  slide,
   currentVideoSource,
   currentVideoSource2,
   viewMode,
@@ -138,7 +142,7 @@ export const PlaylistVideoArea = ({
         position: 'relative',
       }}
     >
-      {currentVideoSource ? (
+      {slide ? <PlaylistSlideView slide={slide} /> : currentVideoSource ? (
         <PlaylistVideoCanvas
           annotationsVisible={!studioOverlay}
           currentVideoSource2={currentVideoSource2}

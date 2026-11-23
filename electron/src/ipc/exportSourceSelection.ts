@@ -33,6 +33,7 @@ export const getClipExportSources = (
   clip: ClipExportItem,
   selection: ExportSourceSelection,
 ): string[] => {
+  if (clip.slideFrame) return [];
   const main = clip.videoSource || selection.mainSource;
   const secondary = clip.videoSource2 || selection.secondarySource;
   if (clip.angleType === 'angle2') return [secondary || main];

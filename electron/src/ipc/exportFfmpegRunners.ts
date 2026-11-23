@@ -8,7 +8,7 @@ import {
   restoreChromaForeground,
 } from './exportChroma';
 import { overlayMotion } from './exportMotionOverlays';
-import { insertFreeze, overlayFreeze } from './exportFreezeFrames';
+import { insertAudioFreezes, insertFreeze, overlayFreeze } from './exportFreezeFrames';
 import { buildOverlayFilters } from './exportFfmpegOverlay';
 import {
   concatFfmpegFiles,
@@ -203,6 +203,7 @@ export const runFfmpegSingle = async ({
         ]
       : []);
   const ordered = [...frames].sort((a, b) => a.time - b.time);
+  audioMap = insertAudioFreezes(filterSteps, audioMap, ordered, clipDuration);
   let insertedDuration = 0;
   for (const [index, frame] of ordered.entries()) {
     if (frame.duration <= 0) continue;
@@ -215,14 +216,7 @@ export const runFfmpegSingle = async ({
       frame.duration,
       `f${index}v`,
     );
-    audioMap = insertFreeze(
-      filterSteps,
-      audioMap,
-      time,
-      frame.duration,
-      `f${index}a`,
-      true,
-    );
+
     insertedDuration += frame.duration;
   }
   let imageIndex = motion.inputIndex;

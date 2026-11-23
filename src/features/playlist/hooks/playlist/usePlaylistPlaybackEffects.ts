@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import type React from 'react';
 import { formatSource } from '../../../videoPlayer/components/Player/SingleVideo/utils';
 import type { UsePlaylistPlaybackParams } from './usePlaylistPlayback.types';
@@ -27,7 +27,7 @@ interface UsePlaylistPlaybackEffectsParams extends Pick<
   disabled?: boolean;
   lastFreezeTimestampRef: React.MutableRefObject<number | null>;
   triggerFreezeFrame: (freezeDuration: number) => void;
-  handleItemEnd: () => void;
+  handleItemEnd: () => boolean | void;
 }
 
 export const usePlaylistPlaybackEffects = ({
@@ -83,7 +83,7 @@ export const usePlaylistPlaybackEffects = ({
     const finishCurrentItem = (): void => {
       if (endedItemIdRef.current === currentItemId) return;
       endedItemIdRef.current = currentItemId ?? null;
-      handleItemEnd();
+      if (handleItemEnd()) endedItemIdRef.current = null;
     };
 
     const handleTimeUpdate = () => {
@@ -200,7 +200,8 @@ export const usePlaylistPlaybackEffects = ({
     videoRef2,
   ]);
 
-  useEffect(() => {
+  // Slides unmount the media elements. Apply routing before a new element can play.
+  useLayoutEffect(() => {
     if (disabled) return;
     const mainVideo = videoRef.current;
     const subVideo = videoRef2.current;
@@ -209,7 +210,7 @@ export const usePlaylistPlaybackEffects = ({
     if (subVideo) {
       subVideo.volume = !isMuted && viewMode === 'angle2' ? volume : 0;
     }
-  }, [disabled, isMuted, videoRef, videoRef2, volume, viewMode]);
+  }, [disabled, currentItemId, currentVideoSource, currentVideoSource2, isMuted, videoRef, videoRef2, volume, viewMode]);
 
   useEffect(() => {
     if (disabled) return;
