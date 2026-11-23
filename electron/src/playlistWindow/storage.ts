@@ -5,10 +5,8 @@ import { constants, existsSync } from 'fs';
 import * as path from 'path';
 import type { Playlist } from '../../../src/types/playlist/core';
 import { normalizePlaylistDocument } from '../../../src/shared/playlist/playlistDocument';
-import {
-  PLAYLIST_WINDOW_CHANNELS,
-  isPlaylist,
-} from '../../../src/types/ipc/playlistWindow';
+import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
+import { decodePlaylistFile, encodePlaylistFile } from './playlistDiskFormat';
 import { runMediaProcess } from '../ipc/mediaProcessRunner';
 import { H264_ENCODER_ARGS } from '../mediaTools';
 import { ensureWindowsH264Encoder } from '../windowsH264Capability';
@@ -214,7 +212,7 @@ export const savePlaylistToPath = async (
   }
 
   const playlistJsonPath = path.join(targetPath, 'playlist.json');
-  const content = JSON.stringify(processedPlaylist, null, 2);
+  const content = JSON.stringify(encodePlaylistFile(processedPlaylist), null, 2);
   await writeTextFileAtomically(
     playlistJsonPath,
     content,
@@ -275,13 +273,7 @@ export const loadPlaylistFromPath = async (
     );
   }
 
-  if (!isPlaylist(parsed)) {
-    throw new Error(
-      'プレイリストファイルの形式が不正です。必須フィールドが欠落しています。',
-    );
-  }
-
-  const playlist = normalizePlaylistDocument(parsed);
+  const playlist = normalizePlaylistDocument(decodePlaylistFile(parsed));
 
   const resolvedItems = playlist.items.map((item) => {
     return {
