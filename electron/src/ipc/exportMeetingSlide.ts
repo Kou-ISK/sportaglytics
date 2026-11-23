@@ -6,7 +6,8 @@ import { runFfmpegProcess } from './exportFfmpegProcess';
 import { hasExportAudio } from './exportAudioProbe';
 
 const silence = ['-f', 'lavfi', '-i', 'anullsrc=r=48000:cl=stereo'];
-const meetingCodec = [...H264_ENCODER_ARGS, '-pix_fmt', 'yuv420p', '-r', '30',
+const meetingCodec = [...H264_ENCODER_ARGS,
+  ...(H264_ENCODER_ARGS.includes('-pix_fmt') ? [] : ['-pix_fmt', 'yuv420p']), '-r', '30',
   '-video_track_timescale', '90000', '-c:a', 'aac', '-ar', '48000', '-ac', '2'];
 
 export const renderMeetingSlide = async (getFfmpegPath: () => string,

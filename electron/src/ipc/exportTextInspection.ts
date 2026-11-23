@@ -77,7 +77,7 @@ export const assertExportTextFits = async (
   if (
     !payload.overlay.enabled ||
     !payload.clips.some(
-      (clip) => formatOverlayLines(clip, payload.overlay).length,
+      (clip) => !clip.slideFrame && formatOverlayLines(clip, payload.overlay).length,
     )
   )
     return;

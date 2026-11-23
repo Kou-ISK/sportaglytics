@@ -16,11 +16,15 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   const folder = path.join(dir, 'meeting.stpl');
   await fs.mkdir(folder);
   const file = path.join(folder, 'playlist.json');
+  const red = path.join(dir, 'meeting-red.mp4');
+  execFileSync(ffmpegPath, ['-v','error','-i',path.join(dir,'b.mp4'),'-f','lavfi','-i','sine=frequency=440:sample_rate=48000',
+    '-t','3','-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac',red]);
   const items = [
     ['A1', 'A', 'One', 'b'], ['B1', 'B', 'One', 'c'], ['A2', 'A', 'Two', 'a'],
   ].map(([id, rowId, actionName, source], presentationOrder) => ({
     id, rowId, actionName, presentationOrder, timelineItemId: null,
-    startTime: 0, endTime: 2, addedAt: 1, videoSource: path.join(dir, source + '.mp4'),
+    startTime: 0, endTime: 2, addedAt: 1, videoSource: id === 'B1' ? path.join(dir, source + '.mp4') : red,
+    ...(id === 'A2' ? { videoSource2: path.join(dir, 'a.mp4'), defaultAngle: 'angle2' } : {}),
   }));
   await fs.writeFile(file, JSON.stringify({
     id: 'meeting', name: 'Meeting', type: 'reference', createdAt: 1, updatedAt: 1,
@@ -40,6 +44,20 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
     await (await app.browserWindow(page)).evaluate((window) => window.close());
     await pending;
   };
+  const waitForSave = async (matches) => {
+    const deadline = Date.now() + 15000;
+    while (Date.now() < deadline) {
+      const document = JSON.parse(await fs.readFile(file, 'utf8'));
+      if (matches(document) && await app.evaluate(({ app: application }, folder) => {
+        const require = process.getBuiltinModule('module').createRequire(application.getAppPath() + '/package.json');
+        const { getPlaylistWindows } = require('./build/electron/src/playlistWindow/state.js');
+        return [...getPlaylistWindows().values()].some((entry) =>
+          entry.filePath === folder && !entry.window.isDestroyed() && !entry.isDirty);
+      }, folder)) return document;
+      await new Promise((resolve) => setTimeout(resolve, 100));
+    }
+    throw new Error('Saved Organizer document and Main acknowledgement did not agree');
+  };
   let page = await open();
   const row = (id) => page.getByTestId('organizer-row-' + id);
   const item = (id) => page.getByTestId('organizer-clip-' + id);
@@ -48,7 +66,7 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
     await page.getByRole('menuitem', { name, exact: true }).click();
   };
   await command('A', 'この行を再生');
-  for (const source of ['b.mp4', 'a.mp4']) {
+  for (const source of ['meeting-red.mp4', 'a.mp4']) {
     await page.waitForFunction((name) => [...document.querySelectorAll('video')].some(
       (video) => video.currentSrc.endsWith('/' + name) && !video.paused && video.currentTime > 0.1,
     ), source, { timeout: 12000 });
@@ -60,7 +78,7 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   await row('A').getByTestId('organizer-clip-A1').waitFor();
   await command('B', '行を上へ');
   await page.keyboard.press(primaryModifier + '+s');
-  await page.waitForFunction(() => !document.title.includes('*'));
+  await waitForSave((saved) => saved.rows[0]?.id === 'B');
   await close(page);
   const saved = JSON.parse(await fs.readFile(file, 'utf8'));
   assert.deepEqual(saved.rows.map((r) => r.id), ['B', 'A']);
@@ -111,16 +129,8 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   await page.waitForFunction(() => [...document.querySelectorAll('video')].some(
     (v) => v.currentSrc.endsWith('/c.mp4') && !v.paused && v.currentTime > .1), undefined, {timeout:12000});
   await page.keyboard.press(primaryModifier + '+s');
-  const persisted = async () => {
-    const deadline = Date.now() + 12000;
-    while (Date.now() < deadline) {
-      const saved = JSON.parse(await fs.readFile(file,'utf8'));
-      if (saved.items.some((entry) => entry.slide?.title === 'Meeting question')) return saved;
-      await new Promise((resolve) => setTimeout(resolve,100));
-    }
-    throw new Error('Slide was not persisted');
-  };
-  const savedSlide = (await persisted()).items.find((entry) => entry.slide);
+  const stored = await waitForSave((saved) => saved.items.some((entry) => entry.slide?.title === 'Meeting question'));
+  const savedSlide = stored.items.find((entry) => entry.slide);
   assert.equal(savedSlide.endTime,2);
   assert.match(savedSlide.slide.image,/^data:image\/png;base64,/);
   assert.equal(savedSlide.videoSource,undefined);
@@ -149,6 +159,16 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   const info = JSON.parse(execFileSync(ffprobePath,['-v','error','-show_streams','-show_format','-of','json',movie]));
   assert.ok(Math.abs(Number(info.format.duration)-6)<.25);
   assert.ok(info.streams.some((stream) => stream.codec_type === 'audio'));
+  const samplePeak = (seconds) => {
+    const pcm = execFileSync(ffmpegPath,['-v','error','-ss',String(seconds),'-i',movie,'-t','0.2',
+      '-map','0:a:0','-ac','1','-ar','8000','-f','s16le','pipe:1']);
+    assert.ok(pcm.length > 1600);
+    let peak = 0;
+    for (let i = 0; i + 1 < pcm.length; i += 2) peak = Math.max(peak,Math.abs(pcm.readInt16LE(i)));
+    return peak;
+  };
+  assert.ok(samplePeak(1) > 500, 'clip audio is present');
+  assert.ok(samplePeak(3) < 30, 'slide has no audible signal');
   await close(progress);
 
   const addRow = async (name) => {
@@ -191,7 +211,7 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   assert.equal(colorAt(slideMovie,.5),'blue');
   await close(last);
   await page.keyboard.press(primaryModifier + '+s');
-  await page.waitForFunction(() => !document.title.includes('*'));
+  await waitForSave((saved) => saved.items.some((entry) => entry.slide?.title === 'Opening'));
   await close(page);
   console.log('Organizer membership, row playback, no-op drop, Undo, save/reopen, row and action MP4 frame order passed');
 }
