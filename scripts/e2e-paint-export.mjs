@@ -424,8 +424,28 @@ try {
   expectColor(combined, 3.5, 700, 120, [0,166,77], 'second Paint freeze before slide');
   expectColor(combined, 4.7, 700, 120, [0,128,0], 'final frames after second freeze');
   expectColor(combined, 5.5, 700, 120, [16,24,32], 'slide begins after full clip');
-  assert.ok(audioRms(combined, 4.65) > .03, 'media audio after second freeze');
-  assert.ok(audioRms(combined, 5.5) < .002, 'silence within slide');
+  // Decode these short fixtures from the same origin. An input-side fast seek
+  // can enter a different MP4 edit when the concatenated file has AAC priming.
+  const audioWindows = (file, starts) => {
+    const rate = 48000;
+    const samples = execFileSync(ffmpegPath, ['-v','error','-i',file,'-map','0:a:0','-t','7',
+      '-ac','1','-ar',String(rate),'-f','f32le','pipe:1'], {maxBuffer:2 * 1024 * 1024});
+    return starts.map((start) => {
+      const begin = Math.round(rate * start), end = begin + Math.round(.15 * rate);
+      assert.ok(end * 4 <= samples.length, 'requested window outside decoded audio: ' + start + '/' + samples.length / (4 * rate));
+      let sum = 0;
+      for (let index = begin; index < end; index++) sum += samples.readFloatLE(index * 4) ** 2;
+      return Math.sqrt(sum / (end - begin));
+    });
+  };
+  const positions = [.4,1.4,2.4,3.5,4.2,4.65];
+  const before = audioWindows(still, positions);
+  const after = audioWindows(combined, [...positions,5.5]);
+  console.log('Synthetic two-freeze audio RMS', {positions, before, after,
+    streams:probe(combined).streams.map(({codec_type,start_time,duration,sample_rate}) => ({codec_type,start_time,duration,sample_rate}))});
+  assert.ok(before.at(-1) > .03, 'source clip retains its final audio after the second freeze');
+  assert.ok(after.at(-2) > .03, 'media audio after second freeze');
+  assert.ok(after.at(-1) < .002, 'silence within slide');
   if (process.env.E2E_SCREENSHOT_DIR) {
     await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
     await fs.cp(
