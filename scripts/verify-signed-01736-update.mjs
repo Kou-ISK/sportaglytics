@@ -40,6 +40,7 @@ const observations = {};
 async function launch(bundle, version, userData, args = []) {
   process.env.E2E_APP_PATH = path.join(bundle, binary);
   const app = await electron.launch(getElectronLaunchOptions(userData, args));
+  app.context().setDefaultTimeout(25000);
   const identity = await app.evaluate(({ app }) => [app.getVersion(), app.isPackaged, app.getPath('exe'), app.getPath('userData')]);
   assert.deepEqual(identity, [version, true, process.env.E2E_APP_PATH, userData]);
   return app;
@@ -86,6 +87,15 @@ try {
   await app.evaluate(({dialog}, {source,root,playlist}) => {
     dialog.showOpenDialog = async (...args) => ({canceled:false, filePaths:[args.at(-1).properties?.includes('openDirectory') ? root : source]});
     dialog.showSaveDialog = async () => ({canceled:false, filePath:playlist});
+    const original = dialog.showMessageBox.bind(dialog);
+    dialog.showMessageBox = async (...args) => {
+      const opts = args.at(-1);
+      if (opts.title === '保存完了' && opts.type === 'info' && opts.message === 'プレイリストを保存しました') {
+        globalThis.__oldSaveConfirmed = true;
+        return {response:0,checkboxChecked:false};
+      }
+      return original(...args);
+    };
   }, {source,root,playlist});
   await main.getByText('新しいパッケージを作成', {exact:true}).click();
   await main.getByRole('textbox',{name:'パッケージ',exact:true}).fill('Upgrade Review');
@@ -110,12 +120,16 @@ try {
   await page.getByRole('button',{name:'Organizer',exact:true}).click();
   await main.evaluate(item => window.electronAPI.playlist.addItemToAllWindows(item),item);
   await page.getByTestId('organizer-clip-marker').click();
+  stage('old clip visible; open the Save dialog');
   await page.keyboard.press('Meta+s');
   const save = page.getByRole('dialog',{name:'プレイリストを保存'});
   await save.getByLabel('プレイリスト名').fill('Clips');
   await save.getByRole('button',{name:/元データにリンク/}).click();
+  stage('old reference format selected; execute the real Save As');
   await save.getByRole('button',{name:'保存',exact:true}).click();
   await expect.poll(async () => (await json(path.join(playlist,'playlist.json')).catch(()=>null))?.items?.[0]?.note,{timeout:15000}).toBe(item.note);
+  await expect.poll(()=>app.evaluate(()=>Boolean(globalThis.__oldSaveConfirmed)),{timeout:12000}).toBe(true);
+  stage('old Save As confirmed and bytes observed; exit old app');
   await app.close(); app = undefined;
   stage('read old documents after normal exit');
   const before = await fingerprint();
@@ -209,6 +223,11 @@ try {
       } catch { /* A closing window has no DOM. */ }
     }
   }
+  console.error('Failed stage:',observations.stage,error);
+  await persist();
+  process.exitCode=1;
+  // The CI worker owns the disposable apps. Let it clean up any failed modal session.
+  if (app) process.exit(1);
   throw error;
 } finally {
   await persist();
