@@ -124,14 +124,19 @@ try {
   const observedPercentages = [];
   const deadline = Date.now() + 90_000;
   while (Date.now() < deadline) {
-    const text =
-      (await progressPage
-        .getByTestId('export-progress-percent')
-        .textContent()
-        .catch(() => null)) ?? '';
-    const percentage = Number.parseInt(text, 10);
-    if (Number.isFinite(percentage)) observedPercentages.push(percentage);
-    if ((await progressPage.getByText('書き出し完了').count()) > 0) break;
+    // Read one DOM commit. Two Playwright calls can straddle the final
+    // render and pair an intermediate percentage with the completed heading.
+    const sample = await progressPage.getByTestId('export-progress-percent')
+      .evaluate((element) => ({
+        percentage: Number.parseInt(element.textContent ?? '', 10),
+        completed: Array.from(element.ownerDocument.querySelectorAll('h6'))
+          .some((heading) => heading.textContent === '書き出し完了'),
+      }));
+    if (Number.isFinite(sample.percentage)) observedPercentages.push(sample.percentage);
+    if (sample.completed) {
+      assert.equal(sample.percentage, 100);
+      break;
+    }
     await progressPage.waitForTimeout(100);
   }
 
