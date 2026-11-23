@@ -266,7 +266,7 @@ export const registerExportHandlers = ({
 
             updateProgress('書き出し準備中...');
 
-            if (!sourcePath || clips.length === 0) {
+            if ((!sourcePath && clips.some((clip) => !clip.slideFrame)) || clips.length === 0) {
               failProgress('ソースまたはクリップがありません');
               return {
                 success: false,

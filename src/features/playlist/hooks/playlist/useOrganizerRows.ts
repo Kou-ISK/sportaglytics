@@ -1,3 +1,4 @@
+import { editPlaylistSlide } from '../../../../shared/playlist/editPlaylistSlide';
 import { useMemo } from 'react';
 import type { Playlist } from '../../../../types/playlist/core';
 import {
@@ -18,6 +19,12 @@ export const useOrganizerRows = (
     core.setHasUnsavedChanges(true);
   };
   return { document, actions: {
+    saveSlide: (placement, slide, seconds) => {
+      const next = editPlaylistSlide(document, placement, slide, seconds);
+      const playingId = history.items[core.currentIndex]?.id;
+      edit(next);
+      if (playingId && next !== document) core.setCurrentIndex(next.items.findIndex((item) => item.id === playingId));
+    },
     add: (name) => {
       const value = name.trim();
       if (value) edit({ ...document, rows: [...(document.rows ?? []), createPlaylistRow(document, value)] });

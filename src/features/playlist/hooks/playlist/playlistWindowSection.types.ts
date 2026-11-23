@@ -40,6 +40,7 @@ export interface BuildHeaderSectionParams {
 }
 
 export interface BuildVideoAreaSectionParams {
+  slide?: PlaylistItem['slide'];
   currentVideoSource: string | null;
   currentVideoSource2: string | null;
   viewMode: PlaylistViewMode;

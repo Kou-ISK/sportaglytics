@@ -47,6 +47,7 @@ export interface ClipExportMotionOverlay {
 }
 
 export interface ClipExportItem {
+  slideFrame?: string;
   /** Audio index in the selected angle source; omitted retains the first-track encoder default. */
   audioTrackIndex?: number;
   organizerRow?: { id: string; name: string };

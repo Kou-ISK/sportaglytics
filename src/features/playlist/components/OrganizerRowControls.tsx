@@ -1,9 +1,12 @@
 import { useState } from 'react';
 import type { ReactElement } from 'react';
 import { Button, Dialog, DialogActions, DialogContent, DialogTitle, Menu, MenuItem, TextField } from '@mui/material';
-import type { PlaylistRow } from '../../../types/playlist/core';
+import { PlaylistSlideEditor } from './PlaylistSlideEditor';
+import type { SlidePlacement } from '../../../shared/playlist/editPlaylistSlide';
+import type { PlaylistSlide, PlaylistItem, PlaylistRow } from '../../../types/playlist/core';
 
 export interface OrganizerActions {
+  saveSlide: (placement: SlidePlacement, slide: PlaylistSlide, seconds: number) => void;
   add: (name: string) => void;
   rename: (id: string, name: string) => void;
   remove: (id: string) => void;
@@ -31,11 +34,15 @@ export const RowNameEditor = ({ initial, title, onCommit, onClose }: {
   </Dialog>;
 };
 
-export const OrganizerRowControls = ({ row, index, rowCount, itemIds, selection, actions }: {
-  row: PlaylistRow; index: number; rowCount: number; itemIds: string[];
+export const OrganizerRowControls = ({ row, index, rowCount, items, selection, actions }: {
+  row: PlaylistRow; index: number; rowCount: number; items: PlaylistItem[];
   selection: Set<string>; actions: OrganizerActions;
 }): ReactElement => {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  const itemIds = items.map((item) => item.id);
+  const selected = items.filter((item) => selection.has(item.id));
+  const only = selected.length === 1 ? selected[0] : undefined;
+  const [editor, setEditor] = useState<{ placement: SlidePlacement; initial?: PlaylistItem; caption: string }>();
   const [renaming, setRenaming] = useState(false);
   const run = (action: () => void): void => { setAnchor(null); action(); };
   return <>
@@ -47,11 +54,24 @@ export const OrganizerRowControls = ({ row, index, rowCount, itemIds, selection,
       <MenuItem disabled={index === rowCount - 1} onClick={() => run(() => actions.reposition(row.id, 1))}>行を下へ</MenuItem>
       <MenuItem disabled={![...selection].some((id) => !itemIds.includes(id))}
         onClick={() => run(() => actions.moveClips([...selection], row.id))}>選択項目をこの行へ移動</MenuItem>
+      <MenuItem onClick={() => run(() => setEditor({
+        placement: { rowId: row.id },
+        caption: items.length ? row.name + ' の先頭に挿入' : row.name + ' に追加（全体の最後）',
+      }))}>行の先頭にスライドを追加</MenuItem>
+      <MenuItem disabled={!only} onClick={() => only && run(() => setEditor({
+        placement: { rowId: row.id, afterId: only.id }, caption: only.actionName + ' の直後に挿入',
+      }))}>選択項目の後にスライドを追加</MenuItem>
+      <MenuItem disabled={!only?.slide} onClick={() => only?.slide && run(() => setEditor({
+        placement: { rowId: row.id, editId: only.id }, initial: only, caption: 'スライドを編集',
+      }))}>選択したスライドを編集</MenuItem>
       <MenuItem disabled={!itemIds.length} onClick={() => run(() => actions.play(itemIds))}>この行を再生</MenuItem>
       <MenuItem disabled={!itemIds.length} onClick={() => run(() => actions.export(itemIds))}>この行を MP4 に書き出す</MenuItem>
       <MenuItem disabled={Boolean(itemIds.length) || rowCount <= 1}
         onClick={() => run(() => actions.remove(row.id))}>空の行を削除</MenuItem>
     </Menu>
+    {editor && <PlaylistSlideEditor caption={editor.caption} initial={editor.initial}
+      onCommit={(slide, seconds) => actions.saveSlide(editor.placement, slide, seconds)}
+      onClose={() => setEditor(undefined)} />}
     {renaming && <RowNameEditor title="行名を変更" initial={row.name}
       onCommit={(name) => actions.rename(row.id, name)} onClose={() => setRenaming(false)} />}
   </>;

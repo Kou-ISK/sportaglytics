@@ -53,11 +53,12 @@ const extractPlaylistAnnotations = (
 
 const resolvePlaylistVideoSources = (items: PlaylistItem[]): string[] => {
   const sources: string[] = [];
-  if (items[0]?.videoSource) {
-    sources.push(items[0].videoSource);
+  const first = items.find((item) => !item.slide);
+  if (first?.videoSource) {
+    sources.push(first.videoSource);
   }
-  if (items[0]?.videoSource2) {
-    sources.push(items[0].videoSource2);
+  if (first?.videoSource2) {
+    sources.push(first.videoSource2);
   }
   return sources;
 };
@@ -79,7 +80,7 @@ export const buildPlaylistPayload = ({
     id: createId(),
     name,
     type,
-    items: items.map((item) => ({
+    items: items.map((item) => item.slide ? item : ({
       ...item,
       videoSource:
         item.videoSource ?? (item.mediaReference ? undefined : videoSources[0]),

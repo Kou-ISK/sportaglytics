@@ -1,3 +1,4 @@
+import { validateSlideItem } from './playlistSlide';
 import { normalizePlaylistNote } from './playlistNote';
 import {
   applyPresentationOrder,
@@ -115,7 +116,10 @@ const normalizeItems = (
  */
 export const normalizePlaylistDocument = (playlist: Playlist): Playlist => {
   const rows = normalizeRows(playlist.id, playlist.rows);
-  playlist.items.forEach((item) => validateTacticsAnnotation(item.annotation));
+  playlist.items.forEach((item) => {
+    validateSlideItem(item);
+    validateTacticsAnnotation(item.annotation);
+  });
   const items = normalizePresentationOrder(
     normalizeItems(playlist.items, rows),
     rows,

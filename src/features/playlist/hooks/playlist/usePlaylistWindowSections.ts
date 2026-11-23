@@ -94,6 +94,7 @@ export const usePlaylistWindowSections = ({
   });
 
   const videoArea = buildPlaylistVideoAreaSection({
+    slide: currentItemState.currentItem?.slide,
     currentVideoSource: currentItemState.currentVideoSource,
     currentVideoSource2: currentItemState.currentVideoSource2,
     viewMode: core.viewMode,

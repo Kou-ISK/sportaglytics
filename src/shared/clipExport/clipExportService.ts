@@ -152,6 +152,7 @@ const selectClipAngle = (
   index: number,
 ): ClipExportItem[] =>
   clips.map((clip) => {
+    if (clip.slideFrame) return clip;
     if (!('videoSource' in clip) && !('videoSource2' in clip)) return clip;
     if (index === 0 && clip.videoSource)
       return { ...clip, angleType: 'angle1' };
@@ -186,7 +187,9 @@ const buildRequests = ({
 >): ClipExportPayload[] => {
   if (angleOption === 'defaultAngles') {
     if (!clips.length) throw new Error('書き出すクリップがありません');
+    const firstMedia = clips.find((clip) => !clip.slideFrame);
     for (const clip of clips) {
+      if (clip.slideFrame) continue;
       const source =
         clip.angleType === 'angle2' ? clip.videoSource2 : clip.videoSource;
       if (!source)
@@ -197,7 +200,7 @@ const buildRequests = ({
     return [
       {
         progressId,
-        sourcePath: clips[0].videoSource || clips[0].videoSource2 || '',
+        sourcePath: firstMedia?.videoSource || firstMedia?.videoSource2 || '',
         mode: 'single',
         exportMode,
         angleOption: 'single',

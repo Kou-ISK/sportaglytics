@@ -46,6 +46,7 @@ export const buildPlaylistHeaderSection = ({
 };
 
 export const buildPlaylistVideoAreaSection = ({
+  slide,
   currentVideoSource,
   currentVideoSource2,
   viewMode,
@@ -94,6 +95,7 @@ export const buildPlaylistVideoAreaSection = ({
   height,
 }: BuildVideoAreaSectionParams) => {
   return {
+    slide,
     currentVideoSource,
     currentVideoSource2,
     viewMode,

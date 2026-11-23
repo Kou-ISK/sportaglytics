@@ -30,6 +30,7 @@ export const inspectExportText = async (
   for (const [angleIndex, payload] of payloads.entries()) {
     const selection = resolveExportSourceSelection(payload);
     for (const [index, clip] of payload.clips.entries()) {
+      if (clip.slideFrame) continue;
       const sizes = [];
       for (const source of getClipExportSources(clip, selection)) {
         let pending = plans.get(source);

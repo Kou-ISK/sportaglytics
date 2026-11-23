@@ -1,3 +1,4 @@
+import { useSlideClock } from './useSlideClock';
 import { TimelineScrub } from '../../../../shared/media/timelineScrub';
 import { waitForVideoPresentation } from '../../../../shared/media/waitForVideoPresentation';
 import type { VideoPresentationTarget } from '../../../../shared/media/waitForVideoPresentation';
@@ -82,6 +83,8 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     lastFreezeTimestampRef,
     freezeTimeoutRef,
   });
+
+  const seekSlide = useSlideClock(params.currentItem, playing, params.setCurrentTime, actions.handleItemEnd);
 
   useLayoutEffect(() => {
     timelineCallbacks.current = {
@@ -239,6 +242,7 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     };
   }, [seekOwner]);
   const handleScrub = (time: number, final: boolean): void => {
+    if (params.currentItem?.slide) { seekSlide(time); setScrubbing(!final); return; }
     const item = params.currentItem;
     if (
       !item ||
@@ -335,7 +339,8 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     handleSeek: (event: Event, value: number | number[]): void => {
       cancelReverseSeek();
       cancelScrub();
-      actions.handleSeek(event, value);
+      if (params.currentItem?.slide) seekSlide(Array.isArray(value) ? value[0] : value);
+      else actions.handleSeek(event, value);
     },
     handleVolumeChange: actions.handleVolumeChange,
     handleToggleFullscreen: actions.handleToggleFullscreen,

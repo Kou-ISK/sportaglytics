@@ -1,3 +1,4 @@
+import { renderMeetingSlide } from './exportMeetingSlide';
 import { exportResourceContext } from './exportResourceContext';
 import { qualifySilentFallback } from './exportFallbackQualification';
 import { evaluateNativeFallback, NativeFallbackBudgetUnavailable } from '../nativeExport/nativeFallbackPolicy';
@@ -35,6 +36,11 @@ export const createPreparedClipRenderer = (
     const index = indexes.get(clip);
     if (index === undefined)
       throw new Error('書き出し対象のクリップを確認してください');
+    if (clip.slideFrame) {
+      if (!outputPath) throw new Error('スライドの出力先がありません。');
+      await renderMeetingSlide(getFfmpegPath, clip.slideFrame, clip.endTime, outputPath, onProgress, signal);
+      return outputPath;
+    }
     const sources = prepared.get(index);
     const resolveSource = (sourcePath: string) =>
       sources?.get(sourcePath) ?? { sourcePath, timeOrigin: 0, kind: 'direct' };

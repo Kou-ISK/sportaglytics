@@ -1,3 +1,4 @@
+import { isSlideDuration, isSlidePng } from '../../../src/shared/playlist/playlistSlide';
 import { isExportChroma } from './exportChroma';
 import { isExportMotionOverlays } from './exportMotionValidation';
 import { isExportFreezeFrames } from './exportFreezeFramesValidation';
@@ -57,6 +58,12 @@ const isClipExportItem = (value: unknown): boolean => {
   const duration = value.endTime - value.startTime;
   return (
     isPlainObject(value) &&
+    (value.slideFrame === undefined || (
+      value.startTime === 0 && isSlideDuration(value.endTime) && isSlidePng(value.slideFrame, true) &&
+      value.videoSource === undefined && value.videoSource2 === undefined &&
+      value.freezeFrames === undefined && value.motionOverlays === undefined &&
+      value.annotationPngPrimary === undefined && value.annotationPngSecondary === undefined
+    )) &&
     (value.audioTrackIndex === undefined ||
       (typeof value.audioTrackIndex === 'number' &&
         Number.isInteger(value.audioTrackIndex) &&
@@ -101,7 +108,9 @@ export const isExportClipsPayload = (
   return (
     isPlainObject(value) &&
     isOptionalString(value.progressId) &&
-    isNonEmptyString(value.sourcePath) &&
+    (isNonEmptyString(value.sourcePath) || (value.sourcePath === '' &&
+      Array.isArray(value.clips) && value.clips.length > 0 &&
+      value.clips.every((clip) => isPlainObject(clip) && typeof clip.slideFrame === 'string'))) &&
     isOptionalString(value.sourcePath2) &&
     (value.mode === undefined ||
       value.mode === 'single' ||
@@ -109,6 +118,8 @@ export const isExportClipsPayload = (
     isExportMode(value.exportMode) &&
     isAngleOption(value.angleOption) &&
     Array.isArray(value.clips) &&
+    value.clips.reduce((bytes: number, clip: unknown) =>
+      bytes + (isPlainObject(clip) && typeof clip.slideFrame === 'string' ? clip.slideFrame.length : 0), 0) <= 32 * 1024 * 1024 &&
     value.clips.every(isClipExportItem) &&
     (value.exportMode !== 'organizerRows' ||
       value.clips.every((clip) => isPlainObject(clip) && isPlainObject(clip.organizerRow))) &&

@@ -170,7 +170,7 @@ export const PlaylistOrganizerView = ({
                     </Typography>
                   </Box>
                   {actions && <OrganizerRowControls row={row} index={index} rowCount={displayRows.length}
-                    itemIds={rowItems.map((item) => item.id)} selection={selectedItemIds} actions={actions} />}
+                    items={rowItems} selection={selectedItemIds} actions={actions} />}
                 </Stack>
               </Box>
               <Box

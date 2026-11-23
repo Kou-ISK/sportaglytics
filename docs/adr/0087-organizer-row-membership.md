@@ -24,3 +24,7 @@ Sorter の `presentationOrder` は再生、保存、出力に共通とする。O
 ## Consequences
 
 行は空のときだけ削除でき、最後の1行は残る。移動先にすでに所属するクリップはその場に残る。行の既存の有効表示は出力の暗黙フィルターにしない。従来のアクション別出力は同じアクション名をまとめる。
+
+## Meeting slides
+
+Slides are independent presentation items with row membership, stable identity, editable text and an optional bounded PNG inside the document. They have no video reference. Their explicit whole-second duration is the presentation and export duration. Sorter reorders them through the same undoable operation as clips. Existing documents acquire no slide content on load. Export uses the meeting canvas and mixes regular media only after applying the existing angle, Paint and text settings.
