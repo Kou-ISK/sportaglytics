@@ -422,3 +422,7 @@ macOS PR CIでも同じ行操作E2Eを実行します。選択失敗時は合成
 文書切替はreal `useTimelineSessionController`（persistence/history含む）とwindow integrationを結合し、読み込み完了からhistory採用までに旧項目・行が新document IDで送られないことを確認します。空・同内容の置換、読み込みleaseの旧callback、採用後の編集とUndoも別に確認します。Fs/IPC配送はmockであり、実Electron結果とは区別します。
 
 0.17.30の限定リリースでは`export-text-geometry`を共通Electron E2Eとインストール済みWindowsへ登録する。署名済みMac DMGも同じ共通runnerを実行するため、インストールされたMainと同梱FFmpegで回転・SAR結合・オーバーレイのpreview/export整合を検査する。CIでの画素比較を実聴取・物理画面の受入とは扱わない。
+
+### Organizer の行と会議用スライド
+
+`node scripts/e2e-export-menu.mjs` は、別行に同じアクションと同名の行を持つ合成文書を開きます。行だけの再生、無効なドロップと Undo、再読込、行・アクション別 MP4 の画素順を確認します。スライドを挿入したケースでは、ローカル画像と表示秒数を保存して再読込し、MP4 の途中の画像を復号します。ネイティブの保存先選択結果と案内ダイアログはテスト用です。登録済みの署名済みアプリ E2E でも同じシナリオを実行します。

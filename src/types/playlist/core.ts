@@ -108,7 +108,15 @@ export interface PlaylistAiMeta {
   source?: 'ai-review';
 }
 
+export interface PlaylistSlide {
+  title: string;
+  body: string;
+  /** An optional local PNG thumbnail stored inside the playlist document. */
+  image?: string;
+}
+
 export interface PlaylistItem {
+  slide?: PlaylistSlide;
   id: string;
   timelineItemId: string | null;
   actionName: string;

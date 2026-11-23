@@ -30,6 +30,7 @@ export const inspectExportText = async (
   for (const [angleIndex, payload] of payloads.entries()) {
     const selection = resolveExportSourceSelection(payload);
     for (const [index, clip] of payload.clips.entries()) {
+      if (clip.slideFrame) continue;
       const sizes = [];
       for (const source of getClipExportSources(clip, selection)) {
         let pending = plans.get(source);
@@ -76,7 +77,7 @@ export const assertExportTextFits = async (
   if (
     !payload.overlay.enabled ||
     !payload.clips.some(
-      (clip) => formatOverlayLines(clip, payload.overlay).length,
+      (clip) => !clip.slideFrame && formatOverlayLines(clip, payload.overlay).length,
     )
   )
     return;

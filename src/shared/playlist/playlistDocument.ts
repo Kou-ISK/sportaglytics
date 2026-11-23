@@ -1,3 +1,4 @@
+import { validateSlideItem } from './playlistSlide';
 import { normalizePlaylistNote } from './playlistNote';
 import {
   applyPresentationOrder,
@@ -115,7 +116,10 @@ const normalizeItems = (
  */
 export const normalizePlaylistDocument = (playlist: Playlist): Playlist => {
   const rows = normalizeRows(playlist.id, playlist.rows);
-  playlist.items.forEach((item) => validateTacticsAnnotation(item.annotation));
+  playlist.items.forEach((item) => {
+    validateSlideItem(item);
+    validateTacticsAnnotation(item.annotation);
+  });
   const items = normalizePresentationOrder(
     normalizeItems(playlist.items, rows),
     rows,
@@ -163,11 +167,13 @@ export const renamePlaylistRow = (
   name: string,
 ): Playlist => {
   const normalized = normalizePlaylistDocument(playlist);
+  const rows = normalized.rows ?? [];
+  const value = name.trim();
+  const target = rows.find((row) => row.id === rowId);
+  if (!value || !target || target.name === value) return playlist;
   return {
     ...normalized,
-    rows: normalized.rows?.map((row) =>
-      row.id === rowId ? { ...row, name } : row,
-    ),
+    rows: rows.map((row) => row.id === rowId ? { ...row, name: value } : row),
   };
 };
 
@@ -177,24 +183,14 @@ export const removePlaylistRow = (
 ): Playlist => {
   const normalized = normalizePlaylistDocument(playlist);
   const rows = normalized.rows ?? [];
-  if (rows.length <= 1 || !rows.some((row) => row.id === rowId)) {
-    return normalized;
-  }
-  const remainingRows = rows
-    .filter((row) => row.id !== rowId)
-    .map((row, order) => ({ ...row, order }));
-  const fallbackRowId = remainingRows[0].id;
-  let fallbackOrder = normalized.items.filter(
-    (item) => item.rowId === fallbackRowId,
-  ).length;
+  if (
+    rows.length <= 1 ||
+    !rows.some((row) => row.id === rowId) ||
+    normalized.items.some((item) => item.rowId === rowId)
+  ) return playlist;
   return {
     ...normalized,
-    rows: remainingRows,
-    items: normalized.items.map((item) =>
-      item.rowId === rowId
-        ? { ...item, rowId: fallbackRowId, rowOrder: fallbackOrder++ }
-        : item,
-    ),
+    rows: rows.filter((row) => row.id !== rowId).map((row, order) => ({ ...row, order })),
   };
 };
 
@@ -206,22 +202,13 @@ export const reorderPlaylistRows = (
   const normalized = normalizePlaylistDocument(playlist);
   const rows = [...(normalized.rows ?? [])];
   if (
-    fromIndex < 0 ||
-    fromIndex >= rows.length ||
-    toIndex < 0 ||
-    toIndex >= rows.length ||
-    fromIndex === toIndex
-  )
-    return normalized;
+    !Number.isInteger(fromIndex) || !Number.isInteger(toIndex) ||
+    fromIndex < 0 || fromIndex >= rows.length ||
+    toIndex < 0 || toIndex >= rows.length || fromIndex === toIndex
+  ) return playlist;
   const [row] = rows.splice(fromIndex, 1);
   rows.splice(toIndex, 0, row);
-  return {
-    ...normalized,
-    rows: rows.map((entry, order) => ({ ...entry, order })),
-    items: normalized.items.map(
-      ({ presentationOrder: _rank, ...item }) => item,
-    ),
-  };
+  return { ...normalized, rows: rows.map((entry, order) => ({ ...entry, order })) };
 };
 
 export const moveItemsToRow = (
@@ -230,18 +217,21 @@ export const moveItemsToRow = (
   rowId: string,
 ): Playlist => {
   const normalized = normalizePlaylistDocument(playlist);
-  if (!normalized.rows?.some((row) => row.id === rowId)) return normalized;
-  const moved = new Set(itemIds);
-  const nextOrder = normalized.items.filter(
-    (item) => item.rowId === rowId,
-  ).length;
-  let order = nextOrder;
-  return {
+  if (!normalized.rows?.some((row) => row.id === rowId)) return playlist;
+  const selected = new Set(itemIds);
+  const moved = getPresentationItems(normalized).filter(
+    (item) => selected.has(item.id) && item.rowId !== rowId,
+  );
+  if (!moved.length) return playlist;
+  const start = normalized.items.filter((item) => item.rowId === rowId).length;
+  const orders = new Map(moved.map((item, i) => [item.id, start + i]));
+  return normalizePlaylistDocument({
     ...normalized,
-    items: normalized.items.map(({ presentationOrder: _rank, ...item }) =>
-      moved.has(item.id) ? { ...item, rowId, rowOrder: order++ } : item,
-    ),
-  };
+    items: normalized.items.map((item) => {
+      const rowOrder = orders.get(item.id);
+      return rowOrder === undefined ? item : { ...item, rowId, rowOrder };
+    }),
+  });
 };
 
 export const reorderItemsWithinRow = (

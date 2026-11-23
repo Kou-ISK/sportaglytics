@@ -2,6 +2,12 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.35 の Organizer と会議用スライド
+
+対象は [PR #306](https://github.com/Kou-ISK/sportaglytics/pull/306) のプレイリスト操作と必要な版準備です。develop 側のモデル方針・catalog・lock、別 PR の逆再生は配布対象外です。ARCH-EX-019 の限定範囲を両 PR でレビューします。
+
+タグと main の SHA・版を照合し、既存の Release desktop を macOS のみで実行します。署名・公証・arm64 同一 DMG の実 Electron 試験、保存済み文書と直前版からの更新検査、Intel 同梱物検証を維持します。公開後は両アーキテクチャの DMG の SHA-256 を SHA256SUMS と Homebrew Cask に照合します。
+
 ## 0.17.34 の音声同期修正（公開準備）
 
 対象は [PR #303](https://github.com/Kou-ISK/sportaglytics/pull/303) と版準備です。公開版は現在 0.17.31、main は未公開の 0.17.33 です。0.17.31 に音声同期修正のみを適用できても、そのコミットは現行の署名ワークフローの対象外です。タグ・checkout・workflow・origin/main の照合は維持します。

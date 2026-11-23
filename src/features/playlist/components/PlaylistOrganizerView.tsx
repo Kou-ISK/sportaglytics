@@ -1,9 +1,13 @@
-import React, { useMemo } from 'react';
-import { Box, Checkbox, Paper, Stack, Typography } from '@mui/material';
+import React, { useMemo, useRef, useState } from 'react';
+import { Box, Button, Checkbox, Paper, Stack, Typography } from '@mui/material';
 import { alpha, useTheme } from '@mui/material/styles';
 import type { PlaylistItem, PlaylistRow } from '../../../types/playlist/core';
 
+import { OrganizerRowControls, RowNameEditor } from './OrganizerRowControls';
+import type { OrganizerActions } from './OrganizerRowControls';
+
 export interface PlaylistOrganizerViewProps {
+  actions?: OrganizerActions;
   items: PlaylistItem[];
   rows: PlaylistRow[];
   currentIndex: number;
@@ -25,8 +29,11 @@ export const PlaylistOrganizerView = ({
   selectedItemIds,
   onSelectItem,
   onPlayItem,
+  actions,
 }: PlaylistOrganizerViewProps): React.ReactElement => {
   const theme = useTheme();
+  const [adding, setAdding] = useState(false);
+  const drag = useRef<string[] | null>(null);
   const displayRows = useMemo<PlaylistRow[]>(
     () =>
       rows.length > 0
@@ -94,14 +101,23 @@ export const PlaylistOrganizerView = ({
           <Typography
             sx={{ px: 1, py: 0.5, fontSize: 12, color: 'text.secondary' }}
           >
-            プレゼンテーション順
+            行内の配置（番号は全体の再生順）
           </Typography>
+          {actions && <Button size="small" onClick={() => setAdding(true)}>行を追加</Button>}
+          {adding && actions && <RowNameEditor initial="" title="行を追加" onCommit={actions.add} onClose={() => setAdding(false)} />}
         </Box>
-        {displayRows.map((row) => {
+        {displayRows.map((row, index) => {
           const rowItems = itemsByRow.get(row.id) ?? [];
           return (
             <Box
               key={row.id}
+              onDragOver={(event) => { if (actions && drag.current) event.preventDefault(); }}
+              onDrop={(event) => {
+                if (!actions || !drag.current) return;
+                event.preventDefault();
+                actions.moveClips(drag.current, row.id);
+                drag.current = null;
+              }}
               data-testid={`organizer-row-${row.id}`}
               sx={{
                 display: 'flex',
@@ -153,6 +169,8 @@ export const PlaylistOrganizerView = ({
                       {rowItems.length} クリップ
                     </Typography>
                   </Box>
+                  {actions && <OrganizerRowControls row={row} index={index} rowCount={displayRows.length}
+                    items={rowItems} selection={selectedItemIds} actions={actions} />}
                 </Stack>
               </Box>
               <Box
@@ -174,6 +192,13 @@ export const PlaylistOrganizerView = ({
                   return (
                     <Box
                       key={item.id}
+                      draggable={Boolean(actions)}
+                      onDragStart={(event) => {
+                        drag.current = selected ? [...selectedItemIds] : [item.id];
+                        event.dataTransfer.effectAllowed = 'move';
+                        event.dataTransfer.setData('application/x-sportag-playlist-items', 'move');
+                      }}
+                      onDragEnd={() => { drag.current = null; }}
                       data-testid={`organizer-clip-${item.id}`}
                       role="button"
                       tabIndex={0}

@@ -53,7 +53,7 @@ export const usePlaylistAnnotations = ({
   defaultFreezeDuration,
 }: UsePlaylistAnnotationsParams): UsePlaylistAnnotationsResult => {
   const currentAnnotation = useMemo(() => {
-    if (!currentItem) return null;
+    if (!currentItem || currentItem.slide) return null;
     const base =
       itemAnnotations[currentItem.id] || currentItem.annotation || null;
     const normalized = base
@@ -92,7 +92,7 @@ export const usePlaylistAnnotations = ({
       target: AnnotationTarget = 'primary',
       grassKey?: ChromaKey,
     ) => {
-      if (!currentItem) return;
+      if (!currentItem || currentItem.slide) return;
       const currentAnn = itemAnnotations[currentItem.id] ||
         currentItem.annotation || {
           objects: [],
@@ -156,7 +156,7 @@ export const usePlaylistAnnotations = ({
 
   const handleFreezeDurationChange = useCallback(
     (freezeDuration: number) => {
-      if (!currentItem) return;
+      if (!currentItem || currentItem.slide) return;
       const currentAnn = itemAnnotations[currentItem.id] ||
         currentItem.annotation || {
           objects: [],
@@ -196,7 +196,7 @@ export const usePlaylistAnnotations = ({
   );
 
   const commitAnnotation = (patch: Partial<ItemAnnotation>): void => {
-    if (!currentItem) return;
+    if (!currentItem || currentItem.slide) return;
     const currentAnn = itemAnnotations[currentItem.id] ||
       currentItem.annotation || {
         objects: [],

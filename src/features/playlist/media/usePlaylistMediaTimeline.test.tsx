@@ -486,3 +486,16 @@ it('reanchors a new workspace on the same item at the last confirmed clock', asy
   expect(callbacks.current.onTime).not.toHaveBeenCalledWith(65);
   expect(callbacks.current.onTime).toHaveBeenLastCalledWith(60.3);
 });
+
+it('rearms the same package excerpt after an automatic wrap', async () => {
+  const { media, tick, callbacks, result } = await setup();
+  callbacks.current.onEnd.mockImplementation(() => { result.current.seek(60); });
+  for (const time of [20016, 40032]) {
+    media.advance(80);
+    tick(time);
+    media.settle();
+    tick(time + 16);
+    expect(callbacks.current.onTime).toHaveBeenLastCalledWith(60);
+  }
+  expect(callbacks.current.onEnd).toHaveBeenCalledTimes(2);
+});

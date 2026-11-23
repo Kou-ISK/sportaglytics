@@ -152,6 +152,7 @@ const selectClipAngle = (
   index: number,
 ): ClipExportItem[] =>
   clips.map((clip) => {
+    if (clip.slideFrame) return clip;
     if (!('videoSource' in clip) && !('videoSource2' in clip)) return clip;
     if (index === 0 && clip.videoSource)
       return { ...clip, angleType: 'angle1' };
@@ -184,9 +185,12 @@ const buildRequests = ({
   | 'exportFileName'
   | 'overlay'
 >): ClipExportPayload[] => {
+  if (clips.length && clips.every((clip) => clip.slideFrame)) angleOption = 'defaultAngles';
   if (angleOption === 'defaultAngles') {
     if (!clips.length) throw new Error('書き出すクリップがありません');
+    const firstMedia = clips.find((clip) => !clip.slideFrame);
     for (const clip of clips) {
+      if (clip.slideFrame) continue;
       const source =
         clip.angleType === 'angle2' ? clip.videoSource2 : clip.videoSource;
       if (!source)
@@ -197,7 +201,7 @@ const buildRequests = ({
     return [
       {
         progressId,
-        sourcePath: clips[0].videoSource || clips[0].videoSource2 || '',
+        sourcePath: firstMedia?.videoSource || firstMedia?.videoSource2 || '',
         mode: 'single',
         exportMode,
         angleOption: 'single',
@@ -211,7 +215,8 @@ const buildRequests = ({
     selectClipAngle(clips, 0);
     selectClipAngle(clips, 1);
   }
-  if (angleOption === 'allAngles')
+  if (angleOption === 'allAngles') {
+    const rowsWithVideo = new Set(clips.filter((clip) => !clip.slideFrame).map((clip) => clip.organizerRow?.id));
     return getAvailableVideoSources(videoSources).map((sourcePath, index) => ({
       sourcePath,
       progressId: progressId ? `${progressId}:angle-${index + 1}` : undefined,
@@ -219,9 +224,11 @@ const buildRequests = ({
       exportMode,
       angleOption: 'single',
       outputFileName: buildExportFileName(exportFileName, `angle${index + 1}`),
-      clips: selectClipAngle(clips, index),
+      clips: selectClipAngle(index === 0 || exportMode !== 'organizerRows' ? clips :
+        clips.filter((clip) => rowsWithVideo.has(clip.organizerRow?.id)), index),
       overlay,
     }));
+  }
   const sourcePath = resolveClipExportPrimarySource({
     angleOption,
     videoSources,

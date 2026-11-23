@@ -1,9 +1,12 @@
+import { renderSlideFrame } from '../../utils/slideCanvas';
+import { organizerGroups } from '../../domain/organizerRows';
 import { useCallback, useState } from 'react';
 import type {
   AnnotationTarget,
   DrawingObject,
   ItemAnnotation,
   PlaylistItem,
+  PlaylistRow,
 } from '../../../../types/playlist/core';
 import {
   canExportClipsWithOverlay,
@@ -26,6 +29,7 @@ import { buildPlaylistExportClips } from '../../utils/playlistClipExportBuilder'
 interface UsePlaylistExportParams {
   items: PlaylistItem[];
   selectedItems: PlaylistItem[];
+  rows?: PlaylistRow[];
   videoSources: string[];
   exportScope: ClipExportScope;
   angleOption: ClipExportAngleOption;
@@ -70,6 +74,7 @@ interface UsePlaylistExportResult {
 export const usePlaylistExport = ({
   items,
   selectedItems,
+  rows,
   videoSources,
   exportScope,
   angleOption,
@@ -99,9 +104,12 @@ export const usePlaylistExport = ({
       return { success: false, message: '書き出しAPIが利用できません' };
     }
 
+    const sourceItems = exportScope === 'selected' ? selectedItems : items;
+    const onlySlides = sourceItems.length > 0 && sourceItems.every((item) => item.slide);
+    const effectiveAngle = onlySlides ? 'defaultAngles' : angleOption;
     const resolvedSources = resolveClipExportSourceSelection(videoSources);
     const sourceValidationError = validateClipExportSources({
-      angleOption,
+      angleOption: effectiveAngle,
       videoSources,
       selectedAngleIndex,
       resolvedSources,
@@ -113,13 +121,22 @@ export const usePlaylistExport = ({
       };
     }
 
-    const sourceItems = exportScope === 'selected' ? selectedItems : items;
     if (sourceItems.length === 0) {
       return { success: false, message: '書き出すアイテムがありません' };
     }
 
     try {
+      const slideFrames = new Map<string, string>();
+      let imageBytes = 0;
+      for (const item of sourceItems) {
+        if (!item.slide) continue;
+        const frame = await renderSlideFrame(item.slide);
+        imageBytes += frame.length;
+        if (imageBytes > 32 * 1024 * 1024) throw new Error('スライド画像が多すぎます。行または選択範囲を分けてください。');
+        slideFrames.set(item.id, frame);
+      }
       const clips = buildPlaylistExportClips({
+        slideFrames,
         sourceItems,
         itemAnnotations,
         minFreezeDuration,
@@ -129,6 +146,13 @@ export const usePlaylistExport = ({
         secondarySourceSize,
         renderAnnotationPng,
       });
+      if (exportMode === 'organizerRows') {
+        const groups = organizerGroups(sourceItems, rows ?? []);
+        const memberships = new Map(groups.flatMap(({ id, name, itemIds }) =>
+          itemIds.map((itemId) => [itemId, { id, name }] as const),
+        ));
+        for (const clip of clips) clip.organizerRow = memberships.get(clip.id);
+      }
       const progressId =
         typeof crypto !== 'undefined' && 'randomUUID' in crypto
           ? crypto.randomUUID()
@@ -146,7 +170,7 @@ export const usePlaylistExport = ({
         executeExport: exportClipsWithOverlay,
         clips,
         videoSources,
-        angleOption,
+        angleOption: effectiveAngle,
         selectedAngleIndex,
         resolvedSources,
         exportMode,
@@ -183,6 +207,7 @@ export const usePlaylistExport = ({
     secondarySourceSize,
     selectedAngleIndex,
     selectedItems,
+    rows,
     videoSources,
   ]);
 

@@ -1,3 +1,4 @@
+import { useSlideClock } from './useSlideClock';
 import { TimelineScrub } from '../../../../shared/media/timelineScrub';
 import { waitForVideoPresentation } from '../../../../shared/media/waitForVideoPresentation';
 import type { VideoPresentationTarget } from '../../../../shared/media/waitForVideoPresentation';
@@ -59,6 +60,8 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
   currentOwner.current = seekOwner;
   const actions = usePlaylistPlaybackActions({
     seekMedia: mediaTimeline.seek,
+    viewMode: params.viewMode,
+    documentGeneration: params.documentGeneration,
     items: params.items,
     currentItem: params.currentItem,
     currentIndex: params.currentIndex,
@@ -81,6 +84,8 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     lastFreezeTimestampRef,
     freezeTimeoutRef,
   });
+
+  const seekSlide = useSlideClock(params.currentItem, playing, params.setCurrentTime, actions.handleItemEnd);
 
   useLayoutEffect(() => {
     timelineCallbacks.current = {
@@ -238,6 +243,7 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     };
   }, [seekOwner]);
   const handleScrub = (time: number, final: boolean): void => {
+    if (params.currentItem?.slide) { seekSlide(time); setScrubbing(!final); return; }
     const item = params.currentItem;
     if (
       !item ||
@@ -326,14 +332,24 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     scrubbing,
     seekReverse,
     cancelReverseSeek,
-    handlePlayItem: actions.handlePlayItem,
+    handlePlayItem: (id?: string): void => {
+      if (params.currentItem?.slide && id === params.currentItem.id) seekSlide(0);
+      actions.handlePlayItem(id);
+    },
+    clearRowScope: actions.clearRowScope,
+    handlePlayRow: (ids: readonly string[]): void => {
+      const first = params.items.find((item) => ids.includes(item.id));
+      if (first?.slide && first.id === params.currentItem?.id) seekSlide(0);
+      actions.handlePlayRow(ids);
+    },
     handleTogglePlay: actions.handleTogglePlay,
     handlePrevious: actions.handlePrevious,
     handleNext: actions.handleNext,
     handleSeek: (event: Event, value: number | number[]): void => {
       cancelReverseSeek();
       cancelScrub();
-      actions.handleSeek(event, value);
+      if (params.currentItem?.slide) seekSlide(Array.isArray(value) ? value[0] : value);
+      else actions.handleSeek(event, value);
     },
     handleVolumeChange: actions.handleVolumeChange,
     handleToggleFullscreen: actions.handleToggleFullscreen,

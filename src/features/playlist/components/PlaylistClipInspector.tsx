@@ -72,7 +72,7 @@ export const PlaylistClipInspector = ({
     >
       <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
         <Typography variant="overline" sx={{ flex: 1, letterSpacing: 1 }}>
-          クリップ詳細
+          {item?.slide ? 'スライド詳細' : 'クリップ詳細'}
         </Typography>
         {item ? (
           <>
@@ -102,6 +102,12 @@ export const PlaylistClipInspector = ({
         <Typography variant="body2" color="text.secondary">
           クリップを選択すると詳細を表示します。
         </Typography>
+      ) : item.slide ? (
+        <Stack spacing={1}>
+          <Typography variant="subtitle2">{item.slide.title}</Typography>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{item.slide.body}</Typography>
+          <Typography variant="caption">表示 {item.endTime} 秒</Typography>
+        </Stack>
       ) : (
         <Stack spacing={1.25}>
           <Box>

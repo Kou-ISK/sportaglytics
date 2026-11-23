@@ -1,3 +1,5 @@
+import type { MeetingAudioProfile } from './meetingAudioProfile';
+import { renderMeetingSlide } from './exportMeetingSlide';
 import { exportResourceContext } from './exportResourceContext';
 import { qualifySilentFallback } from './exportFallbackQualification';
 import { evaluateNativeFallback, NativeFallbackBudgetUnavailable } from '../nativeExport/nativeFallbackPolicy';
@@ -17,6 +19,7 @@ export type PreparedClipRenderer = (
   outputPath?: string,
   onProgress?: (progress: number) => void,
   stageEncoderOutput?: boolean,
+  slideAudio?: MeetingAudioProfile,
 ) => Promise<string>;
 
 /** Bind each instance and angle to its own original-file clock, even for reused files. */
@@ -30,11 +33,16 @@ export const createPreparedClipRenderer = (
 ): PreparedClipRenderer => {
   const selection = resolveExportSourceSelection(payload);
   const indexes = new Map(payload.clips.map((clip, index) => [clip, index]));
-  return async (clip, outputPath, onProgress, stageEncoderOutput = false) => {
+  return async (clip, outputPath, onProgress, stageEncoderOutput = false, slideAudio) => {
     signal?.throwIfAborted();
     const index = indexes.get(clip);
     if (index === undefined)
       throw new Error('書き出し対象のクリップを確認してください');
+    if (clip.slideFrame) {
+      if (!outputPath) throw new Error('スライドの出力先がありません。');
+      await renderMeetingSlide(getFfmpegPath, clip.slideFrame, clip.endTime, outputPath, onProgress, signal, slideAudio);
+      return outputPath;
+    }
     const sources = prepared.get(index);
     const resolveSource = (sourcePath: string) =>
       sources?.get(sourcePath) ?? { sourcePath, timeOrigin: 0, kind: 'direct' };

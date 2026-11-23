@@ -37,6 +37,9 @@ type PlaylistExportDialogProps = ClipExportTextOptionsProps & {
   exportScope: ClipExportScope;
   setExportScope: (value: ClipExportScope) => void;
   selectedItemCount: number;
+  slideCount?: number;
+  onlySlides?: boolean;
+  rowSummary?: { id: string; name: string; count: number; hasVideo?: boolean }[];
   exportMode: ExportMode;
   setExportMode: (value: ExportMode) => void;
   angleOption: AngleOption;
@@ -60,6 +63,9 @@ export const PlaylistExportDialog = ({
   exportScope,
   setExportScope,
   selectedItemCount,
+  rowSummary = [],
+  slideCount = 0,
+  onlySlides = false,
   exportMode,
   setExportMode,
   angleOption,
@@ -128,9 +134,26 @@ export const PlaylistExportDialog = ({
             <ToggleButton value="single">1ファイル</ToggleButton>
             <ToggleButton value="perInstance">インスタンスごと</ToggleButton>
             <ToggleButton value="perRow">アクションごと</ToggleButton>
+            <ToggleButton value="organizerRows">Organizer の行ごと</ToggleButton>
           </ToggleButtonGroup>
         </Stack>
-        <Stack spacing={2}>
+        {exportMode === 'organizerRows' && (
+          <Stack spacing={0.5} aria-label="行別の書き出し予定">
+            <Typography variant="subtitle2">
+              出力 {rowSummary.reduce((sum, row) => sum +
+                (row.hasVideo !== false && !onlySlides && angleOption === 'allAngles'
+                  ? videoSources.filter((source) => source.trim()).length : 1), 0)} 本
+            </Typography>
+            {rowSummary.map((row, index) => (
+              <Typography key={row.id} variant="body2">{index + 1}. {row.name} · {row.count} 件</Typography>
+            ))}
+            {!rowSummary.length && <Typography variant="body2">対象行がありません</Typography>}
+          </Stack>
+        )}
+        {slideCount > 0 && <Typography variant="body2" color="text.secondary">
+          スライド {slideCount} 件を指定秒数で表示します。映像と同じ MP4 に収める場合は 1280×720・30 fps で出力します。
+        </Typography>}
+        {!onlySlides && <Stack spacing={2}>
           <Stack
             direction="row"
             spacing={1}
@@ -200,7 +223,7 @@ export const PlaylistExportDialog = ({
               </ToggleButtonGroup>
             </Stack>
           )}
-        </Stack>
+        </Stack>}
         <Divider />
         <ClipExportTextOptionsView
           overlayChoice={overlayChoice}
@@ -217,7 +240,8 @@ export const PlaylistExportDialog = ({
           onClick={onExport}
           variant="contained"
           disabled={
-            disableExport || overlayChoice === null || textPreview?.blocked
+            disableExport || overlayChoice === null || textPreview?.blocked ||
+            (exportMode === 'organizerRows' && !rowSummary.length)
           }
         >
           書き出す

@@ -306,3 +306,19 @@ it.each(['single', 'multi'] as const)(
     ).toThrow('アングルがない');
   },
 );
+
+it('emits a slide-only theme once while preserving slides in each video theme angle', () => {
+  const row = { id: 'media', name: 'Theme' };
+  const video = { ...sampleClips[0], organizerRow: row, videoSource: 'a.mp4', videoSource2: 'b.mp4' };
+  const slide = { id: 'slide', actionName: 'Intro', startTime: 0, endTime: 2, slideFrame: 'test-frame' };
+  const requests = buildClipExportRequests({
+    clips: [{ ...slide, organizerRow: { id: 'intro', name: 'Theme' } }, video,
+      { ...slide, id: 'in-media', organizerRow: row }],
+    angleOption: 'allAngles', selectedAngleIndex: 0, exportMode: 'organizerRows',
+    videoSources: ['a.mp4','b.mp4'], resolvedSources: {}, exportFileName: 'meeting',
+    overlay: { enabled: false, showActionName: false, showActionIndex: false, showLabels: false, showMemo: false },
+  });
+  expect(requests.map((request) => request.clips.map((clip) => clip.id))).toEqual([
+    ['slide','clip-1','in-media'], ['clip-1','in-media'],
+  ]);
+});

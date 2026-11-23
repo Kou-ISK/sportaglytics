@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+import { useOrganizerRows } from './useOrganizerRows';
+import { organizerGroups } from '../../domain/organizerRows';
 import { useClipExportTextPreview } from '../../../../shared/clipExport/useClipExportTextPreview';
 import { buildPlaylistTextClips } from '../../utils/playlistClipExportBuilder';
 import { usePlaylistSorter } from './usePlaylistSorter';
@@ -65,6 +68,10 @@ export const usePlaylistWindowSections = ({
   handleToggleDrawingMode,
   defaultFreezeDuration,
 }: UsePlaylistWindowSectionsParams) => {
+  const selectItem: typeof selection.selectWithModifiers = (...args) => {
+    playback.clearRowScope();
+    selection.selectWithModifiers(...args);
+  };
   const instanceAngles = usePlaylistInstanceAngles({
     currentItem: currentItemState.currentItem,
     setItems: history.setItems,
@@ -91,6 +98,7 @@ export const usePlaylistWindowSections = ({
   });
 
   const videoArea = buildPlaylistVideoAreaSection({
+    slide: currentItemState.currentItem?.slide,
     currentVideoSource: currentItemState.currentVideoSource,
     currentVideoSource2: currentItemState.currentVideoSource2,
     viewMode: core.viewMode,
@@ -176,21 +184,32 @@ export const usePlaylistWindowSections = ({
     items: history.items,
     currentIndex: core.currentIndex,
     selectedItemIds: selection.selectedItemIds,
-    onSelectItem: selection.selectWithModifiers,
+    onSelectItem: selectItem,
     onPlayItem: playback.handlePlayItem,
     onDeleteSelected: selection.deleteSelected,
     onReorder: itemOperations.handleReorder,
     onUpdateNote: notes.updateNote,
   });
 
-  const organizer = buildPlaylistOrganizerSection({
-    items: history.items,
-    rows: core.playlistRows,
+  const rowEditing = useOrganizerRows({ core, history, selection, exportState }, playback.handlePlayRow);
+  const organizer = { ...buildPlaylistOrganizerSection({
+    items: rowEditing.document.items,
+    rows: rowEditing.document.rows ?? [],
     currentIndex: core.currentIndex,
     selectedItemIds: selection.selectedItemIds,
-    onSelectItem: selection.selectWithModifiers,
+    onSelectItem: selectItem,
     onPlayItem: playback.handlePlayItem,
-  });
+  }), actions: rowEditing.actions };
+  const sourceItems = exportState.exportScope === 'selected' ? selection.selectedItems : history.items;
+  const rowSummary = useMemo(() => {
+    const videoIds = new Set(sourceItems.filter((item) => !item.slide).map((item) => item.id));
+    return organizerGroups(sourceItems, core.playlistRows)
+      .filter((group) => group.itemIds.length > 0)
+      .map((group) => ({
+        id: group.id, name: group.name, count: group.itemIds.length,
+        hasVideo: group.itemIds.some((id) => videoIds.has(id)),
+      }));
+  }, [sourceItems, core.playlistRows]);
 
   const textPreview = useClipExportTextPreview({
     open: exportState.exportDialogOpen,
@@ -221,6 +240,9 @@ export const usePlaylistWindowSections = ({
     exportScope: exportState.exportScope,
     setExportScope: exportState.setExportScope,
     selectedCount: selection.selectedCount,
+    rowSummary,
+    slideCount: sourceItems.filter((item) => item.slide).length,
+    onlySlides: sourceItems.length > 0 && sourceItems.every((item) => item.slide),
     exportMode: exportState.exportMode,
     setExportMode: exportState.setExportMode,
     angleOption: exportState.angleOption,

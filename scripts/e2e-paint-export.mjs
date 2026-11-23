@@ -44,6 +44,7 @@ const bundled = await build({
   stdin: {
     contents: `
     export { buildPlaylistExportClips } from './src/features/playlist/utils/playlistClipExportBuilder';
+    export { renderSlideFrame } from './src/features/playlist/utils/slideCanvas';
     export { renderAnnotationPng } from './src/features/playlist/utils/renderAnnotationPng';
     export { executeClipExport } from './src/shared/clipExport/clipExportService';
   `,
@@ -136,9 +137,9 @@ try {
     Boolean(window.electronAPI?.exportClipsWithOverlay),
   );
   await page.addScriptTag({ content: bundled.outputFiles[0].text });
-  const exportCase = async (name, angleOption, staticOnly = false) => {
+  const exportCase = async (name, angleOption, staticOnly = false, meeting = false) => {
     const result = await page.evaluate(
-      async ({ name, angleOption, staticOnly, sources, output }) => {
+      async ({ name, angleOption, staticOnly, meeting, sources, output }) => {
         const {
           buildPlaylistExportClips,
           renderAnnotationPng,
@@ -252,6 +253,10 @@ try {
           secondarySourceSize: { width: 160, height: 120 },
           renderAnnotationPng,
         });
+        if (meeting) {
+          const slideFrame = await window.PaintExportFixture.renderSlideFrame({title:'Review', body:''});
+          clips.push({id:'review',actionName:'Review',startTime:0,endTime:1,slideFrame});
+        }
         return executeClipExport({
           executeExport: (payload) =>
             window.electronAPI.exportClipsWithOverlay({
@@ -266,7 +271,7 @@ try {
           exportMode:
             angleOption === 'allAngles'
               ? 'perInstance'
-              : staticOnly
+              : staticOnly && !meeting
                 ? 'perRow'
                 : 'single',
           exportFileName: name,
@@ -280,7 +285,7 @@ try {
           successMessage: 'done',
         });
       },
-      { name, angleOption, staticOnly, sources, output },
+      { name, angleOption, staticOnly, meeting, sources, output },
     );
     assert.ok(result.success, result.message);
   };
@@ -411,6 +416,41 @@ try {
   expectColor(still, 2, 175, 30, [0, 128, 0], 'between freeze frames');
   expectColor(still, 3.5, 175, 30, [0, 166, 77], 'second freeze frame');
   console.log('Paint static multi-frame and row export passed');
+  await exportCase('meeting-paint', 'single', true, true);
+  const combinedName = (await fs.readdir(output)).find((file) => file.startsWith('meeting-paint') && file.endsWith('.mp4'));
+  assert.ok(combinedName);
+  const combined = path.join(output, combinedName);
+  assert.ok(Math.abs(Number(probe(combined).format.duration) - 6) < .15);
+  expectColor(combined, 3.5, 700, 120, [0,166,77], 'second Paint freeze before slide');
+  expectColor(combined, 4.7, 700, 120, [0,128,0], 'final frames after second freeze');
+  expectColor(combined, 5.5, 700, 120, [16,24,32], 'slide begins after full clip');
+  // Decode these short fixtures from the same origin. An input-side fast seek
+  // can enter a different MP4 edit when the concatenated file has AAC priming.
+  const audioWindows = (file, starts) => {
+    const rate = 48000;
+    const samples = execFileSync(ffmpegPath, ['-v','error','-i',file,'-map','0:a:0','-t','7',
+      '-ac','1','-ar',String(rate),'-f','f32le','pipe:1'], {maxBuffer:2 * 1024 * 1024});
+    return starts.map((start) => {
+      const begin = Math.round(rate * start), end = begin + Math.round(.15 * rate);
+      assert.ok(end * 4 <= samples.length, 'requested window outside decoded audio: ' + start + '/' + samples.length / (4 * rate));
+      let sum = 0;
+      for (let index = begin; index < end; index++) sum += samples.readFloatLE(index * 4) ** 2;
+      return Math.sqrt(sum / (end - begin));
+    });
+  };
+  const positions = [.4,1.4,2.4,3.5,4.2,4.65];
+  const before = audioWindows(still, positions);
+  const after = audioWindows(combined, [...positions,5.5]);
+  console.log('Synthetic two-freeze audio RMS', {positions, before, after,
+    streams:probe(combined).streams.map(({codec_type,start_time,duration,sample_rate}) => ({codec_type,start_time,duration,sample_rate}))});
+  for (const [index, time] of positions.entries()) {
+    const silent = time < 1 || (time >= 3 && time < 4);
+    for (const [file, rms] of [['standalone', before[index]], ['meeting', after[index]]]) {
+      assert.ok(silent ? rms < .002 : rms > .03, `${file} at ${time}s has RMS ${rms}`);
+    }
+  }
+  assert.ok(after.at(-2) > .03, 'media audio after second freeze');
+  assert.ok(after.at(-1) < .002, 'silence within slide');
   if (process.env.E2E_SCREENSHOT_DIR) {
     await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
     await fs.cp(
