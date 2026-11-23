@@ -439,6 +439,34 @@ try {
     });
   };
   const positions = [.4,1.4,2.4,3.5,4.2,4.65];
+  const packetSummary = (file) => {
+    const report = JSON.parse(execFileSync(ffprobePath, ['-v','error','-select_streams','a:0',
+      '-show_entries','stream=start_time,duration,sample_rate:packet=pts_time,duration_time,size,side_data_list',
+      '-show_packets','-show_streams','-of','json',file], {maxBuffer: 2 * 1024 * 1024}));
+    const packets = report.packets ?? [];
+    const gaps = packets.slice(1).map((packet,index) =>
+      Number(packet.pts_time) - Number(packets[index].pts_time) - Number(packets[index].duration_time));
+    return { track: report.streams?.map(({start_time,duration,sample_rate}) => ({start_time,duration,sample_rate})),
+      start: packets[0]?.pts_time, last: packets.at(-1)?.pts_time, count: packets.length,
+      maxGap: gaps.length ? Math.max(...gaps) : null, minGap:gaps.length ? Math.min(...gaps) : null,
+      bytesPerHalfSecond: Array.from({length:12},(_,i) => packets.filter((packet) =>
+        Number(packet.pts_time)>=i*.5 && Number(packet.pts_time)<(i+1)*.5).reduce((sum,p)=>sum+Number(p.size),0)) };
+  };
+  console.log('Synthetic audio packet timelines',JSON.stringify({
+    source:packetSummary(sources[0]), plain:packetSummary(still), meeting:packetSummary(combined)
+  }));
+  const measureFilter = (filter) => {
+    const pcm = execFileSync(ffmpegPath,['-v','error','-ss','2','-t','3','-i',sources[0],
+      '-filter_complex',filter,'-map','[result]','-ac','1','-ar','48000','-t','7','-f','s16le','pipe:1'],
+      { maxBuffer: 2 * 1024 * 1024 });
+    return pcm.length / (2 * 48000);
+  };
+  const trim = '[0:a:0]atrim=duration=3,asetpts=PTS-STARTPTS';
+  const delay = trim + ',adelay=delays=1000:all=1';
+  const two = delay + ',asplit[pre][post];[pre]atrim=end=3,asetpts=PTS-STARTPTS,apad=pad_dur=1[pad];' +
+    '[post]atrim=start=3,asetpts=PTS-STARTPTS[rest];[pad][rest]concat=n=2:v=0:a=1[result]';
+  console.log('Source-clock control lengths', {cut:measureFilter(trim+'[result]'),
+    first:measureFilter(delay+'[result]'),both:measureFilter(two)});
   const before = audioWindows(still, positions);
   const after = audioWindows(combined, [...positions,5.5]);
   console.log('Synthetic two-freeze audio RMS', {positions, before, after,
