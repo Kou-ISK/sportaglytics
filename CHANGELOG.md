@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
 
+## [0.17.35]（公開準備）
+
+- Organizer で行を追加・改名・移動し、選択クリップを別の行に整理できます。行ごとの再生と MP4 書き出しを追加しました。全体の再生順は Sorter で管理します。
+- タイトル、本文、任意の画像を持つ会議用スライドを挿入できます。指定した秒数で映像と一緒に再生・出力でき、手送りにも対応します。
+
 ## [0.17.34]（公開準備）
 
 - 2アングルの新規パッケージで、開き直さずにタイムラインから音声同期を実行できます。再読込みでも保存した補正を復元し、解析中に確定した手動補正を保持します。
