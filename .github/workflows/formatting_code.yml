@@ -48,6 +48,11 @@ jobs:
       - name: Verify public sample and regeneration
         run: pnpm run test:sample
 
+      - name: Check playlist format across shipped versions
+        run: |
+          git fetch --no-tags --depth=1 origin 252aebbb0a9878b04af913c3844a8126ab0fd306 a392a2774a7ea5cbd919f56d306c3402270546f7
+          node scripts/test-playlist-format-compatibility.mjs
+
       - name: Lint
         run: pnpm run lint
 
