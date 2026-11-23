@@ -13,6 +13,7 @@ interface UsePlaylistPlaybackActionsParams extends Pick<
   | 'currentIndex'
   | 'setCurrentIndex'
   | 'isPlaying'
+  | 'viewMode'
   | 'setIsPlaying'
   | 'isFrozen'
   | 'setIsFrozen'
@@ -51,6 +52,7 @@ export const usePlaylistPlaybackActions = ({
   currentIndex,
   setCurrentIndex,
   isPlaying,
+  viewMode,
   setIsPlaying,
   isFrozen,
   setIsFrozen,
@@ -130,12 +132,28 @@ export const usePlaylistPlaybackActions = ({
       return false;
     }
     const next = adjacentIndex(1);
-    if (next >= 0) setCurrentIndex(next);
-    else setIsPlaying(false);
-    return next >= 0 && next === currentIndex;
+    if (next < 0) {
+      setIsPlaying(false);
+      return false;
+    }
+    if (next !== currentIndex) {
+      setCurrentIndex(next);
+      return false;
+    }
+    if (currentItem && !currentItem.slide && !seekMedia?.(currentItem.startTime)) {
+      const media = [viewMode === 'angle2' ? null : videoRef.current,
+        viewMode === 'angle1' || !currentVideoSource2 ? null : videoRef2.current];
+      for (const video of media) {
+        if (!video) continue;
+        video.currentTime = currentItem.startTime;
+        if (video.paused) void video.play().catch(console.error);
+      }
+      setCurrentTime?.(currentItem.startTime);
+    }
+    return true;
   }, [
     autoAdvance,
-    currentIndex,
+    currentIndex, currentItem, seekMedia, setCurrentTime, viewMode, currentVideoSource2, videoRef, videoRef2,
     adjacentIndex,
     lastFreezeTimestampRef,
     clearFreezeTimer,

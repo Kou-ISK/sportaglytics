@@ -1,3 +1,4 @@
+import { fitsSlideImport } from './slideImageSize';
 import type { PlaylistSlide } from '../../../types/playlist/core';
 import { isPlaylistSlide, isSlidePng, SLIDE_HEIGHT, SLIDE_WIDTH } from '../../../shared/playlist/playlistSlide';
 
@@ -11,6 +12,8 @@ const canvasFor = (width: number, height: number): HTMLCanvasElement => {
 export const importSlideImage = async (file: File): Promise<string> => {
   if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 8 * 1024 * 1024)
     throw new Error('8 MB 以下の PNG または JPEG を選んでください。');
+  if (!fitsSlideImport(new Uint8Array(await file.arrayBuffer()), file.type))
+    throw new Error('PNG または JPEG の画像を、各辺8192ピクセル以下・2400万画素以下で用意してください。');
   const bitmap = await createImageBitmap(file);
   try {
     const scale = Math.min(1, 960 / bitmap.width, 640 / bitmap.height);

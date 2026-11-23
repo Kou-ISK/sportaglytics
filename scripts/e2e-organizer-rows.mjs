@@ -74,6 +74,28 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
       (video) => video.currentSrc.endsWith('/' + name) && !video.paused && video.currentTime > 0.1,
     ), source, { timeout: 12000 });
   }
+  await item('B1').dblclick();
+  await page.locator('video:visible').first().hover();
+  await page.getByRole('button',{name:'ループ: OFF',exact:true}).click();
+  await command('B', 'この行を再生');
+  const wraps = await page.evaluate(async () => {
+    let previous = 0, count = 0, maximum = 0;
+    const deadline = performance.now() + 7500;
+    while (performance.now() < deadline && count < 2) {
+      await new Promise(requestAnimationFrame);
+      const video = [...document.querySelectorAll('video')].find((v) => v.currentSrc.endsWith('/c.mp4'));
+      if (!video) continue;
+      const time = video.currentTime;
+      if (previous > 1.5 && time < .4) count++;
+      previous = time;
+      maximum = Math.max(maximum,time);
+    }
+    return {count,maximum};
+  });
+  assert.equal(wraps.count,2);
+  assert.ok(wraps.maximum < 2.25, 'one-item row must stay within its two-second cut');
+  await page.locator('video:visible').first().hover();
+  await page.getByRole('button',{name:'ループ: ON',exact:true}).click();
   await item('A1').dragTo(row('B'));
   await row('B').getByTestId('organizer-clip-A1').waitFor();
   await item('A1').dragTo(row('B'));
@@ -127,10 +149,13 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   await editor.getByAltText('スライドの画像').waitFor();
   await editor.getByRole('button', { name:'確定' }).click();
   const card = row('A').getByRole('button').filter({hasText:'Meeting question'});
+  await item('A1').dblclick();
+  await page.locator('video:visible').first().hover();
+  await page.getByRole('button',{name:'ミュート',exact:true}).click();
   await card.dblclick();
   await page.getByRole('img', {name:'Meeting question',exact:true}).waitFor();
   await page.waitForFunction(() => [...document.querySelectorAll('video')].some(
-    (v) => v.currentSrc.endsWith('/c.mp4') && !v.paused && v.currentTime > .1), undefined, {timeout:12000});
+    (v) => v.currentSrc.endsWith('/c.mp4') && !v.paused && v.currentTime > .1 && v.volume === 0), undefined, {timeout:12000});
   await page.keyboard.press(primaryModifier + '+s');
   const stored = await waitForSave((saved) => saved.items.some((entry) => entry.slide?.title === 'Meeting question'));
   const savedSlide = stored.items.find((entry) => entry.slide);

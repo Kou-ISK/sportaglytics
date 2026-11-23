@@ -44,6 +44,7 @@ const bundled = await build({
   stdin: {
     contents: `
     export { buildPlaylistExportClips } from './src/features/playlist/utils/playlistClipExportBuilder';
+    export { renderSlideFrame } from './src/features/playlist/utils/slideCanvas';
     export { renderAnnotationPng } from './src/features/playlist/utils/renderAnnotationPng';
     export { executeClipExport } from './src/shared/clipExport/clipExportService';
   `,
@@ -136,9 +137,9 @@ try {
     Boolean(window.electronAPI?.exportClipsWithOverlay),
   );
   await page.addScriptTag({ content: bundled.outputFiles[0].text });
-  const exportCase = async (name, angleOption, staticOnly = false) => {
+  const exportCase = async (name, angleOption, staticOnly = false, meeting = false) => {
     const result = await page.evaluate(
-      async ({ name, angleOption, staticOnly, sources, output }) => {
+      async ({ name, angleOption, staticOnly, meeting, sources, output }) => {
         const {
           buildPlaylistExportClips,
           renderAnnotationPng,
@@ -252,6 +253,10 @@ try {
           secondarySourceSize: { width: 160, height: 120 },
           renderAnnotationPng,
         });
+        if (meeting) {
+          const slideFrame = await window.PaintExportFixture.renderSlideFrame({title:'Review', body:''});
+          clips.push({id:'review',actionName:'Review',startTime:0,endTime:1,slideFrame});
+        }
         return executeClipExport({
           executeExport: (payload) =>
             window.electronAPI.exportClipsWithOverlay({
@@ -266,7 +271,7 @@ try {
           exportMode:
             angleOption === 'allAngles'
               ? 'perInstance'
-              : staticOnly
+              : staticOnly && !meeting
                 ? 'perRow'
                 : 'single',
           exportFileName: name,
@@ -280,7 +285,7 @@ try {
           successMessage: 'done',
         });
       },
-      { name, angleOption, staticOnly, sources, output },
+      { name, angleOption, staticOnly, meeting, sources, output },
     );
     assert.ok(result.success, result.message);
   };
@@ -411,6 +416,16 @@ try {
   expectColor(still, 2, 175, 30, [0, 128, 0], 'between freeze frames');
   expectColor(still, 3.5, 175, 30, [0, 166, 77], 'second freeze frame');
   console.log('Paint static multi-frame and row export passed');
+  await exportCase('meeting-paint', 'single', true, true);
+  const combinedName = (await fs.readdir(output)).find((file) => file.startsWith('meeting-paint') && file.endsWith('.mp4'));
+  assert.ok(combinedName);
+  const combined = path.join(output, combinedName);
+  assert.ok(Math.abs(Number(probe(combined).format.duration) - 6) < .15);
+  expectColor(combined, 3.5, 700, 120, [0,166,77], 'second Paint freeze before slide');
+  expectColor(combined, 4.7, 700, 120, [0,128,0], 'final frames after second freeze');
+  expectColor(combined, 5.5, 700, 120, [16,24,32], 'slide begins after full clip');
+  assert.ok(audioRms(combined, 4.65) > .03, 'media audio after second freeze');
+  assert.ok(audioRms(combined, 5.5) < .002, 'silence within slide');
   if (process.env.E2E_SCREENSHOT_DIR) {
     await fs.mkdir(process.env.E2E_SCREENSHOT_DIR, { recursive: true });
     await fs.cp(

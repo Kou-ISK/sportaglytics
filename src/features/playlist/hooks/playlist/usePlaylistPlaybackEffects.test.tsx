@@ -157,4 +157,21 @@ it('uses angle 2 for clock, end and audio, and preserves time across preview swi
   videos[1].currentTime = 18;
   videos[1].dispatchEvent(new Event('timeupdate'));
   expect(options.handleItemEnd).toHaveBeenCalledOnce();
+  // The angle-2 element is replaced across a slide, while the stable refs and route remain.
+  const replacement = document.createElement('video');
+  vi.spyOn(replacement, 'load').mockImplementation(() => undefined);
+  const startedAt: number[] = [];
+  vi.spyOn(replacement, 'play').mockImplementation(async () => { startedAt.push(replacement.volume); });
+  vi.spyOn(replacement, 'pause').mockImplementation(() => undefined);
+  options.videoRef2.current = replacement;
+  options.currentItem = { ...item, id: 'after-slide' };
+  options.currentVideoSource2 = 'after-slide.mp4';
+  options.isMuted = true;
+  rerender({ viewMode: 'angle2' });
+  expect(startedAt).not.toHaveLength(0);
+  expect(startedAt.every((level) => level === 0)).toBe(true);
+  options.isMuted = false;
+  rerender({ viewMode: 'angle1' });
+  expect(replacement.volume).toBe(0);
+  expect(options.videoRef.current.volume).toBe(.7);
 });

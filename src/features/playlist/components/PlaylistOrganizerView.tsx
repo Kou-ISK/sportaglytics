@@ -101,7 +101,7 @@ export const PlaylistOrganizerView = ({
           <Typography
             sx={{ px: 1, py: 0.5, fontSize: 12, color: 'text.secondary' }}
           >
-            プレゼンテーション順
+            行内の配置（番号は全体の再生順）
           </Typography>
           {actions && <Button size="small" onClick={() => setAdding(true)}>行を追加</Button>}
           {adding && actions && <RowNameEditor initial="" title="行を追加" onCommit={actions.add} onClose={() => setAdding(false)} />}

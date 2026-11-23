@@ -32,6 +32,22 @@ describe('meeting slide placement and persistence', () => {
     expect(editPlaylistSlide(original, { rowId: 'B', afterId: 'A2' }, slide, 3)).toBe(original);
   });
 
+  it('preserves a note and independent row order when inserting or editing a slide', () => {
+    const original = doc();
+    original.items = original.items.map((clip) => ({
+      ...clip, rowOrder: clip.id === 'A1' ? 1 : 0,
+    }));
+    const inserted = editPlaylistSlide(original, { rowId: 'B' }, slide, 3);
+    const entry = inserted.items.find((clip) => clip.slide);
+    if (!entry) throw new Error('missing slide');
+    const noted = { ...inserted, items: inserted.items.map((clip) =>
+      clip.id === entry.id ? { ...clip, note: 'Discussion prompt' } : clip) };
+    const edited = editPlaylistSlide(noted, { rowId: 'B', editId: entry.id }, { ...slide, title: 'Next question' }, 5);
+    expect(edited.items.find((clip) => clip.id === entry.id)?.note).toBe('Discussion prompt');
+    expect(edited.items.filter((clip) => clip.rowId === 'A').map((clip) => [clip.id, clip.rowOrder]))
+      .toEqual([['A1', 1], ['A2', 0]]);
+  });
+
   it('rejects invalid duration and external images before storing a slide', () => {
     expect(isSlidePng('https://example.invalid/meeting.png')).toBe(false);
     expect(() => editPlaylistSlide(doc(), { rowId: 'A' }, slide, 0)).toThrow();

@@ -1,3 +1,4 @@
+import { clipPresentationDuration } from './clipPresentationDuration';
 import { groupExportClips } from './groupExportClips';
 import { prioritizeClipExport } from '../scrubPreview/exportPriority';
 import { createExportResourceGate } from './exportResourceGate';
@@ -195,11 +196,7 @@ export const registerExportHandlers = ({
               progressId,
             } = payload;
             const progressStartedAt = Date.now();
-            const getClipOutputDuration = (
-              clip: ExportClipsPayload['clips'][number],
-            ): number =>
-              (clip.endTime - clip.startTime) +
-              Math.max(0, clip.freezeDuration ?? 0);
+            const getClipOutputDuration = clipPresentationDuration;
             const renderDurationTotal = clips.reduce(
               (total, clip) => total + getClipOutputDuration(clip),
               0,
