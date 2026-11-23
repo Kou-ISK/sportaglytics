@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { primaryModifier } from './e2e-platform.mjs';
-import { ffmpegPath } from './media-tool-paths.mjs';
+import { ffmpegPath, ffprobePath } from './media-tool-paths.mjs';
 
 const colorAt = (file, seconds) => {
   const rgb = execFileSync(ffmpegPath, ['-v', 'error', '-ss', String(seconds),
@@ -94,6 +94,62 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
     assert.deepEqual(samples.sort(), expected.sort());
     await close(progress);
   }
+  await item('A1').click();
+  await command('A', '選択項目の後にスライドを追加');
+  let editor = page.getByRole('dialog', { name: 'One の直後に挿入' });
+  await editor.getByLabel('タイトル').fill('Meeting question');
+  await editor.getByLabel('本文').fill('Which channel is open?');
+  await editor.getByLabel('表示秒数').fill('2');
+  const image = execFileSync(ffmpegPath, ['-v','error','-f','lavfi','-i','color=c=lime:s=64x64',
+    '-frames:v','1','-c:v','png','-f','image2pipe','pipe:1']);
+  await editor.locator('input[type=file]').setInputFiles({name:'diagram.png',mimeType:'image/png',buffer:image});
+  await editor.getByAltText('スライドの画像').waitFor();
+  await editor.getByRole('button', { name:'確定' }).click();
+  const card = row('A').getByRole('button').filter({hasText:'Meeting question'});
+  await card.dblclick();
+  await page.getByRole('img', {name:'Meeting question',exact:true}).waitFor();
+  await page.waitForFunction(() => [...document.querySelectorAll('video')].some(
+    (v) => v.currentSrc.endsWith('/c.mp4') && !v.paused && v.currentTime > .1), undefined, {timeout:12000});
+  await page.keyboard.press(primaryModifier + '+s');
+  const persisted = async () => {
+    const deadline = Date.now() + 12000;
+    while (Date.now() < deadline) {
+      const saved = JSON.parse(await fs.readFile(file,'utf8'));
+      if (saved.items.some((entry) => entry.slide?.title === 'Meeting question')) return saved;
+      await new Promise((resolve) => setTimeout(resolve,100));
+    }
+    throw new Error('Slide was not persisted');
+  };
+  const savedSlide = (await persisted()).items.find((entry) => entry.slide);
+  assert.equal(savedSlide.endTime,2);
+  assert.match(savedSlide.slide.image,/^data:image\/png;base64,/);
+  assert.equal(savedSlide.videoSource,undefined);
+  await close(page);
+  page = await open();
+  await item(savedSlide.id).dblclick();
+  await page.getByRole('img',{name:'Meeting question'}).waitFor();
+  await command('A','この行を MP4 に書き出す');
+  const dialog = page.getByRole('dialog').filter({ hasText:'プレイリストを書き出し' });
+  await dialog.getByText('Theme · 3 件').waitFor();
+  await dialog.getByLabel('ファイル名 (拡張子不要)').fill('meeting-a');
+  await dialog.getByRole('radio',{name:'含めない',exact:true}).check();
+  const result = app.waitForEvent('window');
+  await dialog.getByRole('button',{name:'書き出す',exact:true}).click();
+  const progress = await result;
+  await progress.getByText('書き出し完了',{exact:true}).waitFor({timeout:90000});
+  const matches = (await fs.readdir(output)).filter((name) => name.startsWith('meeting-a') && name.endsWith('.mp4'));
+  assert.equal(matches.length,1);
+  const movie = path.join(output,matches[0]);
+  assert.equal(colorAt(movie,.8),'red');
+  assert.equal(colorAt(movie,5),'blue');
+  const green = execFileSync(ffmpegPath,['-v','error','-ss','3','-i',movie,'-vf','crop=2:2:950:436,scale=1:1',
+    '-frames:v','1','-pix_fmt','rgb24','-f','rawvideo','pipe:1']);
+  assert.equal(green.length,3);
+  assert.ok(green[1] > 170 && green[0] < 80 && green[2] < 80,'persisted diagram must appear between both clips');
+  const info = JSON.parse(execFileSync(ffprobePath,['-v','error','-show_streams','-show_format','-of','json',movie]));
+  assert.ok(Math.abs(Number(info.format.duration)-6)<.25);
+  assert.ok(info.streams.some((stream) => stream.codec_type === 'audio'));
+  await close(progress);
   await close(page);
   console.log('Organizer membership, row playback, no-op drop, Undo, save/reopen, row and action MP4 frame order passed');
 }
