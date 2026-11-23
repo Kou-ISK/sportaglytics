@@ -20,7 +20,6 @@ import * as path from 'path';
 import { renderExportClipGroup } from './exportClipGroup';
 import { ensureMp4, normalizeAngleOption } from './exportOptions';
 import { createPreparedClipRenderer } from './exportPreparedClipRenderer';
-import type { ExportClipsPayload } from './exportHandlers.types';
 import {
   updateExportProgressWindow,
   openExportProgressWindow,
