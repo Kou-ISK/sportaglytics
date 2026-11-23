@@ -50,7 +50,8 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   const waitForSave = async (matches) => {
     const deadline = Date.now() + 15000;
     while (Date.now() < deadline) {
-      const document = JSON.parse(await fs.readFile(file, 'utf8'));
+      const wire = JSON.parse(await fs.readFile(file, 'utf8'));
+      const document = wire.format === 'sportaglytics/playlist-with-slides' ? wire.document : wire;
       if (matches(document) && await app.evaluate(({ app: application }, folder) => {
         const require = process.getBuiltinModule('module').createRequire(application.getAppPath() + '/package.json');
         const { getPlaylistWindows } = require('./build/electron/src/playlistWindow/state.js');
@@ -164,6 +165,10 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
     (v) => v.currentSrc.endsWith('/c.mp4') && !v.paused && v.currentTime > .1 && v.volume === 0), undefined, {timeout:12000});
   await page.keyboard.press(primaryModifier + '+s');
   const stored = await waitForSave((saved) => saved.items.some((entry) => entry.slide?.title === 'Meeting question'));
+  const slideFile = JSON.parse(await fs.readFile(file, 'utf8'));
+  assert.equal(slideFile.format, 'sportaglytics/playlist-with-slides');
+  assert.equal(slideFile.schemaVersion, 6);
+  assert.equal('items' in slideFile, false, 'older readers must reject before editing');
   const savedSlide = stored.items.find((entry) => entry.slide);
   assert.equal(savedSlide.endTime,2);
   assert.match(savedSlide.slide.image,/^data:image\/png;base64,/);

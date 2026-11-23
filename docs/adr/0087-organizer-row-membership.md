@@ -28,3 +28,5 @@ Sorter の `presentationOrder` は再生、保存、出力に共通とする。O
 ## Meeting slides
 
 Slides are independent presentation items with row membership, stable identity, editable text and an optional bounded PNG inside the document. They have no video reference. Their explicit whole-second duration is the presentation and export duration. Sorter reorders them through the same undoable operation as clips. Existing documents acquire no slide content on load. Export uses the meeting canvas and mixes regular media only after applying the existing angle, Paint and text settings.
+
+A document containing slides uses a version 6 on-disk envelope. Earlier releases require top-level items but accept arbitrary numeric schema versions and rewrite them to 5, so a number alone cannot protect a meeting from being overwritten by an incompatible editor. The inner playlist and IPC model remain unchanged. Clip-only files retain their flat representation. The loader also accepts valid flat slides from the unpublished 0.17.35 candidate.
