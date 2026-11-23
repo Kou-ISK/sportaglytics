@@ -46,6 +46,7 @@
 
 | ARCH-EX-018 | 2026-11-22 | Git / release | 0.17.34 に限り、0.17.33 の実機受入を確認した後に main 基点の限定 PR で音声同期修正を配布する案 | 未公開モデル方針を配布に混ぜず、既存候補と不変タグを保つため | [#303](https://github.com/Kou-ISK/sportaglytics/pull/303) と版準備のみ。develop 先行、両 PR のレビュー・CI、署名・公証・同一 DMG の受入、更新確認を維持 | 0.17.34 の配布照合または 2026-12-06 の早い方 | maintainers | [#303](https://github.com/Kou-ISK/sportaglytics/pull/303) | Proposed |
 | ARCH-EX-019 | 2026-11-23 | Git / release | 0.17.35 に限り develop 統合後に main 基点で限定リリース PR を作成する | 未公開のモデル配布方針の混入を避ける | [#306](https://github.com/Kou-ISK/sportaglytics/pull/306) の Organizer・スライド・関連検証と版準備のみ。両 PR の CI・レビュー、署名公証、同一配布物の E2E、更新・配布検査を維持する | 0.17.35 の配布照合または 2026-12-07 の早い方 | maintainers | [#306](https://github.com/Kou-ISK/sportaglytics/pull/306) | Proposed |
+| ARCH-EX-020 | 2026-11-23 | Git / release | 0.17.36 のスライド保存互換修正を develop 統合後、main 基点の限定 PR で配布 | 未公開のモデル配布差分を除き、未公開の 0.17.35 タグは保持 | 互換修正・回帰・必要な版準備のみ。両 PR の CI とレビュー、署名、公証、同一 DMG の受入、更新確認を維持 | 0.17.36 の配布照合または 2026-12-07 の早い方 | maintainers | [#308](https://github.com/Kou-ISK/sportaglytics/pull/308) | Proposed |
 
 ## 月次レビュー
 
