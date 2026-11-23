@@ -189,25 +189,23 @@ try {
   stage('reject candidate slide document in old signed editor');
   app = await launch(path.join(temp,'preserved-old.app'),'0.17.34',path.join(root,'old-guard-profile'));
   main = await mainPage(app);
-  const mainWindow=await app.browserWindow(main);
-  const owner=await mainWindow.evaluate(w=>w.id);
-  await mainWindow.dispose();
-  const windows=()=>app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().length);
-  const prior=await windows();
-  await app.evaluate(({Menu,BrowserWindow,dialog},{owner,slides})=>{
-    dialog.showOpenDialog=async()=>({canceled:false,filePaths:[slides]});
-    globalThis.__upgradeError=null;
-    dialog.showMessageBox=async(...args)=>{
-      const {type,title,detail}=args.at(-1);
-      globalThis.__upgradeError={type,title,detail};
-      return {response:0,checkboxChecked:false};
-    };
-    Menu.getApplicationMenu().getMenuItemById('open-playlist-file').click(undefined,BrowserWindow.fromId(owner));
-  },{owner,slides});
-  await expect.poll(()=>app.evaluate(()=>globalThis.__upgradeError?.title),{timeout:15000}).toBe('プレイリストを開けませんでした');
-  assert.equal(await app.evaluate(()=>globalThis.__upgradeError.type),'error');
+  await main.getByText('新しいパッケージを作成',{exact:true}).waitFor();
+  const windows = () => app.evaluate(({BrowserWindow})=>BrowserWindow.getAllWindows().length);
+  const prior = await windows();
+  await app.evaluate(({dialog})=>{
+    // Capture the old application's native error message, leaving its actual reader and validation intact.
+    dialog.showErrorBox = (title,message)=>{globalThis.__upgradeError={title,message};};
+  });
+  const result = await main.evaluate(file=>window.electronAPI.playlist.loadPlaylistFile(file),slides);
+  assert.equal(result,null);
+  const issue = await app.evaluate(()=>globalThis.__upgradeError);
+  assert.equal(issue?.title,'読み込みエラー');
+  assert.match(issue.message,/プレイリストファイルの形式が不正です。必須フィールドが欠落しています/);
   assert.equal(await windows(),prior);
   assert.equal(await hash(manifest),protectedHash);
+  const control = await newWindow(app,()=>main.evaluate(file=>window.electronAPI.playlist.loadPlaylistFile(file),playlist));
+  await control.getByTestId('organizer-clip-marker').waitFor();
+  assert.equal(await windows(),prior + 1);
   await app.close(); app=undefined;
   assert.equal(await hash(manifest),protectedHash);
   observations.downgrade = {v6SavedByCandidate:true, oldVersion:'0.17.34', rejectionObserved:true, newWindow:false, manifestSha256:protectedHash, unchangedAfterExit:true};
