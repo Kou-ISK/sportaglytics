@@ -127,13 +127,15 @@ export const usePlaylistPlaybackActions = ({
 
     if (!autoAdvance) {
       setIsPlaying(false);
-      return;
+      return false;
     }
     const next = adjacentIndex(1);
     if (next >= 0) setCurrentIndex(next);
     else setIsPlaying(false);
+    return next >= 0 && next === currentIndex;
   }, [
     autoAdvance,
+    currentIndex,
     adjacentIndex,
     lastFreezeTimestampRef,
     clearFreezeTimer,

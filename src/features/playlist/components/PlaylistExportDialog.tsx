@@ -39,7 +39,7 @@ type PlaylistExportDialogProps = ClipExportTextOptionsProps & {
   selectedItemCount: number;
   slideCount?: number;
   onlySlides?: boolean;
-  rowSummary?: { id: string; name: string; count: number }[];
+  rowSummary?: { id: string; name: string; count: number; hasVideo?: boolean }[];
   exportMode: ExportMode;
   setExportMode: (value: ExportMode) => void;
   angleOption: AngleOption;
@@ -140,7 +140,9 @@ export const PlaylistExportDialog = ({
         {exportMode === 'organizerRows' && (
           <Stack spacing={0.5} aria-label="行別の書き出し予定">
             <Typography variant="subtitle2">
-              出力 {rowSummary.length * (!onlySlides && angleOption === 'allAngles' ? videoSources.filter((s) => s.trim()).length : 1)} 本
+              出力 {rowSummary.reduce((sum, row) => sum +
+                (row.hasVideo !== false && !onlySlides && angleOption === 'allAngles'
+                  ? videoSources.filter((source) => source.trim()).length : 1), 0)} 本
             </Typography>
             {rowSummary.map((row, index) => (
               <Typography key={row.id} variant="body2">{index + 1}. {row.name} · {row.count} 件</Typography>

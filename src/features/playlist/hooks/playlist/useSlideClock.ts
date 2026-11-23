@@ -3,7 +3,7 @@ import type { PlaylistItem } from '../../../../types/playlist/core';
 
 /** Run from a monotonic clock only while this slide owns the player. */
 export const useSlideClock = (item: PlaylistItem | null, playing: boolean,
-  report: (time: number) => void, onEnd: () => void): ((time: number) => void) => {
+  report: (time: number) => void, onEnd: () => boolean | void): ((time: number) => void) => {
   const id = item?.slide ? item.id : undefined;
   const duration = item?.slide ? item.endTime : 0;
   const elapsed = useRef(0);
@@ -27,7 +27,11 @@ export const useSlideClock = (item: PlaylistItem | null, playing: boolean,
       if (time >= duration) {
         elapsed.current = duration;
         since.current = null;
-        finish.current();
+        if (finish.current()) {
+          elapsed.current = 0;
+          since.current = performance.now();
+          frame = requestAnimationFrame(update);
+        }
       } else frame = requestAnimationFrame(update);
     };
     frame = requestAnimationFrame(update);

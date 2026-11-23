@@ -336,7 +336,11 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
       actions.handlePlayItem(id);
     },
     clearRowScope: actions.clearRowScope,
-    handlePlayRow: actions.handlePlayRow,
+    handlePlayRow: (ids: readonly string[]): void => {
+      const first = params.items.find((item) => ids.includes(item.id));
+      if (first?.slide && first.id === params.currentItem?.id) seekSlide(0);
+      actions.handlePlayRow(ids);
+    },
     handleTogglePlay: actions.handleTogglePlay,
     handlePrevious: actions.handlePrevious,
     handleNext: actions.handleNext,

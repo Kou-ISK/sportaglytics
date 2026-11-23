@@ -135,7 +135,7 @@ export interface BuildDialogsSectionParams {
   selectedCount: number;
   slideCount?: number;
   onlySlides?: boolean;
-  rowSummary?: { id: string; name: string; count: number }[];
+  rowSummary?: { id: string; name: string; count: number; hasVideo?: boolean }[];
   exportMode: ExportMode;
   setExportMode: React.Dispatch<React.SetStateAction<ExportMode>>;
   angleOption: AngleOption;

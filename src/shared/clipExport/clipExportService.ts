@@ -185,6 +185,7 @@ const buildRequests = ({
   | 'exportFileName'
   | 'overlay'
 >): ClipExportPayload[] => {
+  if (clips.length && clips.every((clip) => clip.slideFrame)) angleOption = 'defaultAngles';
   if (angleOption === 'defaultAngles') {
     if (!clips.length) throw new Error('書き出すクリップがありません');
     const firstMedia = clips.find((clip) => !clip.slideFrame);
@@ -214,7 +215,8 @@ const buildRequests = ({
     selectClipAngle(clips, 0);
     selectClipAngle(clips, 1);
   }
-  if (angleOption === 'allAngles')
+  if (angleOption === 'allAngles') {
+    const rowsWithVideo = new Set(clips.filter((clip) => !clip.slideFrame).map((clip) => clip.organizerRow?.id));
     return getAvailableVideoSources(videoSources).map((sourcePath, index) => ({
       sourcePath,
       progressId: progressId ? `${progressId}:angle-${index + 1}` : undefined,
@@ -222,9 +224,11 @@ const buildRequests = ({
       exportMode,
       angleOption: 'single',
       outputFileName: buildExportFileName(exportFileName, `angle${index + 1}`),
-      clips: selectClipAngle(clips, index),
+      clips: selectClipAngle(index === 0 || exportMode !== 'organizerRows' ? clips :
+        clips.filter((clip) => rowsWithVideo.has(clip.organizerRow?.id)), index),
       overlay,
     }));
+  }
   const sourcePath = resolveClipExportPrimarySource({
     angleOption,
     videoSources,

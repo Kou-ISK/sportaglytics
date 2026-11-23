@@ -48,5 +48,5 @@ export interface PlaylistPlaybackActions {
   handleVolumeChange: (_: Event, value: number | number[]) => void;
   handleToggleFullscreen: () => void;
   triggerFreezeFrame: (freezeDuration: number) => void;
-  handleItemEnd: () => void;
+  handleItemEnd: () => boolean;
 }

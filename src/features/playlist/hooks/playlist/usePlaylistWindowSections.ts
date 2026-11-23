@@ -201,10 +201,15 @@ export const usePlaylistWindowSections = ({
     onPlayItem: playback.handlePlayItem,
   }), actions: rowEditing.actions };
   const sourceItems = exportState.exportScope === 'selected' ? selection.selectedItems : history.items;
-  const rowSummary = useMemo(() => organizerGroups(sourceItems, core.playlistRows)
-    .filter((group) => group.itemIds.length > 0)
-    .map((group) => ({ id: group.id, name: group.name, count: group.itemIds.length })),
-    [sourceItems, core.playlistRows]);
+  const rowSummary = useMemo(() => {
+    const videoIds = new Set(sourceItems.filter((item) => !item.slide).map((item) => item.id));
+    return organizerGroups(sourceItems, core.playlistRows)
+      .filter((group) => group.itemIds.length > 0)
+      .map((group) => ({
+        id: group.id, name: group.name, count: group.itemIds.length,
+        hasVideo: group.itemIds.some((id) => videoIds.has(id)),
+      }));
+  }, [sourceItems, core.playlistRows]);
 
   const textPreview = useClipExportTextPreview({
     open: exportState.exportDialogOpen,

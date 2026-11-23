@@ -40,3 +40,15 @@ it('pauses, seeks, resumes, and discards the previous slide timer on manual adva
   act(() => vi.advanceTimersByTime(3000));
   expect(end).toHaveBeenCalledTimes(1);
 });
+
+it('starts the next interval when a one-slide row loops', () => {
+  vi.useFakeTimers();
+  const report = vi.fn();
+  const finish = vi.fn(() => true);
+  const item = slide('only');
+  const { unmount } = renderHook(() => useSlideClock(item, true, report, finish));
+  act(() => vi.advanceTimersByTime(2500));
+  expect(finish).toHaveBeenCalledTimes(1);
+  expect(report.mock.lastCall?.[0]).toBeCloseTo(.5, 1);
+  unmount();
+});

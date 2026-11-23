@@ -17,14 +17,17 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   await fs.mkdir(folder);
   const file = path.join(folder, 'playlist.json');
   const red = path.join(dir, 'meeting-red.mp4');
-  execFileSync(ffmpegPath, ['-v','error','-i',path.join(dir,'b.mp4'),'-f','lavfi','-i','sine=frequency=440:sample_rate=48000',
-    '-t','3','-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac',red]);
+  const blue = path.join(dir, 'meeting-blue.mp4');
+  for (const [source, frequency, destination] of [['b.mp4',440,red], ['a.mp4',880,blue]]) {
+    execFileSync(ffmpegPath, ['-v','error','-i',path.join(dir,source),'-f','lavfi','-i',
+      'sine=frequency=' + frequency + ':sample_rate=48000','-t','3','-map','0:v:0','-map','1:a:0','-c:v','copy','-c:a','aac',destination]);
+  }
   const items = [
     ['A1', 'A', 'One', 'b'], ['B1', 'B', 'One', 'c'], ['A2', 'A', 'Two', 'a'],
   ].map(([id, rowId, actionName, source], presentationOrder) => ({
     id, rowId, actionName, presentationOrder, timelineItemId: null,
     startTime: 0, endTime: 2, addedAt: 1, videoSource: id === 'B1' ? path.join(dir, source + '.mp4') : red,
-    ...(id === 'A2' ? { videoSource2: path.join(dir, 'a.mp4'), defaultAngle: 'angle2' } : {}),
+    ...(id === 'A2' ? { videoSource2: blue, defaultAngle: 'angle2' } : {}),
   }));
   await fs.writeFile(file, JSON.stringify({
     id: 'meeting', name: 'Meeting', type: 'reference', createdAt: 1, updatedAt: 1,
@@ -66,7 +69,7 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
     await page.getByRole('menuitem', { name, exact: true }).click();
   };
   await command('A', 'この行を再生');
-  for (const source of ['meeting-red.mp4', 'a.mp4']) {
+  for (const source of ['meeting-red.mp4', 'meeting-blue.mp4']) {
     await page.waitForFunction((name) => [...document.querySelectorAll('video')].some(
       (video) => video.currentSrc.endsWith('/' + name) && !video.paused && video.currentTime > 0.1,
     ), source, { timeout: 12000 });
@@ -157,8 +160,11 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   assert.equal(green.length,3);
   assert.ok(green[1] > 170 && green[0] < 80 && green[2] < 80,'persisted diagram must appear between both clips');
   const info = JSON.parse(execFileSync(ffprobePath,['-v','error','-show_streams','-show_format','-of','json',movie]));
-  assert.ok(Math.abs(Number(info.format.duration)-6)<.25);
-  assert.ok(info.streams.some((stream) => stream.codec_type === 'audio'));
+  assert.ok(Math.abs(Number(info.format.duration)-6)<.25,
+    'expected 6 s; movie=' + info.format.duration + ', streams=' + JSON.stringify(info.streams.map(({codec_type,duration}) => ({codec_type,duration}))));
+  const dialogue = info.streams.find((stream) => stream.codec_type === 'audio');
+  assert.equal(dialogue?.channels, 1, 'the synthetic clip remains mono across a silent slide');
+  assert.equal(dialogue?.sample_rate, '48000');
   const samplePeak = (seconds) => {
     const pcm = execFileSync(ffmpegPath,['-v','error','-ss',String(seconds),'-i',movie,'-t','0.2',
       '-map','0:a:0','-ac','1','-ar','8000','-f','s16le','pipe:1']);
