@@ -64,6 +64,12 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   let page = await open();
   const row = (id) => page.getByTestId('organizer-row-' + id);
   const item = (id) => page.getByTestId('organizer-clip-' + id);
+  const showTransport = async () => {
+    const area = await page.locator('video:visible').first().boundingBox();
+    assert.ok(area, 'playback surface must have an on-screen rectangle');
+    // The real pointer hits the topmost presentation layer above the video.
+    await page.mouse.move(area.x + area.width / 2, area.y + area.height / 2);
+  };
   const command = async (id, name) => {
     await row(id).getByRole('button', { name: /の行操作/ }).click();
     await page.getByRole('menuitem', { name, exact: true }).click();
@@ -75,7 +81,7 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
     ), source, { timeout: 12000 });
   }
   await item('B1').dblclick();
-  await page.locator('video:visible').first().hover();
+  await showTransport();
   await page.getByRole('button',{name:'ループ: OFF',exact:true}).click();
   await command('B', 'この行を再生');
   const wraps = await page.evaluate(async () => {
@@ -94,7 +100,7 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   });
   assert.equal(wraps.count,2);
   assert.ok(wraps.maximum < 2.25, 'one-item row must stay within its two-second cut');
-  await page.locator('video:visible').first().hover();
+  await showTransport();
   await page.getByRole('button',{name:'ループ: ON',exact:true}).click();
   await item('A1').dragTo(row('B'));
   await row('B').getByTestId('organizer-clip-A1').waitFor();
@@ -150,7 +156,7 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   await editor.getByRole('button', { name:'確定' }).click();
   const card = row('A').getByRole('button').filter({hasText:'Meeting question'});
   await item('A1').dblclick();
-  await page.locator('video:visible').first().hover();
+  await showTransport();
   await page.getByRole('button',{name:'ミュート',exact:true}).click();
   await card.dblclick();
   await page.getByRole('img', {name:'Meeting question',exact:true}).waitFor();
