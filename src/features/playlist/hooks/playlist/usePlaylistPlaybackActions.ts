@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useRef } from 'react';
 import type React from 'react';
 import type {
   PlaylistPlaybackActions,
@@ -8,6 +8,7 @@ import type {
 interface UsePlaylistPlaybackActionsParams extends Pick<
   UsePlaylistPlaybackParams,
   | 'items'
+  | 'documentGeneration'
   | 'currentItem'
   | 'currentIndex'
   | 'setCurrentIndex'
@@ -45,6 +46,7 @@ const blurFocusTargets = (event: Event) => {
 
 export const usePlaylistPlaybackActions = ({
   items,
+  documentGeneration,
   currentItem,
   currentIndex,
   setCurrentIndex,
@@ -67,6 +69,20 @@ export const usePlaylistPlaybackActions = ({
   setCurrentTime,
   seekMedia,
 }: UsePlaylistPlaybackActionsParams): PlaylistPlaybackActions => {
+  const rowScope = useRef<{ ids: ReadonlySet<string>; generation?: number } | null>(null);
+  const adjacentIndex = useCallback((step: 1 | -1): number => {
+    const scope = rowScope.current;
+    const isScoped = scope && scope.generation === documentGeneration;
+    const indices = items.flatMap((item, index) =>
+      !isScoped || scope.ids.has(item.id) ? [index] : [],
+    );
+    const position = indices.indexOf(currentIndex);
+    if (isScoped && position < 0) return -1;
+    const adjacent = indices[position + step];
+    if (adjacent !== undefined) return adjacent;
+    return loopPlaylist ? (step === 1 ? indices[0] : indices.at(-1)) ?? -1 : -1;
+  }, [currentIndex, documentGeneration, items, loopPlaylist]);
+
   const clearFreezeTimer = useCallback((): void => {
     if (freezeTimeoutRef.current) {
       clearTimeout(freezeTimeoutRef.current);
@@ -113,20 +129,14 @@ export const usePlaylistPlaybackActions = ({
       setIsPlaying(false);
       return;
     }
-    if (currentIndex < items.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-    } else if (loopPlaylist && items.length > 0) {
-      setCurrentIndex(0);
-    } else {
-      setIsPlaying(false);
-    }
+    const next = adjacentIndex(1);
+    if (next >= 0) setCurrentIndex(next);
+    else setIsPlaying(false);
   }, [
     autoAdvance,
-    currentIndex,
-    items.length,
+    adjacentIndex,
     lastFreezeTimestampRef,
     clearFreezeTimer,
-    loopPlaylist,
     setCurrentIndex,
     setIsFrozen,
     setIsPlaying,
@@ -134,6 +144,7 @@ export const usePlaylistPlaybackActions = ({
 
   const handlePlayItem = useCallback(
     (id?: string) => {
+      rowScope.current = null;
       if (id) {
         const index = items.findIndex((item) => item.id === id);
         if (index !== -1) {
@@ -173,6 +184,14 @@ export const usePlaylistPlaybackActions = ({
     ],
   );
 
+  const handlePlayRow = useCallback((ids: readonly string[]): void => {
+    const members = new Set(ids);
+    const first = items.find((item) => members.has(item.id));
+    if (!first) return;
+    handlePlayItem(first.id);
+    rowScope.current = { ids: members, generation: documentGeneration };
+  }, [items, handlePlayItem, documentGeneration]);
+
   const handleTogglePlay = useCallback(() => {
     if (isFrozen) {
       clearFreezeTimer();
@@ -198,41 +217,16 @@ export const usePlaylistPlaybackActions = ({
     setIsPlaying,
   ]);
 
-  const handlePrevious = useCallback(() => {
+  const stepItem = useCallback((step: 1 | -1): void => {
     clearFreezeTimer();
-    if (currentIndex > 0) {
-      setCurrentIndex(currentIndex - 1);
-      setIsPlaying(true);
-    } else if (loopPlaylist && items.length > 0) {
-      setCurrentIndex(items.length - 1);
+    const index = adjacentIndex(step);
+    if (index >= 0) {
+      setCurrentIndex(index);
       setIsPlaying(true);
     }
-  }, [
-    clearFreezeTimer,
-    currentIndex,
-    items.length,
-    loopPlaylist,
-    setCurrentIndex,
-    setIsPlaying,
-  ]);
-
-  const handleNext = useCallback(() => {
-    clearFreezeTimer();
-    if (currentIndex < items.length - 1) {
-      setCurrentIndex(currentIndex + 1);
-      setIsPlaying(true);
-    } else if (loopPlaylist && items.length > 0) {
-      setCurrentIndex(0);
-      setIsPlaying(true);
-    }
-  }, [
-    clearFreezeTimer,
-    currentIndex,
-    items.length,
-    loopPlaylist,
-    setCurrentIndex,
-    setIsPlaying,
-  ]);
+  }, [adjacentIndex, clearFreezeTimer, setCurrentIndex, setIsPlaying]);
+  const handlePrevious = useCallback(() => stepItem(-1), [stepItem]);
+  const handleNext = useCallback(() => stepItem(1), [stepItem]);
 
   const handleSeek = useCallback(
     (event: Event, value: number | number[]) => {
@@ -286,6 +280,7 @@ export const usePlaylistPlaybackActions = ({
 
   return {
     handlePlayItem,
+    handlePlayRow,
     handleTogglePlay,
     handlePrevious,
     handleNext,

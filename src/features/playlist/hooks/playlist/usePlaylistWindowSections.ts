@@ -1,3 +1,6 @@
+import { useMemo } from 'react';
+import { useOrganizerRows } from './useOrganizerRows';
+import { organizerGroups } from '../../domain/organizerRows';
 import { useClipExportTextPreview } from '../../../../shared/clipExport/useClipExportTextPreview';
 import { buildPlaylistTextClips } from '../../utils/playlistClipExportBuilder';
 import { usePlaylistSorter } from './usePlaylistSorter';
@@ -183,14 +186,20 @@ export const usePlaylistWindowSections = ({
     onUpdateNote: notes.updateNote,
   });
 
-  const organizer = buildPlaylistOrganizerSection({
-    items: history.items,
-    rows: core.playlistRows,
+  const rowEditing = useOrganizerRows({ core, history, selection, exportState }, playback.handlePlayRow);
+  const organizer = { ...buildPlaylistOrganizerSection({
+    items: rowEditing.document.items,
+    rows: rowEditing.document.rows ?? [],
     currentIndex: core.currentIndex,
     selectedItemIds: selection.selectedItemIds,
     onSelectItem: selection.selectWithModifiers,
     onPlayItem: playback.handlePlayItem,
-  });
+  }), actions: rowEditing.actions };
+  const sourceItems = exportState.exportScope === 'selected' ? selection.selectedItems : history.items;
+  const rowSummary = useMemo(() => organizerGroups(sourceItems, core.playlistRows)
+    .filter((group) => group.itemIds.length > 0)
+    .map((group) => ({ id: group.id, name: group.name, count: group.itemIds.length })),
+    [sourceItems, core.playlistRows]);
 
   const textPreview = useClipExportTextPreview({
     open: exportState.exportDialogOpen,
@@ -221,6 +230,7 @@ export const usePlaylistWindowSections = ({
     exportScope: exportState.exportScope,
     setExportScope: exportState.setExportScope,
     selectedCount: selection.selectedCount,
+    rowSummary,
     exportMode: exportState.exportMode,
     setExportMode: exportState.setExportMode,
     angleOption: exportState.angleOption,

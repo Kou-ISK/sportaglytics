@@ -60,6 +60,7 @@ export const usePlaylistWindowInteractionRuntime = (
   const playback = usePlaylistPlayback({
     items: history.items,
     workspaceMode: core.workspaceMode,
+    documentGeneration: core.loadQueue.documentGeneration,
     currentIndex: core.currentIndex,
     setCurrentIndex: core.setCurrentIndex,
     isPlaying: core.isPlaying,

@@ -1,9 +1,11 @@
+import { organizerGroups } from '../../domain/organizerRows';
 import { useCallback, useState } from 'react';
 import type {
   AnnotationTarget,
   DrawingObject,
   ItemAnnotation,
   PlaylistItem,
+  PlaylistRow,
 } from '../../../../types/playlist/core';
 import {
   canExportClipsWithOverlay,
@@ -26,6 +28,7 @@ import { buildPlaylistExportClips } from '../../utils/playlistClipExportBuilder'
 interface UsePlaylistExportParams {
   items: PlaylistItem[];
   selectedItems: PlaylistItem[];
+  rows?: PlaylistRow[];
   videoSources: string[];
   exportScope: ClipExportScope;
   angleOption: ClipExportAngleOption;
@@ -70,6 +73,7 @@ interface UsePlaylistExportResult {
 export const usePlaylistExport = ({
   items,
   selectedItems,
+  rows,
   videoSources,
   exportScope,
   angleOption,
@@ -129,6 +133,13 @@ export const usePlaylistExport = ({
         secondarySourceSize,
         renderAnnotationPng,
       });
+      if (exportMode === 'organizerRows') {
+        const groups = organizerGroups(sourceItems, rows ?? []);
+        const memberships = new Map(groups.flatMap(({ id, name, itemIds }) =>
+          itemIds.map((itemId) => [itemId, { id, name }] as const),
+        ));
+        for (const clip of clips) clip.organizerRow = memberships.get(clip.id);
+      }
       const progressId =
         typeof crypto !== 'undefined' && 'randomUUID' in crypto
           ? crypto.randomUUID()
@@ -183,6 +194,7 @@ export const usePlaylistExport = ({
     secondarySourceSize,
     selectedAngleIndex,
     selectedItems,
+    rows,
     videoSources,
   ]);
 

@@ -1,3 +1,4 @@
+import { groupExportClips } from './groupExportClips';
 import { prioritizeClipExport } from '../scrubPreview/exportPriority';
 import { createExportResourceGate } from './exportResourceGate';
 import { retainedFor } from './exportRetainedRecords';
@@ -366,19 +367,10 @@ export const registerExportHandlers = ({
                   `${i + 1} / ${clips.length} クリップを書き出しました`,
                 );
               }
-            } else if (exportMode === 'perRow') {
-              const byAction = new Map<
-                string,
-                ExportClipsPayload['clips'][number][]
-              >();
-              clips.forEach((clip) => {
-                const arr = byAction.get(clip.actionName) || [];
-                arr.push(clip);
-                byAction.set(clip.actionName, arr);
-              });
-
+            } else if (exportMode === 'perRow' || exportMode === 'organizerRows') {
+              const groups = groupExportClips(clips, exportMode);
               let rowIndex = 0;
-              for (const [actionName, group] of byAction.entries()) {
+              for (const { label: actionName, clips: group } of groups) {
                 const safeAction = portableExportStem(actionName);
                 let angleSuffix = '';
                 if (useDual) angleSuffix = '_multi';
@@ -428,7 +420,7 @@ export const registerExportHandlers = ({
                       },
                     }),
                   shutdown.signal,
-                  commit(rowIndex === byAction.size - 1, outPath),
+                  commit(rowIndex === groups.length - 1, outPath),
                 );
                 rowIndex++;
                 advanceProgress(

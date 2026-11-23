@@ -1,18 +1,24 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { PlaylistItem } from '../../../../types/playlist/core';
+import type { PlaylistItem, PlaylistRow } from '../../../../types/playlist/core';
 import {
   playlistMediaContentKey,
   reconcilePlaylistMedia,
 } from '../../../../shared/playlist/playlistMediaReconciliation';
 
+interface DocumentSnapshot {
+  items: PlaylistItem[];
+  rows?: PlaylistRow[];
+}
+
 interface PlaylistHistoryState {
-  past: PlaylistItem[][];
+  past: DocumentSnapshot[];
   present: PlaylistItem[];
-  future: PlaylistItem[][];
+  future: DocumentSnapshot[];
 }
 
 interface UsePlaylistHistoryReturn {
   items: PlaylistItem[];
+  setDocument: (items: PlaylistItem[], rows: PlaylistRow[]) => void;
   canUndo: boolean;
   canRedo: boolean;
   setItems: (
@@ -35,6 +41,8 @@ const MAX_HISTORY_SIZE = 50;
  */
 export function usePlaylistHistory(
   initialItems: PlaylistItem[] = [],
+  getRows?: () => PlaylistRow[],
+  restoreRows?: (rows: PlaylistRow[]) => void,
 ): UsePlaylistHistoryReturn {
   const [state, setState] = useState<PlaylistHistoryState>({
     past: [],
@@ -57,6 +65,18 @@ export function usePlaylistHistory(
     }
   }, [initialItems, commit]);
 
+  const saveEdit = useCallback((present: PlaylistItem[], rows?: PlaylistRow[]): void => {
+    const previous = stateRef.current;
+    const previousRows = getRows?.();
+    if (present === previous.present && (!rows || rows === previousRows)) return;
+    if (rows) restoreRows?.(rows);
+    commit({
+      past: [...previous.past, { items: previous.present, rows: previousRows }].slice(-MAX_HISTORY_SIZE),
+      present,
+      future: [],
+    });
+  }, [commit, getRows, restoreRows]);
+
   const setItems = useCallback(
     (
       update: PlaylistItem[] | ((prev: PlaylistItem[]) => PlaylistItem[]),
@@ -64,37 +84,36 @@ export function usePlaylistHistory(
       const previous = stateRef.current;
       const present =
         typeof update === 'function' ? update(previous.present) : update;
-      if (present === previous.present) return;
-      commit({
-        past: [...previous.past, previous.present].slice(-MAX_HISTORY_SIZE),
-        present,
-        future: [],
-      });
+      saveEdit(present);
     },
-    [commit],
+    [saveEdit],
   );
   const undo = useCallback((): PlaylistItem[] | null => {
     const previous = stateRef.current;
     const present = previous.past.at(-1);
     if (!present) return null;
+    const rows = getRows?.();
+    if (present.rows) restoreRows?.(present.rows);
     commit({
       past: previous.past.slice(0, -1),
-      present,
-      future: [previous.present, ...previous.future],
+      present: present.items,
+      future: [{ items: previous.present, rows }, ...previous.future],
     });
-    return present;
-  }, [commit]);
+    return present.items;
+  }, [commit, getRows, restoreRows]);
   const redo = useCallback((): PlaylistItem[] | null => {
     const previous = stateRef.current;
     const present = previous.future[0];
     if (!present) return null;
+    const rows = getRows?.();
+    if (present.rows) restoreRows?.(present.rows);
     commit({
-      past: [...previous.past, previous.present],
-      present,
+      past: [...previous.past, { items: previous.present, rows }],
+      present: present.items,
       future: previous.future.slice(1),
     });
-    return present;
-  }, [commit]);
+    return present.items;
+  }, [commit, getRows, restoreRows]);
   const clearHistory = useCallback((): void => {
     commit({ past: [], present: stateRef.current.present, future: [] });
   }, [commit]);
@@ -115,9 +134,9 @@ export function usePlaylistHistory(
           playlistMediaContentKey(previous.present[index]),
       );
       commit({
-        past: previous.past.map(reconcile),
+        past: previous.past.map((entry) => ({ ...entry, items: reconcile(entry.items) })),
         present,
-        future: previous.future.map(reconcile),
+        future: previous.future.map((entry) => ({ ...entry, items: reconcile(entry.items) })),
       });
       return changed ? 'changed' : 'derived';
     },
@@ -126,6 +145,7 @@ export function usePlaylistHistory(
 
   return {
     items: state.present,
+    setDocument: saveEdit,
     canUndo: state.past.length > 0,
     canRedo: state.future.length > 0,
     setItems,

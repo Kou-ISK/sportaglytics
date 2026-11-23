@@ -4,6 +4,7 @@ import type {
   DrawingObject,
   ItemAnnotation,
   PlaylistItem,
+  PlaylistRow,
 } from '../../../../types/playlist/core';
 import type {
   ClipExportAngleOption,
@@ -16,6 +17,7 @@ import { usePlaylistExport } from './usePlaylistExport';
 interface UsePlaylistWindowExportFlowParams {
   items: PlaylistItem[];
   selectedItems: PlaylistItem[];
+  rows?: PlaylistRow[];
   videoSources: string[];
   exportScope: ClipExportScope;
   angleOption: ClipExportAngleOption;
@@ -61,6 +63,7 @@ interface UsePlaylistWindowExportFlowParams {
 export const usePlaylistWindowExportFlow = ({
   items,
   selectedItems,
+  rows,
   videoSources,
   exportScope,
   angleOption,
@@ -88,6 +91,7 @@ export const usePlaylistWindowExportFlow = ({
   } = usePlaylistExport({
     items,
     selectedItems,
+    rows,
     videoSources,
     exportScope,
     angleOption,

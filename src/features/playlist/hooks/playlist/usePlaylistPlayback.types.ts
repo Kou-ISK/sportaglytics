@@ -8,6 +8,7 @@ export interface UsePlaylistPlaybackParams {
   items: PlaylistItem[];
   currentIndex: number;
   workspaceMode?: string;
+  documentGeneration?: number;
   setCurrentIndex: React.Dispatch<React.SetStateAction<number>>;
   isPlaying: boolean;
   setIsPlaying: React.Dispatch<React.SetStateAction<boolean>>;
@@ -38,6 +39,7 @@ export interface UsePlaylistPlaybackParams {
 
 export interface PlaylistPlaybackActions {
   handlePlayItem: (id?: string) => void;
+  handlePlayRow: (ids: readonly string[]) => void;
   handleTogglePlay: () => void;
   handlePrevious: () => void;
   handleNext: () => void;

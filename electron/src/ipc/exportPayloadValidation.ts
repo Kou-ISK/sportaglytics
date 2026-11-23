@@ -30,7 +30,8 @@ const isExportMode = (value: unknown): boolean => {
     value === undefined ||
     value === 'single' ||
     value === 'perInstance' ||
-    value === 'perRow'
+    value === 'perRow' ||
+    value === 'organizerRows'
   );
 };
 
@@ -61,6 +62,10 @@ const isClipExportItem = (value: unknown): boolean => {
         Number.isInteger(value.audioTrackIndex) &&
         value.audioTrackIndex >= 0 &&
         value.audioTrackIndex <= 63)) &&
+    (value.organizerRow === undefined ||
+      (isPlainObject(value.organizerRow) &&
+        isNonEmptyString(value.organizerRow.id) &&
+        isNonEmptyString(value.organizerRow.name))) &&
     isNonEmptyString(value.id) &&
     typeof value.actionName === 'string' &&
     typeof value.startTime === 'number' &&
@@ -105,6 +110,8 @@ export const isExportClipsPayload = (
     isAngleOption(value.angleOption) &&
     Array.isArray(value.clips) &&
     value.clips.every(isClipExportItem) &&
+    (value.exportMode !== 'organizerRows' ||
+      value.clips.every((clip) => isPlainObject(clip) && isPlainObject(clip.organizerRow))) &&
     isClipExportOverlay(value.overlay) &&
     isOptionalString(value.outputDir) &&
     isOptionalString(value.outputFileName)

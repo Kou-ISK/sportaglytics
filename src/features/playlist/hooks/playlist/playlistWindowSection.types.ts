@@ -132,6 +132,7 @@ export interface BuildDialogsSectionParams {
   exportScope: ClipExportScope;
   setExportScope: React.Dispatch<React.SetStateAction<ClipExportScope>>;
   selectedCount: number;
+  rowSummary?: { id: string; name: string; count: number }[];
   exportMode: ExportMode;
   setExportMode: React.Dispatch<React.SetStateAction<ExportMode>>;
   angleOption: AngleOption;

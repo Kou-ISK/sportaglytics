@@ -59,6 +59,7 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
   currentOwner.current = seekOwner;
   const actions = usePlaylistPlaybackActions({
     seekMedia: mediaTimeline.seek,
+    documentGeneration: params.documentGeneration,
     items: params.items,
     currentItem: params.currentItem,
     currentIndex: params.currentIndex,
@@ -327,6 +328,7 @@ export const usePlaylistPlayback = (params: UsePlaylistPlaybackParams) => {
     seekReverse,
     cancelReverseSeek,
     handlePlayItem: actions.handlePlayItem,
+    handlePlayRow: actions.handlePlayRow,
     handleTogglePlay: actions.handleTogglePlay,
     handlePrevious: actions.handlePrevious,
     handleNext: actions.handleNext,
