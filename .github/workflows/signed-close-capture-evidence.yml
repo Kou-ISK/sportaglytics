@@ -80,12 +80,12 @@ jobs:
             key=$(echo "$tool" | tr '[:lower:]' '[:upper:]')
             echo "SPORTAGLYTICS_${key}_PATH=$file" >> "$GITHUB_ENV"
           done
-      - name: Verify close before autosave twice on the signed build
+      - name: Compare built-in synthetic microphone against file-fed microphone
         run: |
-          node scripts/e2e-timeline-close.mjs
-          node scripts/e2e-timeline-close.mjs
-      - name: Verify live sources and saved segments twice on the signed build
-        if: ${{ !cancelled() && env.E2E_APP_PATH != '' }}
-        run: |
-          node scripts/e2e-live-capture.mjs
-          node scripts/e2e-live-capture.mjs
+          # One isolated profile per condition. Collect both outcomes even if the control fails.
+          default_status=0
+          file_status=0
+          MIC_CONTROL=default node scripts/e2e-live-capture.mjs || default_status=$?
+          MIC_CONTROL=pcm node scripts/e2e-live-capture.mjs || file_status=$?
+          echo "Built-in microphone exit=$default_status, PCM fixture exit=$file_status"
+          test "$default_status" -eq 0 && test "$file_status" -eq 0

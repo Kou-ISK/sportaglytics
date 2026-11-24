@@ -111,7 +111,7 @@ let app = await electron.launch(
     '--use-fake-device-for-media-stream',
     '--use-fake-ui-for-media-stream',
     `--use-file-for-fake-video-capture=${cameraFixture}`,
-    `--use-file-for-fake-audio-capture=${microphoneFixture}`,
+    ...(process.env.MIC_CONTROL === "default" ? [] : [`--use-file-for-fake-audio-capture=${microphoneFixture}`]),
   ]),
 );
 observeElectronErrors(app);
@@ -271,6 +271,8 @@ try {
       state.inputs[2].phase === 'disconnected'
     );
   });
+  console.log('Matched signed recording control', process.env.MIC_CONTROL,
+    await capture.evaluate(() => JSON.stringify(globalThis.readCaptureRecorderStats())));
   console.log(
     'USB fake camera and HTTP input record with audio; an unavailable input does not block coding',
   );
