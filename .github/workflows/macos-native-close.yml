@@ -45,6 +45,8 @@ jobs:
         run: node scripts/e2e-ux-review.mjs
       - name: Verify native close and quit persistence
         run: node scripts/e2e-timeline-close.mjs
+      - name: Verify simultaneous camera, microphone and network recording
+        run: node scripts/e2e-live-capture.mjs
       - name: Verify audio sync after package creation and reopen
         run: node scripts/e2e-new-package-audio-sync.mjs
       - name: Verify legacy conversion and Sportscode bundle import with synthetic media
