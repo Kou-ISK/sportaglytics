@@ -24,10 +24,6 @@ export const selectSportscodeBundle = async (
   }
   const bundleRoot = root;
   const { xml, movies } = await listSportscodeBundleFiles(bundleRoot);
-  if (!movies.length)
-    throw new Error(
-      'パッケージ内に対応する映像が見つかりません。参照映像と書き出したXMLを個別に選択してください。',
-    );
   const selectFile = async (
     files: string[],
     title: string,
@@ -46,19 +42,22 @@ export const selectSportscodeBundle = async (
       throw new Error('選択したパッケージ内の候補を選んでください。');
     return file;
   };
-  const videoPath = await selectFile(
-    movies,
-    'タイムラインに対応する連続映像を1本選択',
-    ['mov', 'mp4', 'm4v', 'webm'],
-  );
-  if (!videoPath) return null;
+  const videoPath = movies.length
+    ? await selectFile(movies, 'タイムラインに対応する連続映像を1本選択', [
+        'mov',
+        'mp4',
+        'm4v',
+        'webm',
+      ])
+    : '';
+  if (movies.length && !videoPath) return null;
   const xmlPath = xml.length
     ? await selectFile(xml, '書き出したSportscode XMLを選択', ['xml'])
     : null;
   if (xml.length && !xmlPath) return null;
   return {
     name: path.basename(root).replace(/\.scpkg$/i, ''),
-    videoPath,
+    videoPath: videoPath ?? '',
     xml: xmlPath ? await readSportscodeXmlSource(xmlPath) : null,
   };
 };

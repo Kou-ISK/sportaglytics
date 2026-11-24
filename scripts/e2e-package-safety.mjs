@@ -11,6 +11,7 @@ import {
   observeElectronErrors,
 } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder } from './e2e-platform.mjs';
+import { exerciseNamedLegacyOpen } from './e2e-named-legacy-open.mjs';
 import { exercisePackageMigration } from './e2e-package-migration.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
 
@@ -552,6 +553,43 @@ try {
   await capture(reopenedTimeline, 'retry-empty-reopened');
   console.log(
     `Package safety: failed read retained original, errors/retries reached both windows, atomic concurrent writes remained valid across ${reads} reads`,
+  );
+  await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().forEach((w) => w.destroy()),
+  );
+  await app.close();
+  const profile = path.join(root, 'named-legacy-profile');
+  app = await electron.launch(getElectronLaunchOptions(profile));
+  let launcher = await app.firstWindow();
+  await launcher.evaluate(() =>
+    localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
+  );
+  await launcher.reload();
+  const named = await exerciseNamedLegacyOpen(
+    launcher,
+    app,
+    root,
+    path.join(packagePath, 'videos/synthetic.mp4'),
+  );
+  await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows().forEach((w) => w.destroy()),
+  );
+  await app.close();
+  app = await electron.launch(getElectronLaunchOptions(profile, [named]));
+  launcher = await app.firstWindow();
+  await launcher.waitForFunction(
+    () => document.querySelector('#video_0 video')?.readyState >= 2,
+  );
+  const afterReopen = await waitForTimeline();
+  await afterReopen
+    .getByRole('button', { name: 'Review 行', exact: true })
+    .waitFor();
+  const restored = JSON.parse(
+    await fs.readFile(path.join(named, 'timeline.json'), 'utf8'),
+  );
+  assert.deepEqual(
+    restored.instances.map((i) => [i.startTime, i.endTime, i.memo]),
+    [[1.125, 2.875, 'Saved after conversion']],
   );
 } finally {
   if (app) {

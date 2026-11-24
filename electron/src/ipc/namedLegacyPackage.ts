@@ -97,10 +97,12 @@ export const installNamedLegacyPackage = async (
     )
       throw new Error('PACKAGE_SOURCE_CHANGED');
     await fs.rmdir(stage);
-    // The destination is complete before removing the marker. A crash before the
-    // final rename leaves the original in place; after it, in the documented backup.
-    await fs.unlink(pending);
+    // The install marker stays until the untouched original is in the backup.
+    // If the final unlink fails, neither copy is removed. The README points to it.
+    assertAvailable(source);
+    assertAvailable(destination);
     await fs.rename(source, backup);
+    await fs.unlink(pending);
     return {
       status: 'ready',
       packagePath: destination,
@@ -113,7 +115,7 @@ export const installNamedLegacyPackage = async (
     if (reserved) {
       // Preserve the original and any visible destination after an ambiguous error.
       throw new Error(
-        `PACKAGE_NAMED_INSTALL_INTERRUPTED: ${destination} (作業場所: ${work})`,
+        `PACKAGE_NAMED_INSTALL_INTERRUPTED: ${destination} (作業場所: ${work}). ${cause instanceof Error ? cause.message : ''}`,
       );
     }
     if (work) await fs.rm(work, { recursive: true, force: true });

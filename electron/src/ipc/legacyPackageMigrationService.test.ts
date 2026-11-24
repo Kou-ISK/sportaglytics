@@ -652,9 +652,32 @@ it.each(['metadata', 'archive'])(
       'PACKAGE_NAMED_INSTALL_INTERRUPTED',
     );
     expect(await packageCopyDigest(source)).toBe(before);
-    if (point === 'metadata')
-      await expect(open(source + '.stpkg')).rejects.toThrow(
-        'PACKAGE_MIGRATION_INCOMPLETE',
-      );
+    await expect(open(source + '.stpkg')).rejects.toThrow(
+      'PACKAGE_MIGRATION_INCOMPLETE',
+    );
   },
 );
+
+it('retains the exact original in the documented backup if the final unlock fails', async () => {
+  const { source } = await fixture('Unlock failure');
+  const expected = await packageCopyDigest(source);
+  const unlink = fs.unlink.bind(fs);
+  vi.spyOn(fs, 'unlink').mockImplementation(async (file) => {
+    if (file === path.join(source + '.stpkg', '.sportag-named-install'))
+      throw new Error('simulated storage error');
+    return unlink(file);
+  });
+  await expect(openNamed(source)).rejects.toThrow(
+    'PACKAGE_NAMED_INSTALL_INTERRUPTED',
+  );
+  const receipt = JSON.parse(
+    await fs.readFile(
+      path.join(source + '.stpkg', '.metadata/in-place-update.json'),
+      'utf8',
+    ),
+  );
+  expect(await packageCopyDigest(receipt.backupPath)).toBe(expected);
+  await expect(open(source + '.stpkg')).rejects.toThrow(
+    'PACKAGE_MIGRATION_INCOMPLETE',
+  );
+});

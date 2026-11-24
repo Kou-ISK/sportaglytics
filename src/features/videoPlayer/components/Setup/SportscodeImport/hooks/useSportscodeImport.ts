@@ -116,6 +116,9 @@ export const useSportscodeImport = ({
       setConfirmed(false);
       setError('');
     } catch (failure) {
+      setSource(null);
+      setVideo('');
+      setName('');
       setConfirmed(false);
       setError(importErrorMessage(failure, 'パッケージを選択できません。'));
     } finally {
