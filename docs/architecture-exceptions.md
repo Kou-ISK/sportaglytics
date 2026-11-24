@@ -49,6 +49,7 @@
 | ARCH-EX-020 | 2026-11-23 | Git / release | 0.17.36 のスライド保存互換修正を develop 統合後、main 基点の限定 PR で配布 | 未公開のモデル配布差分を除き、未公開の 0.17.35 タグは保持 | 互換修正・回帰・必要な版準備のみ。両 PR の CI とレビュー、署名、公証、同一 DMG の受入、更新確認を維持 | 0.17.36 の配布照合または 2026-12-07 の早い方 | maintainers | [#308](https://github.com/Kou-ISK/sportaglytics/pull/308) | Proposed |
 | ARCH-EX-021 | 2026-11-24 | Git / release | 0.17.37 を develop 統合後、main 基点の対象限定 PR で配布 | 未公開のモデル配布方針と再生試作を分離 | #310 の旧形式移行・Sportscode XML と映像の読み込み、回帰、必要な版準備のみ。CI・レビュー・署名・公証・同一配布物の受入・更新確認を維持 | 0.17.37 の配布照合または 2026-12-08 の早い方 | maintainers | [#310](https://github.com/Kou-ISK/sportaglytics/pull/310) | Proposed |
 | ARCH-EX-022 | 2026-11-24 | Git / release | v0.17.38 の版準備を develop に先行統合し、main 基点の限定 PR で反映 | 未配信の v0.17.37 タグを維持し、未公開のモデル変更を除く | #311 と #313 を含む main に対する版、配信ノートと関連検証・文書のみ。署名・公証・同一 DMG の受入・v0.17.36 からの更新確認を維持 | v0.17.38 の配布照合または 2026-12-08 の早い方 | maintainers | [#311](https://github.com/Kou-ISK/sportaglytics/pull/311)、[#313](https://github.com/Kou-ISK/sportaglytics/pull/313) | Proposed |
+| ARCH-EX-023 | 2026-11-24 | Git / release | v0.17.39 の版と配信ノートを develop 統合後、main 基点の限定 PR に反映 | 未配信タグを保持し、未公開モデル方針の混入を防ぐ | [#317](https://github.com/Kou-ISK/sportaglytics/pull/317) を含む main の版準備・ノート・関連検証に限定。双方の PR の CI・レビュー、署名・公証、同一 DMG の検査、v0.17.36 からの更新確認を維持 | v0.17.39 の配布照合または 2026-12-08 の早い方 | maintainers | [#317](https://github.com/Kou-ISK/sportaglytics/pull/317) | Proposed |
 
 ## 月次レビュー
 

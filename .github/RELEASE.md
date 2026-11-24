@@ -2,6 +2,14 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.39 の版準備
+
+公開版 v0.17.36 から旧形式移行・Sportscode XML 取り込みを含む v0.17.39 に更新します。未配信の v0.17.37、v0.17.38 タグは保持します。配信前検査の変更は [#317](https://github.com/Kou-ISK/sportaglytics/pull/317) にあります。模擬カメラが停止した原因は未特定です。ARCH-EX-023 の範囲で版とノートを develop に統合した後、main 基点の PR を検証します。
+
+配信担当は確定した main SHA と新規タグを照合し、既存の Release desktop を macOS 用に実行します。候補の run ID・artifact ID・アーカイブと両 DMG の SHA-256 を記録し、arm64 と Intel それぞれの署名・公証・staple・Gatekeeper と同梱物を確認します。署名済み arm64 DMG で全 E2E を実行し、編集直後の終了・再起動とライブ録画・保存・再オープンも確認します。
+
+隔離した更新先で、公開版 v0.17.36 で合成の .stpkg と動画のみの .stpl を作成・保存し、同じプロファイルを使う署名済み v0.17.39 に入れ替えます。起動版、映像参照、タグの開始・終了、プレイリストの順序と再保存後の読み戻しを確認します。[前回の更新試験](https://github.com/Kou-ISK/sportaglytics/actions/runs/45404584989) の対象は v0.17.38 です。公開後は GitHub Release と Homebrew Cask の両アーキテクチャの SHA-256 を公開 DMG に照合します。
+
 ## 0.17.38 の版準備
 
 公開済み v0.17.36 から更新します。未配信の v0.17.37 タグは保持します。旧形式移行と Sportscode XML 取り込み（[#311](https://github.com/Kou-ISK/sportaglytics/pull/311)）、署名前に検出した検査競合の修正（[#313](https://github.com/Kou-ISK/sportaglytics/pull/313)）は既に main にあります。ARCH-EX-022 の対象はこの main に対する版と配信ノートの準備に限ります。両 PR のレビュー・CI 後、配信担当が確定した main SHA を使い、macOS の署名・公証、同一 DMG での受入、v0.17.36 からの隔離更新、GitHub と Homebrew の両 DMG ハッシュ照合を行います。
