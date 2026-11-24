@@ -1,0 +1,84 @@
+name: Measure close and capture on the pinned signed 0.17.38 candidate
+on:
+  push:
+    branches: [test/signed-01738-close-capture]
+    paths:
+      - .github/workflows/signed-close-capture-evidence.yml
+      - scripts/e2e-timeline-close.mjs
+      - scripts/e2e-live-capture.mjs
+permissions:
+  contents: read
+  actions: read
+jobs:
+  acceptance:
+    runs-on: macos-latest
+    timeout-minutes: 22
+    env:
+      EXPECTED_MAIN: 499b1439679fa2e5481877dcf7a5fb66a7b3e655
+      CANDIDATE_RUN: '45394509833'
+      ARTIFACT_ID: '14923797846'
+      ARCHIVE_SHA256: '6a4caeb3d8ea0d749ba94f46d0c691d0122d503869802abf96d0e716da065c91'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.12.0'
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.1.0
+      - run: pnpm install --frozen-lockfile --ignore-scripts
+      - name: Pin release run, immutable artifact ID and downloaded bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu -o pipefail
+          test "$(uname -m)" = arm64
+          cd "$RUNNER_TEMP"
+          api="repos/$GITHUB_REPOSITORY"
+          gh api "$api/actions/runs/$CANDIDATE_RUN" > signing-run.json
+          jq -e --arg head "$EXPECTED_MAIN" '.conclusion=="success" and .path==".github/workflows/release.yml" and .head_branch=="main" and .head_sha==$head' signing-run.json
+          gh api "$api/actions/artifacts/$ARTIFACT_ID" > candidate-artifact.json
+          jq -e --arg name "macos-0.17.38-$EXPECTED_MAIN" --arg digest "sha256:$ARCHIVE_SHA256" --arg run "$CANDIDATE_RUN" '.name==$name and .expired==false and .digest==$digest and (.workflow_run.id|tostring)==$run' candidate-artifact.json
+          gh api "$api/actions/artifacts/$ARTIFACT_ID/zip" > candidate.zip
+          echo "$ARCHIVE_SHA256  candidate.zip" | shasum -a 256 -c -
+          arm=SporTagLytics-0.17.38-arm64.dmg
+          intel=SporTagLytics-0.17.38-x64.dmg
+          unzip -q candidate.zip "$arm" SHA256SUMS.txt release-verification.json
+          jq -e --arg head "$EXPECTED_MAIN" --arg run "https://github.com/$GITHUB_REPOSITORY/actions/runs/$CANDIDATE_RUN" '.version=="0.17.38" and .sourceCommit==$head and .workflowRun==$run and (.macos|length)==2 and all(.macos[]; .notarized and .stapled and .gatekeeperAccepted and .payloadCompared)' release-verification.json
+          for dmg in "$arm" "$intel"; do
+            expected=$(jq -er --arg name "$dmg" '.assets[$name]' release-verification.json)
+            listed=$(awk -v file="$dmg" '$2==file {print $1}' SHA256SUMS.txt)
+            test "$expected" = "$listed"
+            if test "$dmg" = "$arm"; then actual=$(shasum -a 256 "$dmg" | cut -d' ' -f1); else actual=$(unzip -p candidate.zip "$dmg" | shasum -a 256 | cut -d' ' -f1); fi
+            test "$actual" = "$expected"
+            echo "$actual  $dmg"
+          done
+      - name: Verify and mount the original signed candidate
+        run: |
+          set -eu -o pipefail
+          cd "$RUNNER_TEMP"
+          mkdir signed
+          hdiutil attach -readonly -nobrowse -mountpoint "$RUNNER_TEMP/signed" SporTagLytics-0.17.38-arm64.dmg
+          app="$RUNNER_TEMP/signed/SporTagLytics.app"
+          codesign --verify --deep --strict "$app"
+          xcrun stapler validate "$app"
+          spctl --assess -vv --type execute "$app"
+          test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = 0.17.38
+          echo "E2E_APP_PATH=$app/Contents/MacOS/SporTagLytics" >> "$GITHUB_ENV"
+          for tool in ffmpeg ffprobe; do
+            file=$(find "$app/Contents/Resources" -type f -name "$tool")
+            test -x "$file"
+            key=$(echo "$tool" | tr '[:lower:]' '[:upper:]')
+            echo "SPORTAGLYTICS_${key}_PATH=$file" >> "$GITHUB_ENV"
+          done
+      - name: Verify close before autosave twice on the signed build
+        run: |
+          node scripts/e2e-timeline-close.mjs
+          node scripts/e2e-timeline-close.mjs
+      - name: Verify live sources and saved segments twice on the signed build
+        if: ${{ !cancelled() && env.E2E_APP_PATH != '' }}
+        run: |
+          node scripts/e2e-live-capture.mjs
+          node scripts/e2e-live-capture.mjs
