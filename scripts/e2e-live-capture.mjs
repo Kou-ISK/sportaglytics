@@ -23,6 +23,18 @@ await fs.mkdir(artifacts, { recursive: true });
 const pkg = path.join(root, 'live.stpkg');
 const fixture = path.join(root, 'network.mp4');
 const cameraFixture = path.join(root, 'camera.y4m');
+const microphoneFixture = path.join(root, 'microphone.wav');
+execFileSync(ffmpegPath, [
+  '-v',
+  'error',
+  '-f',
+  'lavfi',
+  '-i',
+  'sine=frequency=440:sample_rate=48000:duration=2',
+  '-c:a',
+  'pcm_s16le',
+  microphoneFixture,
+]);
 execFileSync(ffmpegPath, [
   '-v',
   'error',
@@ -99,6 +111,7 @@ let app = await electron.launch(
     '--use-fake-device-for-media-stream',
     '--use-fake-ui-for-media-stream',
     `--use-file-for-fake-video-capture=${cameraFixture}`,
+    `--use-file-for-fake-audio-capture=${microphoneFixture}`,
   ]),
 );
 observeElectronErrors(app);
@@ -199,6 +212,8 @@ try {
   await capture.evaluate(() => {
     const Original = window.MediaRecorder;
     globalThis.captureRecorderStats = [];
+    globalThis.readCaptureRecorderStats = () =>
+      globalThis.captureRecorderStats.map((read) => read());
     window.MediaRecorder = class extends Original {
       constructor(stream, options) {
         super(stream, options);
@@ -212,8 +227,27 @@ try {
             frameRate: track.getSettings().frameRate,
           })),
         };
-        globalThis.captureRecorderStats.push(stats);
+        const started = performance.now();
+        globalThis.captureRecorderStats.push(() => ({
+          ...stats,
+          elapsedMs: Math.round(performance.now() - started),
+          state: this.state,
+          tracks: stream.getTracks().map((track) => ({
+            kind: track.kind,
+            ready: track.readyState,
+            enabled: track.enabled,
+            muted: track.muted,
+          })),
+          previewFrames:
+            [...document.querySelectorAll('video')]
+              .find((video) => video.srcObject === stream)
+              ?.getVideoPlaybackQuality().totalVideoFrames ?? null,
+        }));
+        this.addEventListener('error', (event) => {
+          stats.error = event.error?.name ?? 'unknown';
+        });
         this.addEventListener('dataavailable', (event) => {
+          stats.firstChunkMs ??= Math.round(performance.now() - started);
           stats.chunks++;
           stats.bytes += event.data.size;
         });
@@ -223,12 +257,20 @@ try {
   await capture
     .getByRole('button', { name: '録画を開始', exact: true })
     .click();
-  await waitForCapture(
-    (state) =>
-      state?.inputs.length === 3 &&
+  await waitForCapture((state) => {
+    if (state?.inputs.length !== 3) return false;
+    for (const input of state.inputs.slice(0, 2)) {
+      assert.notEqual(
+        input.phase,
+        'disconnected',
+        `Required ${input.kind} input disconnected after ${input.segmentCount} segments`,
+      );
+    }
+    return (
       state.inputs.slice(0, 2).every((input) => input.segmentCount >= 5) &&
-      state.inputs[2].phase === 'disconnected',
-  );
+      state.inputs[2].phase === 'disconnected'
+    );
+  });
   console.log(
     'USB fake camera and HTTP input record with audio; an unavailable input does not block coding',
   );
@@ -825,7 +867,7 @@ try {
     console.error(
       'Recorder stats:',
       await capture
-        .evaluate(() => globalThis.captureRecorderStats)
+        .evaluate(() => JSON.stringify(globalThis.readCaptureRecorderStats?.()))
         .catch(() => null),
     );
     const state = await capture

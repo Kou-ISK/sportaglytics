@@ -6,7 +6,7 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 # Testing and Quality Gates
 
-`scripts/e2e-timeline-close.mjs`は300msの自動保存待機内のClose（最初のstaging open前）、書込中の最新Undo、保存失敗後の再編集・再試行、2つの所有元のQuit取消と再試行を、実Main/preload/Renderer/atomic writerと別process再開で検査します。合成ファイルのrename保留・失敗と当該エラーダイアログの応答だけを注入し、保存IPCを置換しません。hook/unitでは同一tickの行補完、未知sender・古い応答、timeout、ライブ停止後の終了取消も検査します。Linuxコンテナで`DISPLAY=:91 E2E_CLOUD_LINUX=1`を明示した場合だけランチャーへ`--no-sandbox --disable-gpu`を追加します。この環境の成功をMac/Windows配布物やOS sandboxの検証と扱いません。
+`scripts/e2e-timeline-close.mjs`は300msの自動保存待機内のClose（最初のstaging open前）、書込中の最新Undo、保存失敗後の再編集・再試行、2つの所有元のQuit取消と再試行を、実Main/preload/Renderer/atomic writerと別process再開で検査します。短時間Closeの2ケースではRendererの時計を止め、編集の同期後に0msまたは100ms進めてから実ウィンドウを閉じます。Mainの時計と保存IPCは実物を使い、書込み中・失敗時のケースでは合成ファイルのrename保留・失敗とエラーダイアログ応答を注入します。hook/unitでは同一tickの行補完、未知sender・古い応答、timeout、ライブ停止後の終了取消も検査します。Linuxコンテナで`DISPLAY=:91 E2E_CLOUD_LINUX=1`を明示した場合だけランチャーへ`--no-sandbox --disable-gpu`を追加します。この環境の成功をMac/Windows配布物やOS sandboxの検証と扱いません。
 
 書込保留中の追加編集拒否は、バックグラウンド再生のdrain後に実際の保存flush要求が送られたことを観測してから検査します。native close要求から固定100msで編集凍結済みとは仮定せず、既存の15秒上限・実保存・別process再開の判定を維持します。
 
@@ -30,7 +30,7 @@ macOS の PR でも同じ合成 Timeline UX 試験を実行します。720px 幅
 
 A/B競合用の動画は同じ合成clipをパッケージ外の専用ファイルへコピーします。パッケージ参照は初回のportable metadata解決でdirtyになる場合があるため、その変換を競合試験のclean前提へ混ぜません。接続unitにも実メディア参照handler/hookを含めて初期cleanを確認し、nativeのdirty=false/true・保存先・Closeのassertは維持します。パッケージ参照・移動・既定アングルは既存の専用回帰で検査します。
 
-ライブキャプチャの回帰は`node scripts/e2e-live-capture.mjs`で行います（事前にmedia:build / e2e:prepare）。USB模擬入力と合成HTTP配信の同時録画、過去レビュー中のコード保存、再接続時の空白、停止・複数区間の書き出しを検証します。実機別のドライバ・連係カメラ・RTSP配信は別途ハードウェア検証が必要です。
+ライブキャプチャの回帰は`node scripts/e2e-live-capture.mjs`で行います（事前にmedia:build / e2e:prepare）。ファイルから供給する模擬カメラ・マイクと合成HTTP配信の同時録画、過去レビュー中のコード保存、再接続時の空白、停止・複数区間の書き出しを検証します。実機別のドライバ・連係カメラ・RTSP配信は別途ハードウェア検証が必要です。
 
 720pの模擬入力で録画画面と映像ウィンドウを隠し、Code Windowのクリック/ホットキーを混用して25秒間連続記録します。区間をまたいでもvideo要素が同一で、emptied・バッファ不足によるwaitingが発生せず映像時刻が進むことを確認します。共通時計への補正シーク中のwaitingは区別してログに残します。可変フレーム時刻の区間重複は保存時に補正し、書き出しと再オープンも検査します。
 
