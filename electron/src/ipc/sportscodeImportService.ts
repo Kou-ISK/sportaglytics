@@ -97,7 +97,9 @@ const contains = (parent: string, candidate: string): boolean => {
   const relative = path.relative(parent, candidate);
   return (
     relative === '' ||
-    (!relative.startsWith('..') && !path.isAbsolute(relative))
+    (relative !== '..' &&
+      !relative.startsWith('..' + path.sep) &&
+      !path.isAbsolute(relative))
   );
 };
 
@@ -143,6 +145,8 @@ export const importSportscodePackage = async (
     throw new Error('映像ファイルを確認できません。');
   const videoRealPath = await fs.realpath(request.videoPath);
   const directory = await fs.realpath(request.directory);
+  if (directory.split(path.sep).some((part) => /\.(scpkg|sczip)$/i.test(part)))
+    throw new Error('元のパッケージの外に保存先を選択してください。');
   assertOutsideNativePackage(await fs.realpath(request.xmlPath), directory);
   assertOutsideNativePackage(videoRealPath, directory);
   const packageName = /\.stpkg$/i.test(request.packageName)

@@ -9,6 +9,7 @@ import path from 'node:path';
 import { validateTimelineDocumentData } from '../../../src/shared/timeline/timelineValidation';
 import { isPlainObject } from './ipcPayloadGuards';
 
+export const INCOMPLETE_NAMED_PACKAGE = '.sportag-named-install';
 export const PACKAGE_FORMAT_VERSION = 1;
 
 export const readPackageJson = async (file: string): Promise<unknown> => {
@@ -66,6 +67,16 @@ export const inspectPackageCompatibility = async (
   const stat = await fs.lstat(packagePath);
   if (!stat.isDirectory() || stat.isSymbolicLink())
     throw new Error('PACKAGE_SOURCE_NOT_DIRECTORY');
+  if (
+    !staging &&
+    (await fs
+      .lstat(path.join(packagePath, INCOMPLETE_NAMED_PACKAGE))
+      .catch((error: NodeJS.ErrnoException) => {
+        if (error.code === 'ENOENT' || error.code === 'ENOTDIR') return null;
+        throw error;
+      }))
+  )
+    throw new Error('PACKAGE_MIGRATION_INCOMPLETE');
   const rootRealPath = await fs.realpath(packagePath);
   const metadataStat = await fs.lstat(path.join(packagePath, '.metadata'));
   if (!metadataStat.isDirectory() || metadataStat.isSymbolicLink())

@@ -202,3 +202,17 @@ it('rejects native packages and external entities as XML sources', async () => {
     '外部参照',
   );
 });
+
+it('rejects a destination anywhere in a Sportscode original even when both selected files are external', async () => {
+  const request = await fixture();
+  const destination = path.join(
+    request.directory,
+    'Another.scpkg',
+    '..archive',
+  );
+  await fs.mkdir(destination, { recursive: true });
+  await expect(
+    importSportscodePackage({ ...request, directory: destination }),
+  ).rejects.toThrow('パッケージの外');
+  expect(await fs.readdir(destination)).toEqual([]);
+});

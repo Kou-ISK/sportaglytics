@@ -1,3 +1,5 @@
+import path from 'node:path';
+import { selectSportscodeBundle } from './sportscodeBundleDialog';
 import { registerPackageOpenHandlers } from './packageOpenHandlers';
 import { readMediaFrameWindow } from './mediaFrameService';
 import { readMediaTimeline } from './mediaTimelineSource';
@@ -25,6 +27,24 @@ export const registerPackageHandlers = (): void => {
   isRegistered = true;
   registerPackageOpenHandlers();
 
+  registerHandleWithAliases(
+    'sportscode:select-bundle',
+    [],
+    async (event, selected: unknown) => {
+      const owner = getValidatedEventSenderWindow(event);
+      if (!owner) throw new Error('Invalid Sportscode package sender');
+      if (
+        selected !== undefined &&
+        (!isNonEmptyString(selected) ||
+          selected.length > 32768 ||
+          selected.includes('\0') ||
+          !path.isAbsolute(selected) ||
+          !/\.scpkg$/i.test(selected))
+      )
+        throw new Error('Invalid Sportscode package selection');
+      return selectSportscodeBundle(owner, selected);
+    },
+  );
   registerHandleWithAliases(
     'sportscode:read-xml',
     [],

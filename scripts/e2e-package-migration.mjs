@@ -20,14 +20,21 @@ export const exercisePackageMigration = async (
         const response =
           options.message === '開く内容を確認'
             ? options.buttons.indexOf('この場所の内容を使う')
-            : 0;
+            : options.message === '更新後の保存名を選択' &&
+                options.detail.includes('Named fixture.stpkg')
+              ? 1
+              : 0;
         if (response < 0) throw new Error('Unexpected package choice');
         return { response, checkboxChecked: false };
       }
       return original(...args);
     };
   });
-  for (const name of ['Legacy 日本語 #%', 'Legacy-old.stpkg']) {
+  for (const name of [
+    'Legacy 日本語 #%',
+    'Legacy-old.stpkg',
+    'Named fixture',
+  ]) {
     const source = path.join(root, name);
     await fs.cp(current, source, { recursive: true });
     const configFile = path.join(source, '.metadata/config.json');
@@ -72,7 +79,8 @@ export const exercisePackageMigration = async (
     assert.equal(migrated.status, 'ready');
     assert.equal(migrated.migrated, true);
     assert.equal(migrated.reused, false);
-    assert.equal(migrated.packagePath, await fs.realpath(source));
+    const installed = name === 'Named fixture' ? source + '.stpkg' : source;
+    assert.equal(migrated.packagePath, await fs.realpath(installed));
     assert.ok(migrated.backupPath);
     const result = JSON.parse(
       await fs.readFile(

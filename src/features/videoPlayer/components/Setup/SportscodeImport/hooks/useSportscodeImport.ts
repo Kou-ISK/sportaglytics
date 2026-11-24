@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { SportscodeXmlSource } from '../../../../../../shared/timeline/sportscodeImport';
+import type {
+  SportscodeXmlSource,
+  SportscodeBundleSelection,
+} from '../../../../../../shared/timeline/sportscodeImport';
 import type { PackageLoadResult } from '../../VideoPathSelector/types';
 import {
   selectPackageDirectory,
@@ -8,6 +11,7 @@ import {
 import { buildPackageLoadResult } from '../../VideoPathSelector/utils/packageCreationMappers';
 import {
   createSportscodeProject,
+  pickSportscodeBundle,
   selectSportscodeXml,
 } from '../gateway/sportscodeImportGateway';
 import { parseSportscodeXml } from '../domain/parseSportscodeXml';
@@ -27,10 +31,12 @@ const importErrorMessage = (failure: unknown, fallback: string): string => {
 
 export const useSportscodeImport = ({
   open,
+  initialBundle,
   onClose,
   onImported,
 }: {
   open: boolean;
+  initialBundle?: SportscodeBundleSelection | null;
   onClose: () => void;
   onImported: (value: PackageLoadResult) => void;
 }): SportscodeImportViewProps => {
@@ -44,14 +50,14 @@ export const useSportscodeImport = ({
   const [error, setError] = useState('');
   useEffect(() => {
     if (!open) return;
-    setSource(null);
-    setVideo('');
-    setName('');
+    setSource(initialBundle?.xml ?? null);
+    setVideo(initialBundle?.videoPath ?? '');
+    setName(initialBundle?.name ?? '');
     setOffset('0');
     setConfirmed(false);
     setBusy(false);
     setError('');
-  }, [open]);
+  }, [open, initialBundle]);
   const parsed = useMemo(() => {
     if (!source) return { result: null, error: '' };
     try {
@@ -94,6 +100,30 @@ export const useSportscodeImport = ({
       }
     } catch (failure) {
       setError(importErrorMessage(failure, '映像を選択できません。'));
+    }
+  }, []);
+  const pickBundle = useCallback(async (): Promise<void> => {
+    if (operation.current) return;
+    operation.current = true;
+    setBusy(true);
+    try {
+      const bundle = await pickSportscodeBundle();
+      if (!bundle) return;
+      setSource(bundle.xml);
+      setVideo(bundle.videoPath);
+      setName(bundle.name);
+      setOffset('0');
+      setConfirmed(false);
+      setError('');
+    } catch (failure) {
+      setSource(null);
+      setVideo('');
+      setName('');
+      setConfirmed(false);
+      setError(importErrorMessage(failure, 'パッケージを選択できません。'));
+    } finally {
+      operation.current = false;
+      setBusy(false);
     }
   }, []);
   const canImport = Boolean(
@@ -150,6 +180,7 @@ export const useSportscodeImport = ({
     confirmed,
     preview: parsed.result,
     canImport,
+    onSelectBundle: () => void pickBundle(),
     onSelectXml: () => void pickXml(),
     onSelectVideo: () => void pickVideo(),
     onNameChange: setName,
