@@ -174,6 +174,18 @@ try {
   const timeline = JSON.parse(
     await fs.readFile(path.join(project, 'timeline.json'), 'utf8'),
   );
+  const config = JSON.parse(
+    await fs.readFile(path.join(project, '.metadata/config.json'), 'utf8'),
+  );
+  assert.equal(config.angles.length, 1);
+  assert.equal(config.angles[0].clips.length, 1);
+  const clip = config.angles[0].clips[0];
+  assert.ok(!path.isAbsolute(clip.relativePath));
+  assert.deepEqual(
+    await fs.readFile(path.join(project, clip.relativePath)),
+    originalVideo,
+  );
+  assert.equal(clip.gapBeforeSeconds, 0);
   assert.equal(timeline.version, 2);
   assert.equal(timeline.instances.length, 2);
   assert.equal(timeline.rows.length, 3);
@@ -242,6 +254,9 @@ try {
     for (const window of BrowserWindow.getAllWindows()) window.destroy();
   });
   await app.close();
+  // Simulate the original drive going offline, using only this synthetic fixture.
+  const offline = path.join(root, 'Disconnected source');
+  await fs.rename(sources, offline);
   app = await electron.launch({
     ...getElectronLaunchOptions(path.join(root, 'profile'), [project]),
     timeout: 60000,
@@ -287,8 +302,14 @@ try {
     timeline.instances[0].labels,
   );
   assert.equal(reopenedDocument.instances[0].memo, '再保存した合成ノート 🙂');
-  assert.equal(await fs.readFile(xmlPath, 'utf8'), xml);
-  assert.deepEqual(await fs.readFile(videoPath), originalVideo);
+  assert.equal(
+    await fs.readFile(path.join(offline, path.basename(xmlPath)), 'utf8'),
+    xml,
+  );
+  assert.deepEqual(
+    await fs.readFile(path.join(offline, path.basename(videoPath))),
+    originalVideo,
+  );
   await screenshot(reopenedTimeline, 'reopened-label-groups');
   console.log(
     'Sportscode XML: explicit video, preserved groups/notes/colors/decimal times, cancelled picker, rejected out-of-range times, separate validated project; native picker options verified through adapter',

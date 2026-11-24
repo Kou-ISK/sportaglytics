@@ -10,9 +10,9 @@ Proposed
 
 ## Related ADRs
 
-- Supersedes: N/A
+- Supersedes: [0067](0067-in-place-package-updates.md) の「拡張子なしの名前を必ず維持する」という部分のみ。既定の同名更新、以前のコピー採用と復元の契約は維持する。
 - Superseded by: N/A
-- [0006 Application document formats](0006-application-document-formats-and-file-associations.md)
+- [0009 Timeline import and export](0009-timeline-import-export-interoperability.md)
 
 ## Context
 
