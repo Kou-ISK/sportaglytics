@@ -5,6 +5,23 @@ import fs from 'node:fs/promises';
 import { packageUpdatePaths, strictPathExists } from './packageUpdateJournal';
 import type { PackageContentChoice } from './packageMigrationCandidates';
 
+export const chooseNamedDestination = async (
+  window: BrowserWindow,
+  source: string,
+): Promise<boolean> => {
+  const choice = await dialog.showMessageBox(window, {
+    type: 'question',
+    title: 'ファイルを開く',
+    message: '更新後の保存名を選択',
+    detail: `「.stpkg に変更」では ${path.basename(source)}.stpkg を読み戻してから、元フォルダを復元用に退避します。同名の保存先がある場合は中止します。`,
+    buttons: ['現在の名前で開く', '.stpkg に変更', 'キャンセル'],
+    defaultId: 0,
+    cancelId: 2,
+  });
+  if (choice.response === 2) throw new Error('PACKAGE_MIGRATION_CANCELLED');
+  return choice.response === 1;
+};
+
 export const choosePackageContent = async (
   window: BrowserWindow,
   choice: PackageContentChoice,
@@ -63,7 +80,7 @@ export const showPackageBackup = async (
     type: 'info',
     title: 'ファイルを開く',
     message: '更新前の内容を復元できます',
-    detail: `今後の編集は元の場所へ保存します。更新前の内容は次の場所に残しています。\n\n${backupPath}\n\n復元する場合は対象をアプリで閉じ、現在のファイルを別の場所に保管してから、このバックアップを元の場所へ戻してください。バックアップは自動削除しません。`,
+    detail: `今後の編集は開いたパッケージへ保存します。更新前の内容は次の場所に残しています。\n\n${backupPath}\n\n復元する場合は対象をアプリで閉じ、現在のファイルを別の場所に保管してから、このバックアップを元の場所へ戻してください。バックアップは自動削除しません。`,
     buttons: ['閉じる', '保存場所を表示'],
     defaultId: 1,
     cancelId: 0,

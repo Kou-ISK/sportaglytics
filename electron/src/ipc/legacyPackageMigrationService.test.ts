@@ -557,3 +557,104 @@ it('does not treat a reused PID as the owner and retains malformed recovery cont
     'Evidence',
   );
 });
+
+const openNamed = (source: string): ReturnType<typeof preparePackageForOpen> =>
+  preparePackageForOpen(source, {
+    choose: useOriginal,
+    chooseNamedDestination: async () => true,
+  });
+
+it('saves a pre-suffix package under its new name and reopens the same media and fractional tag range', async () => {
+  const { source } = await fixture('Synthetic match');
+  // Layout written by the last pre-suffix writer (d6e56540). Synthetic data only.
+  const movie = 'videos/Synthetic tight.mp4';
+  await fs.mkdir(path.join(source, 'videos'));
+  await fs.rename(path.join(source, 'video.mp4'), path.join(source, movie));
+  const config = {
+    tightViewPath: movie,
+    angles: [
+      { id: 'tight', name: 'Tight', role: 'primary', relativePath: movie },
+    ],
+    primaryAngleId: 'tight',
+  };
+  await fs.writeFile(
+    path.join(source, '.metadata/config.json'),
+    JSON.stringify(config),
+  );
+  await fs.writeFile(
+    path.join(source, 'timeline.json'),
+    JSON.stringify([
+      {
+        id: 'event',
+        actionName: 'Play',
+        startTime: 1.125,
+        endTime: 2.875,
+        memo: 'Before',
+      },
+    ]),
+  );
+  const before = await packageCopyDigest(source);
+  const opened = await openNamed(source);
+  expect(opened.packagePath).toBe(source + '.stpkg');
+  expect(await strictPathExists(source)).toBe(false);
+  expect(await packageCopyDigest(opened.backupPath!)).toBe(before);
+  expect((await open(source)).packagePath).toBe(opened.packagePath);
+  const cfg = JSON.parse(
+    await fs.readFile(
+      path.join(opened.packagePath, '.metadata/config.json'),
+      'utf8',
+    ),
+  );
+  expect(cfg.angles[0].relativePath).toBe(movie);
+  expect(await fs.readFile(path.join(opened.packagePath, movie))).toEqual(
+    Buffer.from([0, 1, 2, 3]),
+  );
+  const timeline = path.join(opened.packagePath, 'timeline.json');
+  const doc = JSON.parse(await fs.readFile(timeline, 'utf8'));
+  doc.instances[0].memo = 'Edited';
+  await fs.writeFile(timeline, JSON.stringify(doc));
+  await open(opened.packagePath);
+  expect(
+    JSON.parse(await fs.readFile(timeline, 'utf8')).instances[0],
+  ).toMatchObject({ startTime: 1.125, endTime: 2.875, memo: 'Edited' });
+  await expect(open(opened.backupPath!)).rejects.toThrow(
+    'PACKAGE_UPDATE_BACKUP_SELECTED',
+  );
+});
+
+it('preserves the original when the named destination already exists, including an empty directory', async () => {
+  const { source } = await fixture('Collision');
+  const before = await packageCopyDigest(source);
+  await fs.mkdir(source + '.stpkg');
+  await expect(openNamed(source)).rejects.toThrow(
+    'PACKAGE_MIGRATION_TARGET_EXISTS',
+  );
+  expect(await packageCopyDigest(source)).toBe(before);
+  expect(await fs.readdir(source + '.stpkg')).toEqual([]);
+});
+
+it.each(['metadata', 'archive'])(
+  'keeps the original intact on a late named install failure at %s',
+  async (point) => {
+    const { source } = await fixture('Interrupted');
+    const before = await packageCopyDigest(source);
+    const rename = fs.rename.bind(fs);
+    vi.spyOn(fs, 'rename').mockImplementation(async (from, to) => {
+      if (
+        (point === 'metadata' &&
+          to === path.join(source + '.stpkg', '.metadata')) ||
+        (point === 'archive' && from === source)
+      )
+        throw new Error('injected failure');
+      return rename(from, to);
+    });
+    await expect(openNamed(source)).rejects.toThrow(
+      'PACKAGE_NAMED_INSTALL_INTERRUPTED',
+    );
+    expect(await packageCopyDigest(source)).toBe(before);
+    if (point === 'metadata')
+      await expect(open(source + '.stpkg')).rejects.toThrow(
+        'PACKAGE_MIGRATION_INCOMPLETE',
+      );
+  },
+);

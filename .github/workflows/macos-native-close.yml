@@ -45,6 +45,10 @@ jobs:
         run: node scripts/e2e-timeline-close.mjs
       - name: Verify audio sync after package creation and reopen
         run: node scripts/e2e-new-package-audio-sync.mjs
+      - name: Verify legacy conversion and Sportscode bundle import with synthetic media
+        run: |
+          node scripts/e2e-package-safety.mjs
+          node scripts/e2e-sportscode-import.mjs
       - name: Verify timeline row and selection interactions
         run: node scripts/e2e-timeline-rows.mjs
       - name: Verify cross-clip ruler presentation on macOS

@@ -10,6 +10,7 @@ export type AppBridgeLegacyKeys =
   | 'openDirectory'
   | 'selectPackagePath'
   | 'readSportscodeXml'
+  | 'selectSportscodeBundle'
   | 'importSportscodePackage'
   | 'exportTimeline'
   | 'createPackage'
@@ -31,6 +32,8 @@ export const createAppBridgeLegacyApi = (
 ): Pick<IElectronAPI, AppBridgeLegacyKeys> => {
   return {
     selectPackagePath: () => ipcRenderer.invoke('package:select-path'),
+    selectSportscodeBundle: (selected) =>
+      ipcRenderer.invoke('sportscode:select-bundle', selected),
     readSportscodeXml: (file) =>
       ipcRenderer.invoke('sportscode:read-xml', file),
     importSportscodePackage: (request) =>

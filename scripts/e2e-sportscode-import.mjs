@@ -11,7 +11,7 @@ import { ffmpegPath } from './media-tool-paths.mjs';
 const root = await fs.mkdtemp(
   path.join(os.tmpdir(), 'sportaglytics-sportscode-'),
 );
-const sources = path.join(root, 'originals');
+const sources = path.join(root, 'Synthetic #%.scpkg');
 const destination = path.join(root, 'new-projects');
 await fs.mkdir(sources);
 await fs.mkdir(destination);
@@ -89,13 +89,14 @@ try {
   );
   await main.reload();
   await app.evaluate(
-    ({ dialog }, { xmlPath, videoPath, destination }) => {
+    ({ dialog }, { sources, xmlPath, videoPath, destination }) => {
       globalThis.importDialogCalls = [];
       globalThis.importDialogResponses = [
         xmlPath,
         videoPath,
         null,
         destination,
+        sources,
         destination,
       ];
       dialog.showOpenDialog = async (...args) => {
@@ -104,7 +105,7 @@ try {
         return { canceled: !chosen, filePaths: chosen ? [chosen] : [] };
       };
     },
-    { xmlPath, videoPath, destination },
+    { sources, xmlPath, videoPath, destination },
   );
   await main
     .getByRole('button', { name: 'Sportscode XMLから作成', exact: true })
@@ -157,9 +158,12 @@ try {
     'Out-of-range XML must leave no partial project',
   );
   await screenshot(main, 'time-mismatch');
-  await dialog
-    .getByRole('spinbutton', { name: 'XML時刻に加える秒数', exact: true })
-    .fill('0');
+  await dialog.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  await main
+    .getByRole('button', { name: 'パッケージを開く', exact: true })
+    .click();
+  await dialog.getByText('3行 / 2場面', { exact: false }).waitFor();
+  assert.equal(await dialog.getByRole('spinbutton').inputValue(), '0');
   await confirm.check();
   await screenshot(main, 'preview');
   await create.click();
@@ -268,6 +272,10 @@ try {
         unsubscribe = api.onSync(callback);
         api.sendCommand({ type: 'request-sync' });
       }),
+  );
+  assert.deepEqual(
+    loadedInstances.map(({ startTime, endTime }) => [startTime, endTime]),
+    timeline.instances.map(({ startTime, endTime }) => [startTime, endTime]),
   );
   assert.deepEqual(loadedInstances[0].labels, timeline.instances[0].labels);
   assert.equal(loadedInstances[0].memo, '再保存した合成ノート 🙂');

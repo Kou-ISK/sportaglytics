@@ -6,6 +6,12 @@ export interface SportscodeXmlSource {
   sha256: string;
 }
 
+export interface SportscodeBundleSelection {
+  name: string;
+  videoPath: string;
+  xml: SportscodeXmlSource | null;
+}
+
 export interface SportscodeImportRequest {
   xmlPath: string;
   xmlSha256: string;
