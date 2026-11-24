@@ -400,9 +400,24 @@ try {
   await timeline.keyboard.press(`${primaryModifier}+f`);
   await search.fill('終盤');
   await timeline.keyboard.press('Enter');
-  await (
-    await app.browserWindow(timeline)
-  ).evaluate((window) => window.setSize(720, 460));
+  const native = await app.browserWindow(timeline);
+  for (const width of [720, 1100, 720, 1100, 720]) {
+    const target = await native.evaluate((win, w) => {
+      win.setSize(w, 460);
+      return win.getContentSize();
+    }, width);
+    const samples = await timeline.evaluate(async () => {
+      const samples = [];
+      for (let i = 0; i < 6; i++) {
+        if (i) await new Promise(requestAnimationFrame);
+        const overflowing = [...document.body.children].filter(el => el.scrollWidth > innerWidth || el.getBoundingClientRect().right > innerWidth);
+        samples.push({w:innerWidth, h:innerHeight, scroll:document.documentElement.scrollWidth,
+          elements:overflowing.map(el=>[el.tagName, el.id, el.className, el.scrollWidth, el.getBoundingClientRect().right])});
+      }
+      return samples;
+    });
+    console.log('Synthetic resize trace', JSON.stringify({width, target, samples}));
+  }
   await screenshot(timeline, 'ux-review-compact');
   assert.equal(
     await timeline
