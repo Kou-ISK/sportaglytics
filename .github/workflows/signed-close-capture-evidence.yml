@@ -66,6 +66,13 @@ jobs:
           xcrun stapler validate "$app"
           spctl --assess -vv --type execute "$app"
           test "$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")" = 0.17.38
+          mkdir "$RUNNER_TEMP/isolated-Applications"
+          ditto "$app" "$RUNNER_TEMP/isolated-Applications/SporTagLytics.app"
+          app="$RUNNER_TEMP/isolated-Applications/SporTagLytics.app"
+          codesign --verify --deep --strict "$app"
+          cmp "$app/Contents/Resources/app.asar" "$RUNNER_TEMP/signed/SporTagLytics.app/Contents/Resources/app.asar"
+          xcrun stapler validate "$app"
+          spctl --assess -vv --type execute "$app"
           echo "E2E_APP_PATH=$app/Contents/MacOS/SporTagLytics" >> "$GITHUB_ENV"
           for tool in ffmpeg ffprobe; do
             file=$(find "$app/Contents/Resources" -type f -name "$tool")
