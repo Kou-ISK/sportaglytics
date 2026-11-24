@@ -2,6 +2,10 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.38 の版準備
+
+公開済み v0.17.36 から更新します。未配信の v0.17.37 タグは保持します。旧形式移行と Sportscode XML 取り込み（[#311](https://github.com/Kou-ISK/sportaglytics/pull/311)）、署名前に検出した検査競合の修正（[#313](https://github.com/Kou-ISK/sportaglytics/pull/313)）は既に main にあります。ARCH-EX-022 の対象はこの main に対する版と配信ノートの準備に限ります。両 PR のレビュー・CI 後、配信担当が確定した main SHA を使い、macOS の署名・公証、同一 DMG での受入、v0.17.36 からの隔離更新、GitHub と Homebrew の両 DMG ハッシュ照合を行います。
+
 ## 0.17.37 の旧プロジェクト移行とSportscode取り込み
 
 [PR #310](https://github.com/Kou-ISK/sportaglytics/pull/310) と版準備を develop に統合後、ARCH-EX-021 の限定案をレビューし、main 基点の PR に今回の差分だけを適用します。未公開のモデル配布方針・catalog・lock、再生のDraftは含めません。両PRの品質・macOS・Windows試験とレビュー、署名・公証、同一DMGの隔離インストールと保存後の再起動、v0.17.36からの更新、公開後の両DMGとHomebrewのSHA-256照合を行います。Sportscodeの試験範囲は書き出したXMLと連続映像です。

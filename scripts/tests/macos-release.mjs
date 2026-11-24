@@ -285,6 +285,7 @@ test('release notes CLI writes UTF-8 independently of the shell locale and needs
         env: {
           ...process.env,
           INCLUDE_WINDOWS: String(includeWindows),
+          RELEASE_VERSION: '0.17.38',
           LC_ALL: locale,
           LANG: locale,
         },
@@ -300,7 +301,11 @@ test('release notes CLI writes UTF-8 independently of the shell locale and needs
             : 'Windows installerはこのReleaseに含みません。',
         ),
       );
-      assert.doesNotMatch(notes, /\uFFFD|\d+\s*E2E/);
+      assert.match(notes, /v0\.17\.36 からの変更/);
+      assert.match(notes, /\.stpkg に変更/);
+      assert.match(notes, /連続映像1本と Sportscode XML/);
+      assert.match(notes, /v0\.17\.37 は未配信/);
+      assert.doesNotMatch(notes, /0\.17\.31では|\uFFFD|\d+\s*E2E/);
       assert.ok(
         bytes.includes(
           Buffer.from('GGUFと自動検出用model packは別途必要です。', 'utf8'),
