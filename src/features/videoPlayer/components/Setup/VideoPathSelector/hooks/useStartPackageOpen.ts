@@ -28,6 +28,7 @@ export interface StartPackageOpen {
 /** 開く・履歴・drop・native menuを同じロード状態に集約する。 */
 export const useStartPackageOpen = (
   onLoaded: (result: PackageLoadResult) => void,
+  onOpenBundle?: (path: string) => Promise<void>,
 ): StartPackageOpen => {
   const [busy, setBusy] = useState(false);
   const [failure, setFailure] = useState<{
@@ -53,6 +54,11 @@ export const useStartPackageOpen = (
       try {
         selectedPath = (await pickPackagePath(path)) ?? undefined;
         if (!selectedPath || request.current !== requestId) return;
+        if (onOpenBundle && /\.scpkg$/i.test(selectedPath)) {
+          await releasePackageSessionReservation(selectedPath, requestId);
+          await onOpenBundle(selectedPath);
+          return;
+        }
         const loaded = await loadPackageDirectory(
           selectedPath,
           requestId,
@@ -100,7 +106,7 @@ export const useStartPackageOpen = (
         }
       }
     },
-    [info, onLoaded],
+    [info, onLoaded, onOpenBundle],
   );
   useEffect(() => {
     const cleanup = [

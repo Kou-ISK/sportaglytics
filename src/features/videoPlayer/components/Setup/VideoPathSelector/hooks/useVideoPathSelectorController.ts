@@ -30,6 +30,7 @@ interface VideoPathSelectorController extends StartStatusProps {
 
 export const useVideoPathSelectorController = ({
   openWizardRequestKey = 0,
+  onOpenBundle,
   setVideoList,
   setIsFileSelected,
   setTimelineFilePath,
@@ -37,7 +38,9 @@ export const useVideoPathSelectorController = ({
   setMetaDataConfigFilePath,
   setSyncData,
   setMediaAngles,
-}: VideoPathSelectorProps): VideoPathSelectorController => {
+}: VideoPathSelectorProps & {
+  onOpenBundle?: (path: string) => Promise<void>;
+}): VideoPathSelectorController => {
   const [searchQuery, setSearchQuery] = useState('');
   const [wizardOpen, setWizardOpen] = useState(false);
   const [showWelcome, setShowWelcome] = useState(false);
@@ -109,7 +112,7 @@ export const useVideoPathSelectorController = ({
     [handlePackageLoaded, notify],
   );
 
-  const opener = useStartPackageOpen(handlePackageLoaded);
+  const opener = useStartPackageOpen(handlePackageLoaded, onOpenBundle);
   const { dragState, handlers: dragHandlers } = useDragAndDrop(
     (path) => void opener.open(path, 'drop'),
     opener.reportInvalidDrop,

@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+import type { SportscodeBundleSelection } from '../../../../shared/timeline/sportscodeImport';
+import { pickSportscodeBundle } from './SportscodeImport/gateway/sportscodeImportGateway';
+import React, { useCallback, useState } from 'react';
 import { CreatePackageWizard } from './VideoPathSelector/CreatePackageWizard';
 import { VideoPathSelectorView } from './VideoPathSelectorView';
 import type { VideoPathSelectorProps } from './VideoPathSelector/types';
@@ -16,6 +18,14 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
   setMediaAngles,
 }) => {
   const [sportscodeOpen, setSportscodeOpen] = useState(false);
+  const [bundle, setBundle] = useState<SportscodeBundleSelection | null>(null);
+  const onOpenBundle = useCallback(async (path: string): Promise<void> => {
+    const selected = await pickSportscodeBundle(path);
+    if (selected) {
+      setBundle(selected);
+      setSportscodeOpen(true);
+    }
+  }, []);
   const {
     handlePackageCreated,
     handleOpenPackage,
@@ -25,6 +35,7 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
     removeRecentPackage,
     ...viewProps
   } = useVideoPathSelectorController({
+    onOpenBundle,
     openWizardRequestKey,
     setVideoList,
     setIsFileSelected,
@@ -43,10 +54,14 @@ export const VideoPathSelector: React.FC<VideoPathSelectorProps> = ({
         onOpenWizard={handleOpenWizard}
         onOpenRecentPackage={handleRecentPackageOpen}
         onRemoveRecentPackage={removeRecentPackage}
-        onOpenSportscode={() => setSportscodeOpen(true)}
+        onOpenSportscode={() => {
+          setBundle(null);
+          setSportscodeOpen(true);
+        }}
       />
       <SportscodeImportDialog
         open={sportscodeOpen}
+        initialBundle={bundle}
         onClose={() => setSportscodeOpen(false)}
         onImported={handlePackageCreated}
       />

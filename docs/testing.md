@@ -62,7 +62,7 @@ Playlist Sorterの操作と保存順は`pnpm run test:e2e:export-menu`に含み�
 - `atomicTextFile.test.ts`: commit faultのEACCES/ENOSPC/EIO、symlink、read-only destination、同時writeと一時ファイルcleanupを確認する。
 - `SportscodeImport/domain/*.test.ts` / Hook / `sportscodeImportService.test.ts`: 公式subsetの秒数・group・ノート・色/空行、未知構造拒否、明示映像・補正・取消・二重実行抑止、Main payload/hash・容量・範囲・完成rename失敗を検証する。Main unitのmedia作成/probeはmockなので実動画の証拠にしない。
 - `node scripts/e2e-package-safety.mjs`: 実preload/Mainによるread-only原本の拒否・同名更新・バックアップ保持・再実行、未知/未来/native/映像不在拒否、Renderer read fault中の原本保持と両Window retry、書き込み中のUndo、読込失敗中のコードボタン/ホットキー、空文書への再読込後の正常なタグ付けと別processでの再開を確認する。実アプリのtext writerは置換せず、合成保存先のfs.renameへfaultを入れる。12同時write/80回JSON読取で部分ファイルが見えないことも確認する。
-- `node scripts/e2e-sportscode-import.mjs`: 合成XML・合成動画で取消、実動画尺超過の拒否、秒数補正、コピー作成、タグ/ラベル/色/ノート/空行、原本bytes保持を本番IPC/probeで確認する。`actionType`/`Type`/`__proto__`/`constructor`などのgroupを含め、実Rendererでmemo編集・保存・新process再開を行いラベル保持を確認する。
+- `node scripts/e2e-sportscode-import.mjs`: 合成.scpkgを通常の「パッケージを開く」で選択し、実Rendererでタグを再保存・再起動した後の開始・終了秒と映像を照合する。合成XML・合成動画で取消、実動画尺超過の拒否、秒数補正、コピー作成、タグ/ラベル/色/ノート/空行、原本bytes保持を本番IPC/probeで確認する。`actionType`/`Type`/`__proto__`/`constructor`などのgroupを含め、実Rendererでmemo編集・保存・新process再開を行いラベル保持を確認する。
 
 - `node scripts/e2e-legacy-external.mjs`: パッケージ外のreadonly合成映像を絶対パスとfile URIで参照する旧フォルダを移行し、同名更新後のTimelineシーク経路と再生・停止ボタンで実video要素の位置・進行・停止と原本保持を確認する。再生状態と時計はアプリのcontrollerを通し、動画要素への直接play/pauseと競合させない。
 

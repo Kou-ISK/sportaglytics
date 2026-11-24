@@ -24,6 +24,7 @@ import type { PackageOpenPreparationResult } from './types/package/migration';
 import type {
   SportscodeImportRequest,
   SportscodeXmlSource,
+  SportscodeBundleSelection,
 } from './shared/timeline/sportscodeImport';
 
 export interface LlamaModelInfo {
@@ -135,6 +136,9 @@ export interface IElectronAPI {
   resolveDroppedPackagePath: (file: File) => string;
   openDirectory: () => Promise<string>;
   selectPackagePath: () => Promise<string>;
+  selectSportscodeBundle: (
+    selected?: string,
+  ) => Promise<SportscodeBundleSelection | null>;
   readSportscodeXml: (path: string) => Promise<SportscodeXmlSource>;
   importSportscodePackage: (
     request: SportscodeImportRequest,

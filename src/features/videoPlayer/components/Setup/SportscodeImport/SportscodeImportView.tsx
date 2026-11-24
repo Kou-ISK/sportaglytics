@@ -25,6 +25,7 @@ export interface SportscodeImportViewProps {
   confirmed: boolean;
   preview: ParsedSportscodeXml | null;
   canImport: boolean;
+  onSelectBundle: () => void;
   onSelectXml: () => void;
   onSelectVideo: () => void;
   onNameChange: (value: string) => void;
@@ -49,9 +50,16 @@ export const SportscodeImportView = (
     <DialogContent>
       <Stack spacing={1.5} sx={{ pt: 1.5 }}>
         <Typography variant="body2">
-          Sportscodeから書き出したXMLと対応する映像を選択します。原本を保持し、映像のコピーとタイムラインを新しい.stpkgへ保存します。.scpkg
-          / .sczipは直接開けません。
+          フォルダ形式の.scpkg、または書き出したXMLと対応する映像を選んでください。1本の連続映像と1つのタイムラインを新しい.stpkgに保存します。XMLがない場合は、Sportscodeの「File
+          → Export → Sportscode XML」で書き出したファイルを選んでください。
         </Typography>
+        <Button
+          variant="outlined"
+          disabled={props.busy}
+          onClick={props.onSelectBundle}
+        >
+          Sportscodeパッケージを選択
+        </Button>
         <Button
           variant="outlined"
           disabled={props.busy}
