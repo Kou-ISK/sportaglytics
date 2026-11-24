@@ -7,6 +7,7 @@ import { _electron as electron } from 'playwright';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
+import { resizeTimelineReviewWindow } from './e2e-timeline-review-resize.mjs';
 import { verifySavedPlaylistLoadDelivery } from './e2e-playlist-load-delivery.mjs';
 import { verifyPlaylistDocumentIdentity } from './e2e-playlist-document-identity.mjs';
 
@@ -400,24 +401,7 @@ try {
   await timeline.keyboard.press(`${primaryModifier}+f`);
   await search.fill('終盤');
   await timeline.keyboard.press('Enter');
-  const native = await app.browserWindow(timeline);
-  for (const width of [720, 1100, 720, 1100, 720]) {
-    const target = await native.evaluate((win, w) => {
-      win.setSize(w, 460);
-      return win.getContentSize();
-    }, width);
-    const samples = await timeline.evaluate(async () => {
-      const samples = [];
-      for (let i = 0; i < 6; i++) {
-        if (i) await new Promise(requestAnimationFrame);
-        const overflowing = [...document.body.children].filter(el => el.scrollWidth > innerWidth || el.getBoundingClientRect().right > innerWidth);
-        samples.push({w:innerWidth, h:innerHeight, scroll:document.documentElement.scrollWidth,
-          elements:overflowing.map(el=>[el.tagName, el.id, el.className, el.scrollWidth, el.getBoundingClientRect().right])});
-      }
-      return samples;
-    });
-    console.log('Synthetic resize trace', JSON.stringify({width, target, samples}));
-  }
+  await resizeTimelineReviewWindow(app, timeline, 720, 460);
   await screenshot(timeline, 'ux-review-compact');
   assert.equal(
     await timeline
@@ -431,9 +415,7 @@ try {
     ),
     false,
   );
-  await (
-    await app.browserWindow(timeline)
-  ).evaluate((window) => window.setSize(720, 300));
+  await resizeTimelineReviewWindow(app, timeline, 720, 300);
   const reviewPane = timeline.getByRole('complementary', {
     name: '場面を検索',
     exact: true,
