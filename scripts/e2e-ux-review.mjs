@@ -7,6 +7,7 @@ import { _electron as electron } from 'playwright';
 import { getElectronLaunchOptions } from './e2e-electron-launch.mjs';
 import { fixtureH264Encoder, primaryModifier } from './e2e-platform.mjs';
 import { ffmpegPath } from './media-tool-paths.mjs';
+import { resizeTimelineReviewWindow } from './e2e-timeline-review-resize.mjs';
 import { verifySavedPlaylistLoadDelivery } from './e2e-playlist-load-delivery.mjs';
 import { verifyPlaylistDocumentIdentity } from './e2e-playlist-document-identity.mjs';
 
@@ -400,9 +401,7 @@ try {
   await timeline.keyboard.press(`${primaryModifier}+f`);
   await search.fill('終盤');
   await timeline.keyboard.press('Enter');
-  await (
-    await app.browserWindow(timeline)
-  ).evaluate((window) => window.setSize(720, 460));
+  await resizeTimelineReviewWindow(app, timeline, 720, 460);
   await screenshot(timeline, 'ux-review-compact');
   assert.equal(
     await timeline
@@ -416,9 +415,7 @@ try {
     ),
     false,
   );
-  await (
-    await app.browserWindow(timeline)
-  ).evaluate((window) => window.setSize(720, 300));
+  await resizeTimelineReviewWindow(app, timeline, 720, 300);
   const reviewPane = timeline.getByRole('complementary', {
     name: '場面を検索',
     exact: true,
