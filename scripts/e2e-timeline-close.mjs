@@ -369,11 +369,32 @@ try {
     const opened = await openPackage(fixture, main);
     await installFaultBoundary([fixture]);
     const expected = `Synthetic edit before close ${waitMs}`;
-    const acknowledgedAt = await observeMemo(opened.timeline, expected);
+    // Keep the renderer debounce pending even if the host is descheduled
+    // between the edit acknowledgement and BrowserWindow.close(). Electron
+    // Main, the native close handshake and filesystem use their real clocks.
+    const anchor = Date.now() + 60_000;
+    await main.clock.install({ time: new Date(anchor - 60_000) });
+    await main.clock.pauseAt(new Date(anchor));
+    let deadline;
+    let acknowledgedAt;
+    try {
+      await Promise.race([
+        observeMemo(opened.timeline, expected),
+        new Promise((_, reject) => {
+          deadline = setTimeout(
+            () => reject(new Error('Frozen-clock edit was not acknowledged')),
+            15_000,
+          );
+        }),
+      ]);
+      acknowledgedAt = Date.now();
+    } finally {
+      clearTimeout(deadline);
+    }
+    await main.clock.runFor(waitMs);
     const evidencePath = await requestClose({
       ...opened,
       fixture,
-      waitMs,
       acknowledgedAt,
     });
     await finishWindowClose(opened, fixture, expected);
@@ -392,7 +413,7 @@ try {
     await verifyFreshProcess(fixture, expected);
     results.push({
       case: 'short-debounce-close',
-      requestedDelayMs: waitMs,
+      rendererElapsedMs: waitMs,
       ...evidence,
       freshProcess: true,
     });
