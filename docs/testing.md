@@ -16,6 +16,8 @@ Playlistの保存後Quitはfile内容に加え、実Main registryの対象window
 
 Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を使用します。ローカル合成映像・24行240件で、読み取りによる文書不変、閉じた高さ、狭幅、取消、保存再開、分析メニューの初回同期、実Renderer reload後の240件/編集済みノート復旧を検証します。品質ゲートの成功だけを快適さの根拠とせず、[UX評価記録](reports/2026-10-ux-review.md)の画像・操作負担・制限も確認します。
 
+macOS の PR でも同じ合成 Timeline UX 試験を実行します。720px 幅へ縮小する検査では、実ウインドウのコンテンツ寸法が Renderer に届き、ツールチップが表示領域内へ移動するか閉じるまでを期限付きで待ちます。その後、文書全体に横はみ出しがないことを独立に検査します。
+
 同E2Eは初回Playlistの実Rendererロードを1.5秒遅延し、受信listenerの登録前に追加されたclipと編集済みノートが届くことを確認します。`playlistWindow/windowManager.test.ts`は初回の保留、送信順序、重複ready、reload、破棄済み/未知sender、Package Session別の配送を検証します。timeoutを延長して待ち時間への依存を隠さないでください。
 
 `usePlaylistLoadDelivery.test.tsx`はreadを保留し、ロード後の追加FIFO・重複ID、編集中/既にdirtyのsnapshot拒否、ロードとsyncの世代、取消/破棄、Window間の分離、次のReact描画より前の行所属を確認します。`e2e-ux-review`から呼ぶ`e2e-playlist-load-delivery.mjs`は専用の合成`.stpl`のread結果だけを保留し、別observerで追加の到達を確認してからreadを解放します。初回ロードと実Renderer reloadの両方でdiskのclip・追加clip・ノートを検査し、本番writerと既存の受信listenerは置換しません。
