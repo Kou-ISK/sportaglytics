@@ -285,7 +285,7 @@ test('release notes CLI writes UTF-8 independently of the shell locale and needs
         env: {
           ...process.env,
           INCLUDE_WINDOWS: String(includeWindows),
-          RELEASE_VERSION: '0.17.38',
+          RELEASE_VERSION: '0.17.39',
           LC_ALL: locale,
           LANG: locale,
         },
@@ -304,7 +304,8 @@ test('release notes CLI writes UTF-8 independently of the shell locale and needs
       assert.match(notes, /v0\.17\.36 からの変更/);
       assert.match(notes, /\.stpkg に変更/);
       assert.match(notes, /連続映像1本と Sportscode XML/);
-      assert.match(notes, /v0\.17\.37 は未配信/);
+      assert.match(notes, /v0\.17\.37 と v0\.17\.38 は未配信/);
+      assert.match(notes, /模擬カメラの録画が停止した原因は未特定/);
       assert.doesNotMatch(notes, /0\.17\.31では|\uFFFD|\d+\s*E2E/);
       assert.ok(
         bytes.includes(
