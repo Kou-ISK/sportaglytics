@@ -29,7 +29,10 @@ import { isPackageRestoredFromBackup } from './packageBackupRestoration';
 import { checkPackageHistoryCancellation } from './packageHistoryRead';
 import type { PackageHistoryReadOptions } from './packageHistoryRead';
 
+import { installNamedLegacyPackage } from './namedLegacyPackage';
+
 export interface PackageOpenOptions {
+  chooseNamedDestination?: (source: string) => Promise<boolean>;
   index?: PackageMigrationIndex;
   choose?: ChoosePackageContent;
   assertAvailable?: AssertPackageAvailable;
@@ -42,6 +45,8 @@ const prepare = async (
   options: PackageOpenOptions,
 ): Promise<PackageOpenReadyResult> => {
   checkPackageHistoryCancellation(options.historyRead?.signal);
+  if (source.split(path.sep).some(part => /\.(scpkg|sczip)$/i.test(part)))
+    throw new Error('PACKAGE_SPORTSCODE_NATIVE_UNSUPPORTED');
   if (isPackageUpdating(source)) throw new Error('PACKAGE_UPDATE_BUSY');
   const backupRecord = path.join(
     path.dirname(path.dirname(source)),
@@ -191,6 +196,23 @@ const prepare = async (
   )
     throw new Error('PACKAGE_SOURCE_CHANGED');
   checkPackageHistoryCancellation(options.historyRead?.signal);
+  if (
+    !restored &&
+    adopted === source &&
+    !source.toLowerCase().endsWith('.stpkg') &&
+    (await options.chooseNamedDestination?.(source))
+  ) {
+    checkPackageHistoryCancellation(options.historyRead?.signal);
+    if (
+      (await snapshotPackageSource(source)).fingerprint !==
+      beforeChoice.fingerprint
+    )
+      throw new Error('PACKAGE_SOURCE_CHANGED');
+    return installNamedLegacyPackage(
+      source,
+      options.assertAvailable ?? (() => undefined),
+    );
+  }
   const result = await updatePackageInPlace(
     source,
     adopted,

@@ -22,7 +22,7 @@ Electronは同じ43 majorの[43.8.1](https://github.com/electron/electron/releas
 
 Timeline reviewを変更する場合は`Workspace/Timeline/Review` storiesと`node scripts/e2e-ux-review.mjs`を確認してください。E2Eは一時profileと合成240件・24行を使い、検索→映像→編集→Playlist→分析→再開を検証します。OSファイルダイアログの取消結果はadapterを置換し、Finder自体の操作は検証しません。スクリーンショットは`E2E_SCREENSHOT_DIR=output/playwright/ux-review`で保存できます。[評価範囲と手順](reports/2026-10-ux-review.md)。
 
-パッケージ互換を変更するときは、[互換・原本保護の仕様](package-compatibility.md)に従って既知構造と未知versionを分け、検証済みstagingから同じパスへ更新し、更新前の原本をjournal付きバックアップへ残す既存契約を維持してください。Mainのvalidation/staging/backup/復元とRendererのload-gated persistenceを別々に検証します。Sportscode XMLのDomain・Hook・View・Gatewayを分離し、通常TimelineへのJSON置換と混ぜません。`e2e-package-safety.mjs` / `e2e-sportscode-import.mjs`は合成データと独立profileだけを使います。重いbuild/Electron/full suiteは同じ端末で並列に起動しないでください。
+パッケージ互換を変更するときは、[互換・原本保護の仕様](package-compatibility.md)に従って既知構造と未知versionを分け、検証済みstagingから同じパスへ更新し、更新前の原本をjournal付きバックアップへ残す既存契約を維持してください。拡張子なしの旧フォルダを .stpkg に変更する場合は、同名の保存先を保護し、保存先の読み戻し後に原本を退避してください。Mainのvalidation/staging/backup/復元とRendererのload-gated persistenceを別々に検証します。Sportscode XMLのDomain・Hook・View・Gatewayを分離し、通常TimelineへのJSON置換と混ぜません。`e2e-package-safety.mjs` / `e2e-sportscode-import.mjs`は合成データと独立profileだけを使います。重いbuild/Electron/full suiteは同じ端末で並列に起動しないでください。
 
 ライブキャプチャの開発ではネットワーク有効の同梱FFmpegが必要です。`pnpm run media:build`後に`pnpm run e2e:prepare`、`node scripts/e2e-live-capture.mjs`で模擬カメラと合成IP映像を検証します。実カメラを自動テストで起動しません。[入力・保存契約](live-coding.md)。
 

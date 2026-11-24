@@ -31,6 +31,7 @@ const meta = {
     confirmed: false,
     preview: null,
     canImport: false,
+    onSelectBundle: () => {},
     onSelectXml: () => {},
     onSelectVideo: () => {},
     onNameChange: () => {},

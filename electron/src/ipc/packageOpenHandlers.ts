@@ -4,6 +4,7 @@ import { app } from 'electron';
 import type { WebContentsDidStartNavigationEventParams } from 'electron';
 import { PackageMigrationIndex } from './packageMigrationIndex';
 import {
+  chooseNamedDestination,
   choosePackageContent,
   showPackageRecovery,
 } from './packageOpenDialogs';
@@ -72,6 +73,8 @@ export const registerPackageOpenHandlers = (): void => {
         claimPackageOpenReservation(window, packagePath, id);
         const result = await preparePackageForOpen(packagePath, {
           index: migrationIndex,
+          chooseNamedDestination: (source) =>
+            chooseNamedDestination(window, source),
           historyRead: operation,
           choose: async (choice) => {
             operation.signal.throwIfAborted();
@@ -100,7 +103,7 @@ export const registerPackageOpenHandlers = (): void => {
         operation.signal.throwIfAborted();
         if (result.backupPath)
           result.warning =
-            '同じ場所で更新しました。更新前の内容は「ファイル」→「更新前のバックアップ…」から確認・復元できます。';
+            'パッケージを更新しました。更新前の内容は「ファイル」→「更新前のバックアップ…」から確認・復元できます。';
         if (result.status === 'ready') {
           await registerPackageLocation(result.packagePath);
           try {

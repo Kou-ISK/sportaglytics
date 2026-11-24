@@ -163,3 +163,4 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 - [0086 Ephemeral Scrub Previews](0086-ephemeral-scrub-previews.md): 重い単一素材のドラッグ中だけ利用する短区間のメモリプレビュー（Proposed）。
 
 - [0087 Organizer row membership and presentation order](0087-organizer-row-membership.md) — Accepted
+- [0088 Package import source retention](0088-package-import-source-retention.md) — Proposed

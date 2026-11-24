@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
 
+## [0.17.37]（公開準備）
+
+- 拡張子なしの旧プロジェクトを開くとき、同じ場所に .stpkg を作成できます。映像とタグを読み戻してから原本をバックアップに残します。既存の同名ファイルは保持します。
+- 「パッケージを開く」でフォルダ形式の .scpkg を選び、連続映像1本と Sportscode XML を新しい .stpkg に取り込めます。XMLが含まれない場合はSportscodeで書き出したファイルを選択してください。独自タイムラインの直接変換と複数カメラの自動同期は未対応です。
+
 ## [0.17.36]（公開準備）
 
 - テーマ行・会議用スライドに対応しました。スライドのあるプレイリストを旧版が誤って上書きする問題を防ぎます。映像だけのプレイリストは旧版でも利用できます。

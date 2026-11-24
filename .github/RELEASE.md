@@ -2,6 +2,10 @@
 
 デスクトップReleaseの正本です。配布方針は[ADR 0063](../docs/adr/0063-independent-macos-release.md)、Homebrewは[配布手順](../docs/homebrew-distribution.md)を参照してください。
 
+## 0.17.37 の旧プロジェクト移行とSportscode取り込み
+
+[PR #310](https://github.com/Kou-ISK/sportaglytics/pull/310) と版準備を develop に統合後、ARCH-EX-021 の限定案をレビューし、main 基点の PR に今回の差分だけを適用します。未公開のモデル配布方針・catalog・lock、再生のDraftは含めません。両PRの品質・macOS・Windows試験とレビュー、署名・公証、同一DMGの隔離インストールと保存後の再起動、v0.17.36からの更新、公開後の両DMGとHomebrewのSHA-256照合を行います。Sportscodeの試験範囲は書き出したXMLと連続映像です。
+
 ## 0.17.36 のスライド文書互換修正
 
 未公開の v0.17.35 タグと署名候補は保持します。v0.17.34 で新しいスライド文書を開き保存すると新版で再読込できないため、スライドのある文書に限り旧版が読み込み時に拒否する形式に切り替えます。ARCH-EX-020 の対象に限り develop 統合後に main 基点の限定 PR を作成します。両 PR の品質・デスクトップ CI とレビューを確認し、新規 v0.17.36 タグの署名・公証・同一 DMG の E2E、更新と Homebrew の照合を行います。

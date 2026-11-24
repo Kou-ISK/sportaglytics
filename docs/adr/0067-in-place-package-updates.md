@@ -4,6 +4,8 @@
 
 Accepted
 
+拡張子なしの元文書を明示的に .stpkg へ改名する場合の例外は [0088](0088-package-import-source-retention.md) を参照。
+
 Supersedes the separate-destination migration decision in [0065](0065-unified-project-open.md). The single Open entry point and validation before saving remain.
 
 ## Date

@@ -320,6 +320,10 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
     errorMessage.match(/\bPACKAGE_[A-Z_]+\b/)?.[0] ?? errorMessage;
 
   switch (errorCode) {
+    case 'PACKAGE_NAMED_INSTALL_INTERRUPTED':
+      return '変換を完了できませんでした。元フォルダと作業フォルダを保管してください。詳しい場所は詳細に表示します。';
+    case 'PACKAGE_MIGRATION_TARGET_EXISTS':
+      return '同じ名前の.stpkgが既にあります。保存先の内容を確認するか、現在の名前で開いてください。';
     case 'PACKAGE_UPDATE_BUSY':
       return '対象または以前のコピーが別のウィンドウで使用中、録画中、または更新中です。作業を保存して閉じてから再試行してください。';
     case 'PACKAGE_UPDATE_CHOICE_REQUIRED':
@@ -355,7 +359,7 @@ export const toPackageLoadErrorMessage = (error: unknown): string => {
     case 'PACKAGE_VERSION_UNSUPPORTED':
       return '対応していない新しいパッケージ形式です。原本は変更していません。対応版のSporTagLyticsで開いてください。';
     case 'PACKAGE_SPORTSCODE_NATIVE_UNSUPPORTED':
-      return 'Sportscodeのnativeパッケージは直接開けません。SportscodeからXMLを書き出して、新しいプロジェクトへ読み込んでください。';
+      return '「Sportscode XMLから作成」で.scpkgとタイムラインXMLを選んでください。.sczipは展開済みのパッケージが必要です。';
     case 'PACKAGE_TIMELINE_INVALID':
       return 'タイムラインの構成・時刻・バージョンに対応していません。原本は変更していません。形式を確認してください。';
     case 'PACKAGE_MEDIA_MISSING':
