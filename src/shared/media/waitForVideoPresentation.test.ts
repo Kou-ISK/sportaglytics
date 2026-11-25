@@ -805,3 +805,64 @@ it('does not accept the right image when the assigned DOM clock is outside the r
     await task;
   }
 });
+
+it.each([
+  { submitted: 103, confirm: false, initial: 12, wrongSource: false },
+  { submitted: 105, confirm: false, initial: 12, wrongSource: false },
+  { submitted: 107, confirm: true, initial: 12, wrongSource: false },
+  { submitted: 107, confirm: false, initial: 12, wrongSource: true },
+  { submitted: 107, confirm: false, initial: 10.03, wrongSource: false },
+])(
+  'orders a frame against entry to the owned synchronous DOM assignment: $submitted',
+  async ({ submitted, confirm, initial, wrongSource }) => {
+    const f = setup();
+    let now = 100,
+      seeking = false,
+      time = initial;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    Object.defineProperties(f.video, {
+      currentTime: {
+        get: () => time,
+        set: (to: number) => {
+          time = to;
+          seeking = true;
+        },
+      },
+      seeking: { get: () => seeking },
+    });
+    const done = vi.fn(),
+      abort = new AbortController();
+    const work = waitForVideoPresentation(
+      [f.target],
+      abort.signal,
+      () => {},
+      true,
+    ).then(done);
+    now = 105;
+    issueVideoPresentationSeek(f.video, () => {
+      f.video.currentTime = 10;
+      // A compositor outside the JS event loop can submit the image while
+      // Video.js's synchronous setter is still on the JS stack.
+      now = 110;
+    });
+    if (wrongSource)
+      Object.defineProperty(f.video, 'currentSrc', {
+        value: 'file:///wrong.mp4',
+      });
+    now = 113;
+    f.video.dispatchEvent(new Event('seeking'));
+    seeking = false;
+    f.image(10, submitted);
+    f.paint();
+    f.paint();
+    await Promise.resolve();
+    if (confirm) {
+      expect(done).toHaveBeenCalledWith(9.3);
+      await work;
+    } else {
+      expect(done).not.toHaveBeenCalled();
+      abort.abort();
+      await expect(work).rejects.toThrow('REVERSE_CANCELLED');
+    }
+  },
+);
