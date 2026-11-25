@@ -79,6 +79,48 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
     };
   });
   try {
+    // A and C start at global times 0 and 1. Test the ruler while held,
+    // not just its final thumb position, then confirm both decoded sources.
+    for (const cancel of [false, true]) {
+      const place = (t) => box.x + (box.width * t) / 14;
+      const bothAt = (t) =>
+        main.waitForFunction(
+          (time) => {
+            const v = [...document.querySelectorAll('video')];
+            return [
+              ['A.mp4', 0],
+              ['C.mp4', 1],
+            ].every(([file, start]) =>
+              v.some(
+                (el) =>
+                  el.currentSrc.endsWith(file) &&
+                  !el.seeking &&
+                  Math.abs(el.currentTime - (time - start)) < 0.12,
+              ),
+            );
+          },
+          t,
+          { timeout: 10000 },
+        );
+      await timeline.mouse.move(place(2), box.y + 8);
+      await timeline.mouse.down();
+      try {
+        await timeline.mouse.move(place(3), box.y + 8, { steps: 5 });
+        await bothAt(3);
+        await timeline.mouse.move(place(4), box.y + 8, { steps: 5 });
+        if (cancel) {
+          await axis.dispatchEvent('pointercancel', { pointerId: 1 });
+          await timeline.mouse.move(place(5), box.y + 8);
+        }
+      } finally {
+        await timeline.mouse.up();
+      }
+      await bothAt(4);
+      console.log(
+        'Both angle clocks confirmed through ruler drag and ' +
+          (cancel ? 'cancellation' : 'release'),
+      );
+    }
     await timeline.mouse.click(box.x + (box.width * target) / 14, box.y + 8);
     await timeline.waitForFunction(
       () =>
