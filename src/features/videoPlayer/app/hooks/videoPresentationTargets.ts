@@ -68,3 +68,41 @@ export const waitForMountedTargets = (
     if (signal.aborted) fail();
     else check();
   });
+
+/** Warm primary plus a newly entering local secondary, never arbitrary source
+ * switches, preloaded angles, a single angle or multiple clips. Resolution
+ * uses the same clip/offset mapping as the normal paired presentation proof.
+ */
+export const entersColdSecondAngle = (
+  before: number,
+  target: number,
+  videoList: readonly string[],
+  mediaAngles: readonly PackageMediaAngle[],
+  syncData: VideoSyncData | undefined,
+): boolean => {
+  if (
+    videoList.length !== 2 ||
+    mediaAngles.length !== 2 ||
+    !videoList.every((s) => s.trim()) ||
+    !mediaAngles.every((a) => a.clips.length === 1)
+  )
+    return false;
+  const angle = (t: number, i: number) =>
+    videoPresentationTargets(
+      t,
+      videoList.map((src, n) => (n === i ? src : '')),
+      mediaAngles,
+      syncData,
+      true,
+    );
+  if (angle(before, 1)?.length !== 0) return false;
+  const a = angle(target, 0);
+  const c = angle(target, 1);
+  const ready = (target: VideoPresentationTarget) =>
+    target.video.currentSrc === target.source && target.video.readyState >= 2;
+  return (
+    a?.length === 1 &&
+    ready(a[0]) &&
+    (c === null || (c.length === 1 && !ready(c[0])))
+  );
+};
