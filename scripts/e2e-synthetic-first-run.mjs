@@ -33,14 +33,15 @@ const launch = async () => {
     if (list.length >= 16) list.shift();
     list.push(value);
   };
-  const application = await electron.launch(
-    getElectronLaunchOptions(
+  const application = await electron.launch({
+    ...getElectronLaunchOptions(
       path.join(work, 'profile'),
       process.platform === 'linux' && process.env.E2E_CLOUD_LINUX === '1'
         ? ['--no-sandbox', '--disable-gpu']
         : [],
     ),
-  );
+    timeout: 60000,
+  });
   trace.child = application.process();
   trace.child?.stderr?.on('data', (buffer) => {
     // Preserve only diagnostic categories, never raw paths, tokens or content.
@@ -63,6 +64,7 @@ const launch = async () => {
   const watch = (page) => {
     if (watched.has(page)) return;
     watched.add(page);
+    page.setDefaultTimeout(30000);
     for (const event of ['close', 'crash', 'domcontentloaded', 'load']) {
       page.on(event, () => record(trace.events, event));
     }
