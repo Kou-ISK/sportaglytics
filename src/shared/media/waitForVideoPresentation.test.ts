@@ -755,3 +755,28 @@ it.each([
     vi.restoreAllMocks();
   },
 );
+it('confirms a proven frame when Chromium rounds the assigned DOM clock twice', async () => {
+  const f = setup();
+  f.target.time = 65.99999712830125;
+  const done = vi.fn();
+  const abort = new AbortController();
+  const task = waitForVideoPresentation(
+    [f.target],
+    abort.signal,
+    () => {
+      f.video.currentTime = 65.999996;
+      f.video.dispatchEvent(new Event('seeking'));
+    },
+    true,
+  ).then(done, () => {});
+  try {
+    f.image(65.999267);
+    f.paint();
+    f.paint();
+    await Promise.resolve();
+    expect(done).toHaveBeenCalledOnce();
+  } finally {
+    abort.abort();
+    await task;
+  }
+});
