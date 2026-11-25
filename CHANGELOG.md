@@ -9,7 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - 将来リリース向けの最新適格event model選定方針、公開candidate catalogとapp-to-model lockのhash検査、合成CI負例を追加。現在は空catalogで追加イベントモデルなし。取得・同梱・rollback例外は未実装で、公開済みv0.17.12の固定配布内容は変更しない。[方針と残る受入条件](docs/event-model-release-policy.md)。
 
-## [0.17.39]（公開準備）
+## [0.17.40]（公開準備）
+
+- タイムラインのドラッグ中、2映像の正しいフレームが表示されていても、シーク秒数のマイクロ秒丸めにより次の位置への移動が数秒待たされる場合を修正しました。表示フレームとソースの照合は維持しています。
+
+## [0.17.39]
 
 - 拡張子なしの旧 SporTagLytics プロジェクトを「パッケージを開く」で選び、「.stpkg に変更」で移行できます。新しいパッケージの映像とタグを検証してから原本を復元用に退避します。同名の保存先がある場合は変換を中止します。
 - フォルダ形式の Sportscode パッケージ（.scpkg）から、連続映像1本と Sportscode XML を新しい .stpkg に取り込めます。XML が同梱されていない場合は、Sportscode の「File → Export → Sportscode XML」で書き出したものを選んでください。Sportscode 原本は読み取り専用です。
