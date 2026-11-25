@@ -138,6 +138,113 @@ export const exercisePlaybackInteractions = async (main, timeline) => {
       (time) => Math.abs(window.__interactionClock - time) < 0.02,
       target,
     );
+    // The unit test covers this ordering deterministically in CI. A paused
+    // native compositor may need more than 28 ms on some hosts; opt in to
+    // require real submissions before these synthetic setter calls return.
+    if (process.env.E2E_VERIFY_SLOW_REWIND_SETTER === '1') {
+      const rulerClick = (t) =>
+        timeline.mouse.click(box.x + (box.width * t) / 14, box.y + 8);
+      const clockAt = (time) =>
+        timeline.waitForFunction(
+          (expected) => Math.abs(window.__interactionClock - expected) < 0.02,
+          time,
+        );
+      await rulerClick(4);
+      await clockAt(4);
+      const injection = await main.evaluateHandle(() => {
+        const proto = HTMLMediaElement.prototype;
+        const descriptor = Object.getOwnPropertyDescriptor(
+          proto,
+          'currentTime',
+        );
+        const assignments = [];
+        const installed = new Set();
+        if (!descriptor?.set) throw Error('missing native currentTime setter');
+        Object.defineProperty(proto, 'currentTime', {
+          ...descriptor,
+          set(time) {
+            const source = this.currentSrc.split('/').pop();
+            const target =
+              source === '01-A.mp4' ? 2 : source === '01-C.mp4' ? 1 : NaN;
+            if (
+              !this.paused ||
+              installed.has(source) ||
+              Math.abs(this.currentTime - (target + 2)) >= 0.01 ||
+              !(Math.abs(time - target) < 0.01)
+            ) {
+              descriptor.set.call(this, time);
+              return;
+            }
+            installed.add(source);
+            const started = performance.now();
+            descriptor.set.call(this, time);
+            const assigned = performance.now();
+            // The real pointer may land just before 2.000000s. These synthetic
+            // aligned CFR fixtures are 25fps and 50fps respectively: require
+            // the one specific frame containing the actual assigned clock.
+            const assignedClock = this.currentTime;
+            const fps = source === '01-A.mp4' ? 25 : 50;
+            const expectedPts = Math.floor(assignedClock * fps) / fps;
+            while (performance.now() - assigned < 28) {
+              // Let the compositor submit its decoded image without pumping
+              // JavaScript events or substituting callback metadata.
+            }
+            assignments.push({
+              source,
+              target,
+              started,
+              assigned,
+              assignedClock,
+              expectedPts,
+              returned: performance.now(),
+            });
+          },
+        });
+        return {
+          assignments,
+          restore: () =>
+            Object.defineProperty(proto, 'currentTime', descriptor),
+        };
+      });
+      try {
+        let clockError;
+        await rulerClick(2);
+        try {
+          await clockAt(2);
+        } catch (error) {
+          clockError = error;
+        }
+        const assignments = await injection.evaluate(
+          (value) => value.assignments,
+        );
+        const events = await clipTrace.evaluate((value) => value.entries);
+        const submitted = assignments.map((item) => ({
+          ...item,
+          frame: events.find(
+            ([, kind, data]) =>
+              kind === 'presented' &&
+              data[0] === item.source &&
+              Math.abs(data[1] - item.expectedPts) <= 0.000001 &&
+              data[2] > item.started &&
+              data[2] < item.returned,
+          )?.[2],
+        }));
+        console.log('Slow rewind setter proof', JSON.stringify(submitted));
+        assert.equal(
+          submitted.length,
+          2,
+          'both synthetic setters must be delayed',
+        );
+        assert.ok(
+          submitted.every(({ frame }) => frame !== undefined),
+          'both real target frames must be submitted during their own setter (host did not reproduce)',
+        );
+        if (clockError) throw clockError;
+      } finally {
+        await injection.evaluate((value) => value.restore());
+        await injection.dispose();
+      }
+    }
   } catch (error) {
     console.error(
       'Multi-clip ruler failure',

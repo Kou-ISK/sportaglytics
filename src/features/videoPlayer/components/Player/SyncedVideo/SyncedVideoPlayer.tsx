@@ -179,6 +179,7 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                 height: '100%',
                 overflow: 'hidden',
                 backgroundColor: '#000',
+                isolation: 'isolate',
               }}
             >
               {filePath || continuous ? (
@@ -222,6 +223,19 @@ export const SyncedVideoPlayer: React.FC<SyncedVideoPlayerProps> = (props) => {
                   }
                 />
               ) : null}
+              {isVisible && props.maskedScrubAngles?.includes(index) && (
+                <Box
+                  role="status"
+                  aria-label={`アングル${index + 1}の映像を同期中`}
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    zIndex: (theme) => theme.custom.zIndex.stickyChrome + 1,
+                    backgroundColor: '#000',
+                    pointerEvents: 'none',
+                  }}
+                />
+              )}
             </Box>
           </Box>
         );

@@ -6,6 +6,7 @@ import type { PackageMediaAngle } from '../../../../types/package/metadata';
 
 interface VideoPlayerProps {
   holdPlayback?: boolean;
+  maskedScrubAngles?: readonly number[];
   captureActive?: boolean;
   videoList: string[];
   isVideoPlaying: boolean;
@@ -22,6 +23,7 @@ interface VideoPlayerProps {
 
 export const VideoPlayer = ({
   holdPlayback,
+  maskedScrubAngles,
   captureActive,
   videoList,
   isVideoPlaying,
@@ -38,6 +40,7 @@ export const VideoPlayer = ({
   return (
     <SyncedVideoPlayer
       holdPlayback={holdPlayback}
+      maskedScrubAngles={maskedScrubAngles}
       captureActive={captureActive}
       videoList={videoList}
       isVideoPlaying={isVideoPlaying}

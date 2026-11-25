@@ -92,6 +92,7 @@ const poll = async (predicate, message) => {
 };
 let app;
 const processes = new WeakMap();
+const quitEvidence = new WeakMap();
 let profileSequence = 0;
 const launch = async () => {
   app = await electron.launch({
@@ -300,17 +301,67 @@ const requestClose = async ({
   return evidence;
 };
 const waitExited = async (application) => {
-  await poll(
-    () => processes.get(application).exitCode !== null,
-    'Application did not finish normal quit',
-  );
+  const child = processes.get(application);
+  try {
+    await poll(
+      () => child.exitCode !== null || child.signalCode !== null,
+      'Application did not finish normal quit',
+    );
+    assert.equal(
+      child.signalCode,
+      null,
+      'Normal quit must not be terminated by a signal',
+    );
+    assert.equal(child.exitCode, 0, 'Normal quit must exit successfully');
+  } catch (error) {
+    const file = quitEvidence.get(application);
+    const events = file ? await fs.readFile(file, 'utf8').catch(() => '') : '';
+    console.error(
+      'Native quit evidence',
+      JSON.stringify({
+        exitCode: child.exitCode,
+        signalCode: child.signalCode,
+        events: events
+          .trim()
+          .split('\n')
+          .filter(Boolean)
+          .map((line) => JSON.parse(line)),
+      }),
+    );
+    throw error;
+  }
 };
 const closeApplication = async () => {
   if (!app) return;
   const current = app;
-  await app.evaluate(({ app: nativeApp }) => {
-    setTimeout(() => nativeApp.quit(), 0);
-  });
+  const file = path.join(root, 'quit-' + profileSequence + '.jsonl');
+  quitEvidence.set(current, file);
+  await app.evaluate(({ app: nativeApp, BrowserWindow }, path) => {
+    const nodeFs = process.getBuiltinModule('fs');
+    const mark = (event, detail = {}) => {
+      // A fresh synthetic test profile only. Keep the native callback synchronous
+      // and observe registered guards after product handlers; never cancel, retry,
+      // skip persistence, lengthen the deadline, or force process termination.
+      nodeFs.appendFileSync(
+        path,
+        JSON.stringify({ at: Date.now(), event, ...detail }) + '\n',
+      );
+    };
+    for (const name of ['before-quit', 'will-quit']) {
+      nativeApp.on(name, (event) =>
+        mark(name, {
+          prevented: event.defaultPrevented,
+          windows: BrowserWindow.getAllWindows().length,
+        }),
+      );
+    }
+    nativeApp.once('quit', (_event, code) => mark('quit', { code }));
+    mark('requested', { windows: BrowserWindow.getAllWindows().length });
+    setTimeout(() => {
+      mark('timer-fired');
+      nativeApp.quit();
+    }, 0);
+  }, file);
   await waitExited(current);
   app = null;
 };
