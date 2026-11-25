@@ -9,7 +9,7 @@ export interface VideoPresentationTarget {
 const domClockTolerance = 0.000002;
 const pendingAssignments = new WeakMap<
   HTMLVideoElement,
-  (previous: number | null) => void
+  (previous: number | null, beganAt?: number) => void
 >();
 
 /** Clip-aware Video.js players issue their DOM seek after React commits. */
@@ -19,8 +19,10 @@ export const issueVideoPresentationSeek = (
 ): void => {
   const observer = video && pendingAssignments.get(video);
   const previous = observer && !video.seeking ? video.currentTime : null;
+  const sourceAtEntry = observer ? video?.currentSrc : undefined;
+  const beganAt = previous !== null ? performance.now() : undefined;
   issue();
-  observer?.(previous);
+  observer?.(previous, video?.currentSrc === sourceAtEntry ? beganAt : undefined);
 };
 const displayed = new WeakMap<
   HTMLVideoElement,
@@ -88,7 +90,7 @@ export const waitForVideoPresentation = (
     const distant = new Set<HTMLVideoElement>();
     const assignments = new Map<
       HTMLVideoElement,
-      (previous: number | null) => void
+      (previous: number | null, beganAt?: number) => void
     >();
     const earlyImage = new Set<HTMLVideoElement>();
     const origin = new Map(
@@ -237,16 +239,24 @@ export const waitForVideoPresentation = (
       epochs.set(target.video, mediaEpochs.get(target.video) ?? 0);
       if (exactScrub) {
         const { video } = target;
-        const submitted = (previous: number | null): void => {
+        const submitted = (previous: number | null, beganAt?: number): void => {
           if (
             video.currentSrc !== target.source ||
             !video.seeking ||
             Math.abs(video.currentTime - target.time) > domClockTolerance
           )
             return;
-          submittedAfter.set(video, performance.now());
-          if (previous !== null && Math.abs(previous - target.time) > 0.1)
-            distant.add(video);
+          // A distant synchronous seek can submit a new image while Video.js
+          // is still returning. Distinct prior position + the owned matching
+          // assignment identify it. Adjacent/in-flight seeks keep the stricter
+          // completion boundary; PTS, source and epoch checks are unchanged.
+          const fromDistant =
+            previous !== null && Math.abs(previous - target.time) > 0.1;
+          submittedAfter.set(
+            video,
+            (fromDistant ? beganAt : undefined) ?? performance.now(),
+          );
+          if (fromDistant) distant.add(video);
           else distant.delete(video);
         };
         assignments.set(video, submitted);
