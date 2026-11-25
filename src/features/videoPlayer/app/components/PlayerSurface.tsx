@@ -16,6 +16,7 @@ interface PlayerSurfaceProps {
   currentTime: number;
   playbackTime?: number;
   scrubbing?: boolean;
+  maskedScrubAngles?: readonly number[];
   setCurrentTime: React.Dispatch<React.SetStateAction<number>>;
   setIsVideoPlaying: React.Dispatch<React.SetStateAction<boolean>>;
   setVideoPlayBackRate: React.Dispatch<React.SetStateAction<number>>;
@@ -41,6 +42,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
   currentTime,
   playbackTime = currentTime,
   scrubbing = false,
+  maskedScrubAngles,
   setCurrentTime,
   setIsVideoPlaying,
   setVideoPlayBackRate,
@@ -113,6 +115,7 @@ export const PlayerSurface: React.FC<PlayerSurfaceProps> = ({
         >
           <VideoPlayer
             holdPlayback={holdPlayback}
+            maskedScrubAngles={maskedScrubAngles}
             captureActive={livePlaybackEnd !== undefined}
             key={videoList.join('|')}
             videoList={videoList}

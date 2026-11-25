@@ -15,9 +15,9 @@ type UseVideoPlayerScreenControllerResult = Omit<
   };
 
 export const useVideoPlayerScreenController =
-  (): UseVideoPlayerScreenControllerResult => {
+  (dualView = true): UseVideoPlayerScreenControllerResult => {
     const timelineSession = useTimelineSessionController();
-    const runtimeState = useVideoPlayerRuntimeState();
+    const runtimeState = useVideoPlayerRuntimeState(dualView);
     const { handleUndo, handleRedo } = useTimelineUndoRedoBridge({
       performUndo: timelineSession.performUndo,
       performRedo: timelineSession.performRedo,

@@ -46,6 +46,7 @@ import {
 } from '../components/Setup/VideoPathSelector/gateway/packageGateway';
 
 export const VideoPlayerScreen = (): React.ReactElement => {
+  const [viewMode, setViewMode] = useState<VideoViewMode>('dual');
   const {
     persistenceFeedback,
     timeline,
@@ -58,6 +59,7 @@ export const VideoPlayerScreen = (): React.ReactElement => {
     currentTime,
     playbackTime,
     scrubbing,
+    maskedScrubAngles,
     seekReverse,
     setCurrentTime,
     setTimelineFilePath,
@@ -116,7 +118,7 @@ export const VideoPlayerScreen = (): React.ReactElement => {
     canEditTimeline,
     selectionRequestId,
     applySelectionRequest,
-  } = useVideoPlayerScreenController();
+  } = useVideoPlayerScreenController(viewMode === 'dual');
   const { notify } = useNotification();
   const liveCapture = useLiveCapturePlayback({
     packagePath,
@@ -130,7 +132,6 @@ export const VideoPlayerScreen = (): React.ReactElement => {
     setRate: setVideoPlayBackRate,
   });
 
-  const [viewMode, setViewMode] = useState<VideoViewMode>('dual');
   const [openWizardRequestKey, setOpenWizardRequestKey] = useState(0);
 
   // This listener belongs to the screen lifecycle, not the setup selector.
@@ -475,6 +476,7 @@ export const VideoPlayerScreen = (): React.ReactElement => {
         currentTime={currentTime}
         playbackTime={playbackTime}
         scrubbing={scrubbing}
+        maskedScrubAngles={maskedScrubAngles}
         setCurrentTime={setCurrentTime}
         setisVideoPlaying={setisVideoPlaying}
         setVideoPlayBackRate={setVideoPlayBackRate}

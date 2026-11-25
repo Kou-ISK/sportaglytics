@@ -5,6 +5,7 @@ import type { PackageMediaAngle } from '../../../../../types/package/metadata';
 
 export interface SyncedVideoPlayerProps {
   holdPlayback?: boolean;
+  maskedScrubAngles?: readonly number[];
   captureActive?: boolean;
   videoList: string[];
   isVideoPlaying: boolean;
