@@ -34,6 +34,7 @@ interface UseVideoPlayerRuntimeStateResult {
   currentTime: number;
   playbackTime: number;
   scrubbing: boolean;
+  maskedScrubAngles: readonly number[];
   seekReverse: (time: number, signal: AbortSignal) => Promise<number | null>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
   handleCurrentTime: (
@@ -58,7 +59,7 @@ interface UseVideoPlayerRuntimeStateResult {
 }
 
 export const useVideoPlayerRuntimeState =
-  (): UseVideoPlayerRuntimeStateResult => {
+  (dualView = true): UseVideoPlayerRuntimeStateResult => {
     const [videoList, setVideoList] = useState<string[]>([]);
     const [metaDataConfigFilePath, setMetaDataConfigFilePath] =
       useState<string>('');
@@ -90,12 +91,14 @@ export const useVideoPlayerRuntimeState =
     }, [setError]);
     const {
       scrubbing,
+      maskedScrubAngles,
       currentTime,
       playbackTime,
       seekReverse,
       setCurrentTime,
       handleCurrentTime,
     } = useVideoTimeController({
+      dualView,
       onScrubFailure,
       isVideoPlaying,
       videoList,
@@ -146,6 +149,7 @@ export const useVideoPlayerRuntimeState =
       currentTime,
       playbackTime,
       scrubbing,
+      maskedScrubAngles,
       seekReverse,
       setCurrentTime,
       handleCurrentTime,

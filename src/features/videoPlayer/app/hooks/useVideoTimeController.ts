@@ -1,6 +1,8 @@
+import { ColdScrubPair } from './coldScrubPair';
 import { useScrubPreview } from './useScrubPreview';
 import { TimelineScrub } from '../../../../shared/media/timelineScrub';
 import {
+  entersColdSecondAngle,
   videoPresentationTargets,
   waitForMountedTargets,
 } from './videoPresentationTargets';
@@ -27,6 +29,7 @@ import {
 import type { PackageMediaAngle } from '../../../../types/package/metadata';
 
 type UseVideoTimeControllerParams = {
+  dualView?: boolean;
   onScrubFailure?: () => void;
   isVideoPlaying?: boolean;
   videoList: string[];
@@ -129,6 +132,7 @@ const seekEachPlayer = ({
 };
 
 export const useVideoTimeController = ({
+  dualView = true,
   onScrubFailure,
   isVideoPlaying,
   videoList,
@@ -139,6 +143,7 @@ export const useVideoTimeController = ({
   currentTime: number;
   playbackTime: number;
   scrubbing: boolean;
+  maskedScrubAngles: readonly number[];
   seekReverse: (time: number, signal: AbortSignal) => Promise<number | null>;
   setCurrentTime: Dispatch<SetStateAction<number>>;
   handleCurrentTime: (
@@ -154,6 +159,8 @@ export const useVideoTimeController = ({
   const [currentTime, setConfirmedTime] = useState(0);
   const [reverseDemand, setReverseDemand] = useState<number | null>(null);
   const [scrubDemand, setScrubDemand] = useState<number | null>(null);
+  const [maskedScrubAngles, setMaskedScrubAngles] = useState<readonly number[]>([]);
+  const cold = useRef<ColdScrubPair | null>(null);
   const preview = useScrubPreview(
     videoList,
     mediaAngles,
@@ -173,6 +180,9 @@ export const useVideoTimeController = ({
     previewRevision.current++;
     preview.current?.end();
     if (!scrub.current) return;
+    cold.current?.cancel();
+    cold.current = null;
+    setMaskedScrubAngles([]);
     scrub.current.cancel();
     scrub.current = null;
     setScrubDemand(null);
@@ -189,7 +199,7 @@ export const useVideoTimeController = ({
   );
   const seekOwner = useMemo(
     () => ({}),
-    [videoList, syncData, syncMode, mediaAngles],
+    [videoList, syncData, syncMode, mediaAngles, dualView],
   );
   const currentOwner = useRef<object | null>(seekOwner);
   currentOwner.current = seekOwner;
@@ -363,6 +373,10 @@ export const useVideoTimeController = ({
         previewRevision.current++;
         if (seekMode === 'scrub') preview.current?.end();
         else preview.current?.request(time);
+        if (!cold.current && dualView && entersColdSecondAngle(currentTime, time, videoList, mediaAngles, syncData)) {
+          cold.current = new ColdScrubPair(time);
+          setMaskedScrubAngles([1]);
+        }
         if (!scrub.current) {
           let failedLayer: typeof preview.current = null;
           const gesture = new TimelineScrub(
@@ -381,7 +395,18 @@ export const useVideoTimeController = ({
                 if (pts !== null) return pts;
                 layer.end();
               }
-              return presentPosition(target, signal, true);
+              const pair = cold.current;
+              if (!pair) {
+                const measured = await presentPosition(target, signal, true);
+                // A gesture may start in the gap, then enter the secondary clip
+                // while its primary-only proof is still pending.
+                return cold.current ? undefined : measured;
+              }
+              const measured = await pair.present(target, signal, (t, s) => presentPosition(t, s, true));
+              if (measured === undefined || cold.current !== pair) return undefined;
+              cold.current = null;
+              setMaskedScrubAngles([]);
+              return measured;
             },
             (confirmed) => {
               if (currentOwner.current === seekOwner)
@@ -396,6 +421,7 @@ export const useVideoTimeController = ({
           );
           scrub.current = gesture;
         }
+        cold.current?.request(time);
         scrub.current.request(time, seekMode === 'scrub');
         return;
       }
@@ -464,6 +490,8 @@ export const useVideoTimeController = ({
       seekOwner,
       presentPosition,
       onScrubFailure,
+      dualView,
+      currentTime,
       preview,
       cancelScrub,
     ],
@@ -473,6 +501,7 @@ export const useVideoTimeController = ({
     currentTime,
     playbackTime: scrubDemand ?? reverseDemand ?? currentTime,
     scrubbing: scrubDemand !== null,
+    maskedScrubAngles,
     seekReverse,
     setCurrentTime,
     handleCurrentTime,

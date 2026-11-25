@@ -52,6 +52,7 @@
 | ARCH-EX-023 | 2026-11-24 | Git / release | v0.17.39 の版と配信ノートを develop 統合後、main 基点の限定 PR に反映 | 未配信タグを保持し、未公開モデル方針の混入を防ぐ | [#317](https://github.com/Kou-ISK/sportaglytics/pull/317) を含む main の版準備・ノート・関連検証に限定。双方の PR の CI・レビュー、署名・公証、同一 DMG の検査、v0.17.36 からの更新確認を維持 | v0.17.39 の配布照合または 2026-12-08 の早い方 | maintainers | [#317](https://github.com/Kou-ISK/sportaglytics/pull/317) | Proposed |
 
 | ARCH-EX-024 | 2026-11-25 | Git / release | v0.17.40 だけを main 基点の限定PRに反映 | develop 限定のモデル配布変更を混ぜない | #320（README）、#321（回帰テスト）、#322（DOM時計丸め）と版・ノート | 対象外の差分なし、CI・配信前検査を確認 | v0.17.40 の配布照合または2026-12-09の早い方 | maintainers | [#322](https://github.com/Kou-ISK/sportaglytics/pull/322) | Proposed |
+| ARCH-EX-025 | 2026-11-25 | Git / release | 未配信v0.17.40を保持しv0.17.41のみmain基点に限定反映 | develop限定モデル配布変更を混ぜない | 2アングル冷間シーク・回帰テスト・版とノートのみ | 通常CI・署名候補・既存遅延基準と公開版照合 | v0.17.41の配布照合または2026-12-09の早い方 | maintainers | [.41配信前基準](../.github/RELEASE.md) | Proposed |
 
 ## 月次レビュー
 
