@@ -21,8 +21,19 @@ execFileSync(process.env.PYTHON ?? 'python3', [
   'samples/synthetic-first-run.stpkg.zip',
   work,
 ]);
-const launch = () =>
-  electron.launch(
+let app;
+let phase = 'first launch';
+let launchTrace;
+const onboardingComplete = () =>
+  localStorage.getItem('sportaglytics-onboarding-completed') === 'true';
+const launch = async () => {
+  const trace = { events: [], stderr: [] };
+  launchTrace = trace;
+  const record = (list, value) => {
+    if (list.length >= 16) list.shift();
+    list.push(value);
+  };
+  const application = await electron.launch(
     getElectronLaunchOptions(
       path.join(work, 'profile'),
       process.platform === 'linux' && process.env.E2E_CLOUD_LINUX === '1'
@@ -30,13 +41,55 @@ const launch = () =>
         : [],
     ),
   );
-let app;
-const openSample = async () => {
-  const main = await app.firstWindow();
-  await main.evaluate(() =>
-    localStorage.setItem('sportaglytics-onboarding-completed', 'true'),
+  trace.child = application.process();
+  trace.child?.stderr?.on('data', (buffer) => {
+    // Preserve only diagnostic categories, never raw paths, tokens or content.
+    const rules = [
+      ['crash', /crashpad|crash report|segmentation fault|fatal/i],
+      ['navigation', /navigation|execution context.*destroyed/i],
+      [
+        'child process',
+        /resource temporarily unavailable|posix_spawn|failed to launch|sandbox/i,
+      ],
+      ['graphics', /GPU process.*(crash|exit)|AppleM2ScalerParavirtDriver/i],
+      ['signing', /code signature|library validation|notari[sz]/i],
+    ];
+    const message = String(buffer).slice(0, 4096);
+    for (const [kind, matches] of rules) {
+      if (matches.test(message)) record(trace.stderr, kind);
+    }
+  });
+  const watched = new WeakSet();
+  const watch = (page) => {
+    if (watched.has(page)) return;
+    watched.add(page);
+    for (const event of ['close', 'crash', 'domcontentloaded', 'load']) {
+      page.on(event, () => record(trace.events, event));
+    }
+    page.on('framenavigated', (frame) => {
+      if (frame === page.mainFrame())
+        record(trace.events, 'main-frame navigation');
+    });
+  };
+  application.on('window', watch);
+  application.windows().forEach(watch);
+  return application;
+};
+const childExited = (child) =>
+  !!child && (child.exitCode !== null || child.signalCode !== null);
+const openSample = async (firstRun) => {
+  assert.ok(
+    !childExited(launchTrace?.child),
+    'Electron exited before opening sample',
   );
-  await main.reload();
+  const main = await app.firstWindow();
+  const skip = main.getByRole('button', { name: 'スキップ', exact: true });
+  if (firstRun) {
+    await skip.click();
+    await skip.waitFor({ state: 'hidden' });
+  }
+  await main.waitForFunction(onboardingComplete);
+  assert.equal(await skip.isVisible(), false, 'tutorial should stay dismissed');
   await app.evaluate(({ dialog }, folder) => {
     dialog.showOpenDialog = async () => ({
       canceled: false,
@@ -88,7 +141,7 @@ const closeAfterSave = async () => {
 };
 try {
   app = await launch();
-  let { timeline } = await openSample();
+  let { timeline } = await openSample(true);
   await timeline.getByTestId('timeline-instance-synthetic-first-tag').click();
   await timeline.keyboard.press(`${primaryModifier}+c`);
   await timeline
@@ -121,8 +174,9 @@ try {
   );
   assert.equal(saved.instances.length, 2);
   await closeAfterSave();
+  phase = 'reopen';
   app = await launch();
-  ({ timeline } = await openSample());
+  ({ timeline } = await openSample(false));
   await timeline.getByTestId(`timeline-instance-${copy.id}`).dblclick();
   assert.equal(
     await timeline.getByRole('dialog').getByLabel('開始秒').inputValue(),
@@ -205,6 +259,37 @@ try {
   console.log(
     'Public sample: open, native decode, copy tag, edit, disk save, fresh-process reopen, selected 3-second MP4 export passed',
   );
+} catch (error) {
+  console.error(
+    'Synthetic first run diagnostics',
+    JSON.stringify({
+      phase,
+      exitCode: launchTrace?.child?.exitCode ?? null,
+      signal: launchTrace?.child?.signalCode ?? null,
+      pageEvents: launchTrace?.events ?? [],
+      stderrCategories: launchTrace?.stderr ?? [],
+    }),
+  );
+  // Do not use Main evaluation after a crash/disconnect. Cleanup may itself
+  // fail; retain the original assertion/launch error rather than replace it.
+  if (app && !childExited(launchTrace?.child)) {
+    let deadline;
+    try {
+      await Promise.race([
+        app.close().catch(() => {}),
+        new Promise((resolve) => {
+          deadline = setTimeout(resolve, 2000);
+        }),
+      ]);
+    } finally {
+      clearTimeout(deadline);
+      const child = launchTrace?.child;
+      // This is solely the child spawned for this disposable synthetic profile.
+      if (child && !childExited(child)) child.kill('SIGKILL');
+    }
+  }
+  app = undefined;
+  throw error;
 } finally {
   if (app) await closeAfterSave();
   await fs.rm(work, { recursive: true, force: true });
