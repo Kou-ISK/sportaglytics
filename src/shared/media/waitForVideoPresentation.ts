@@ -4,6 +4,9 @@ export interface VideoPresentationTarget {
   time: number;
   offset: number;
 }
+// Chromium quantizes assigned seconds and the DOM readback to microseconds.
+// This bound applies only to the requested clock, never a frame PTS or source identity.
+const domClockTolerance = 0.000002;
 const pendingAssignments = new WeakMap<
   HTMLVideoElement,
   (previous: number | null) => void
@@ -210,7 +213,7 @@ export const waitForVideoPresentation = (
             metadata.presentationTime > (submitted ?? requestBeganAt);
           const pausedAtTarget =
             video.paused &&
-            Math.abs(video.currentTime - target.time) <= 0.000001;
+            Math.abs(video.currentTime - target.time) <= domClockTolerance;
           if (
             (!exactScrub ||
               ((exactDestinationImage || orderedImage) && pausedAtTarget)) &&
@@ -238,7 +241,7 @@ export const waitForVideoPresentation = (
           if (
             video.currentSrc !== target.source ||
             !video.seeking ||
-            Math.abs(video.currentTime - target.time) > 0.000001
+            Math.abs(video.currentTime - target.time) > domClockTolerance
           )
             return;
           submittedAfter.set(video, performance.now());
@@ -251,7 +254,7 @@ export const waitForVideoPresentation = (
         const started = (): void => {
           if (
             video.currentSrc !== target.source ||
-            Math.abs(video.currentTime - target.time) > 0.000001
+            Math.abs(video.currentTime - target.time) > domClockTolerance
           ) {
             displayed.delete(video);
             earlyImage.delete(video);
@@ -293,7 +296,7 @@ export const waitForVideoPresentation = (
             destinationLoads.set(target.video, reloadedAt);
           if (
             exactScrub &&
-            Math.abs(target.video.currentTime - target.time) <= 0.000001
+            Math.abs(target.video.currentTime - target.time) <= domClockTolerance
           )
             seekStarted.add(target.video);
 
@@ -311,7 +314,7 @@ export const waitForVideoPresentation = (
             video.paused &&
             !video.seeking &&
             video.readyState >= 1 &&
-            Math.abs(video.currentTime - time) > 0.000001
+            Math.abs(video.currentTime - time) > domClockTolerance
           ) {
             try {
               issueVideoPresentationSeek(video, () => {
@@ -341,7 +344,7 @@ export const waitForVideoPresentation = (
             video.currentSrc === source &&
             video.paused &&
             !video.seeking &&
-            Math.abs(video.currentTime - time) <= 0.000001 &&
+            Math.abs(video.currentTime - time) <= domClockTolerance &&
             !sameSeek(target)
           )
             video.currentTime = time;
@@ -377,7 +380,7 @@ export const waitForVideoPresentation = (
           !video.seeking &&
           video.readyState >= 2 &&
           Math.abs(video.currentTime - time) <=
-            (exactScrub ? 0.000001 : 0.02) &&
+            (exactScrub ? domClockTolerance : 0.02) &&
           image?.source === source &&
           (!exactScrub ||
             (video.paused &&
