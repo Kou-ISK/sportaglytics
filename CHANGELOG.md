@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.17.39]（公開準備）
+## [0.17.40]（公開準備）
+
+- タイムラインのドラッグ中、2映像の正しいフレームが表示されていても、シーク秒数のマイクロ秒丸めにより次の位置への移動が数秒待たされる場合を修正しました。表示フレームとソースの照合は維持しています。
+
+## [0.17.39]
 
 - 拡張子なしの旧 SporTagLytics プロジェクトを「パッケージを開く」で選び、「.stpkg に変更」で移行できます。新しいパッケージの映像とタグを検証してから原本を復元用に退避します。同名の保存先がある場合は変換を中止します。
 - フォルダ形式の Sportscode パッケージ（.scpkg）から、連続映像1本と Sportscode XML を新しい .stpkg に取り込めます。XML が同梱されていない場合は、Sportscode の「File → Export → Sportscode XML」で書き出したものを選んでください。Sportscode 原本は読み取り専用です。
