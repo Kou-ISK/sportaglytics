@@ -7,7 +7,7 @@
 
 まずは[合成サンプルで試す](docs/quickstart.md)から、映像を開き、タグを編集し、保存・再開とクリップ出力を体験できます。自分の試合映像やAIモデルは不要です。
 
-**v0.17.10以降**では、旧SporTagプロジェクトも共通の「パッケージを開く」から開きます。既知の旧構造はバックアップを残して元の場所・名前へ更新し、以前の編集コピーの引継ぎとバックアップ復元にも対応します。SportscodeのEdit List XMLは映像・秒数補正を明示して別プロジェクトへ取り込みます。ネイティブ `.scpkg` / `.sczip` は未対応です。[対応形式と復旧手順](docs/package-compatibility.md)を参照してください。
+**v0.17.10以降**では、旧SporTagプロジェクトも共通の「パッケージを開く」から開きます。既知の旧構造はバックアップを残して元の場所・名前へ更新し、以前の編集コピーの引継ぎとバックアップ復元にも対応します。SportscodeのEdit List XMLは映像・秒数補正を明示して別プロジェクトへ取り込みます。v0.17.39では、フォルダ形式の `.scpkg` を「パッケージを開く」で選び、連続映像1本とSportscodeから書き出したXMLを新しい `.stpkg` に取り込めます。元のパッケージは変更しません。独自タイムライン単体・圧縮 `.sczip` の直接読み込みと複数カメラの同期復元には対応していません。[対応形式と復旧手順](docs/package-compatibility.md)を参照してください。
 
 ソースの変更が既存installerへ反映されたとは限りません。公開版の配布物は[Releases](https://github.com/Kou-ISK/sportaglytics/releases)、変更は[CHANGELOG](CHANGELOG.md)、配布時の確認項目は[Release手順](.github/RELEASE.md)で確認できます。
 
@@ -42,12 +42,12 @@
 
 ### インストール
 
-配布物は[最新のRelease](https://github.com/Kou-ISK/sportaglytics/releases/latest)から取得してください。下表の署名状態は[v0.17.10で確認済みの状態](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.10)です。取得する版のRelease本文と、同梱される場合は`release-verification.json`で、その版の検証結果を確認してください。
+macOS版は[最新のRelease](https://github.com/Kou-ISK/sportaglytics/releases/latest)から取得してください。下表の署名状態は[v0.17.10で確認済みの状態](https://github.com/Kou-ISK/sportaglytics/releases/tag/v0.17.10)です。取得する版のRelease本文と、同梱される場合は`release-verification.json`で、その版の検証結果を確認してください。
 
 | OS / CPU                    | 配布物と導入条件                                                                                                                                                         |
 | --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | macOS Apple Silicon / Intel | CPUに合うarm64 / x64 DMG。アプリは署名・公証済みで、最終DMGの内容を検査済み。Homebrewでも導入できます                                                                    |
-| Windows 11 x64              | `SporTagLytics-Setup-<version>-x64.exe`。**未署名**のためSmartScreenや組織の実行ポリシーで制限される場合があります。[Windowsの導入条件](docs/windows.md)を確認してください |
+| Windows 11 x64              | [v0.17.12 の Windows インストーラー](https://github.com/Kou-ISK/sportaglytics/releases/download/v0.17.12/SporTagLytics-Setup-0.17.12-x64.exe)。**未署名**のためSmartScreenや組織の実行ポリシーで制限される場合があります。[Windowsの導入条件](docs/windows.md)を確認してください |
 | Windows ARM / Linux         | 公式のネイティブ配布はありません                                                                                                                                         |
 
 macOSのHomebrew導入:
