@@ -59,7 +59,12 @@ export class TimelineVideoAdapter {
     return Number.isFinite(this.video.currentTime);
   }
 
-  sync(time: number, playing: boolean, force = false): boolean {
+  sync(
+    time: number,
+    playing: boolean,
+    force = false,
+    onSourceReplacement?: () => void,
+  ): boolean {
     const active = (playing ? resolveMediaTime : resolveMediaDisplayTime)(
       this.timeline,
       time,
@@ -92,6 +97,7 @@ export class TimelineVideoAdapter {
       this.positionRequired = true;
     }
     if (this.source !== active.clip.source) {
+      if (this.source) onSourceReplacement?.();
       this.source = active.clip.source;
       this.video.pause();
       this.video.src = formatSource(this.source);
@@ -125,10 +131,25 @@ export class TimelineVideoAdapter {
       throw new Error(
         '映像が保存された区間より早く終了しました。元映像と区間を確認してください。',
       );
-    if (playing && ready && this.video.paused)
-      void this.video.play().catch(() => undefined);
 
     return ready;
+  }
+
+  holdForPeerFileChange(time: number): void {
+    if (this.video.paused || this.video.seeking || !this.placement) return;
+    this.video.pause();
+    // Re-seek even when the numeric clock matches. Chromium can otherwise
+    // resume queued media ahead of the peer that just opened a new file.
+    const position = time + this.placement.offset;
+    this.pendingPosition = position;
+    issueVideoPresentationSeek(this.video, () => {
+      this.video.currentTime = position;
+    });
+  }
+
+  playPrepared(): void {
+    if (this.placement && this.video.paused)
+      void this.video.play().catch(() => undefined);
   }
 
   dispose(): void {

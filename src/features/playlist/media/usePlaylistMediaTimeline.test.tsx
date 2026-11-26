@@ -499,3 +499,44 @@ it('rearms the same package excerpt after an automatic wrap', async () => {
   }
   expect(callbacks.current.onEnd).toHaveBeenCalledTimes(2);
 });
+
+it('holds the ready angle without restarting it while the peer loads, then resumes both', async () => {
+  const { media, secondary, tick } = await setup([timeline, timeline]);
+  if (!secondary) throw Error('Expected two video elements');
+  Object.defineProperty(secondary.video, 'readyState', { configurable: true, value: 1 });
+  tick(32);
+  expect(media.video.paused).toBe(true);
+  vi.mocked(media.video.play).mockClear();
+  tick(48);
+  tick(64);
+  expect(media.video.play).not.toHaveBeenCalled();
+  Object.defineProperty(secondary.video, 'readyState', { value: 4 });
+  tick(80);
+  expect(media.video.play).toHaveBeenCalledOnce();
+  expect(secondary.video.paused).toBe(false);
+});
+
+it('reanchors a playing peer once at a file boundary and waits for both decoders', async () => {
+  const second: MediaTimeline = {
+    offsetSeconds: 0,
+    clips: [
+      { ...timeline.clips[0], durationSeconds: 61 },
+      { ...timeline.clips[0], id: 'replacement', source: '/second.mp4', timelineStartSeconds: 61 },
+    ],
+  };
+  const { media, secondary, tick } = await setup([timeline, second]);
+  if (!secondary) throw Error('Expected second angle');
+  media.advance(61.04);
+  secondary.advance(61);
+  tick(1056);
+  expect(media.video.paused).toBe(true);
+  expect(media.seeks).toEqual([61.04]);
+  secondary.settle();
+  tick(1072);
+  expect(media.video.paused).toBe(true);
+  expect(media.seeks).toEqual([61.04]);
+  media.settle();
+  tick(1088);
+  expect(media.video.paused).toBe(false);
+  expect(secondary.video.paused).toBe(false);
+});
