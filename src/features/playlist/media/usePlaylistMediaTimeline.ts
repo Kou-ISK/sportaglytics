@@ -228,6 +228,8 @@ export const usePlaylistMediaTimeline = (
         );
         const ready = players.length > 0 && readiness.every(Boolean);
         if (!ready) players.forEach((adapter) => adapter?.video.pause());
+        else if (playing && time.current < (current.currentItem?.endTime ?? Infinity))
+          players.forEach((adapter) => adapter?.playPrepared());
         if (ready && !error && !current.isFrozen) {
           if (!awaitingPresentation.current) {
             confirmedTime.current = time.current;

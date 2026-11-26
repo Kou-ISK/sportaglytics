@@ -12,6 +12,8 @@ Timelineの下部検索ドック・共通compactフォームの変更と検証�
 
 単一WindowのCloseでは所有元とTimelineの消滅、実ファイルの最終memoを明示的なQuitより前に確認します。macOSはWindowが0件でもprocessを残す既存仕様をassertし、その後の明示的なQuitも実process終了まで待ちます。Windows/Linuxは最後のWindowのCloseによるprocess終了を確認します。新processでの再読込、保存失敗時のClose/Quit取消と再試行は両経路で維持します。`macos-native-close.yml`は対象source変更のPRで同じ合成回帰をmacOS runner上で実行し、署名秘密情報や実試合データを使いません。正式Releaseの全E2E・署名・公証・配布物検査は別途必須です。
 
+パッケージ映像を参照するプレイリストの2画面再生は、`src/features/playlist/media/usePlaylistMediaTimeline.test.tsx` で検査します。片側だけが素材を読み込んでいる間はもう一方を停止し、複数の描画周期にわたって再生要求を発行しないこと、準備後に両方が再開することを確認します。この試験のメディア時計と読み込み状態は模擬です。速度キーを押したまま片側のファイルが切り替わる場合の倍率と、解放後の倍率は `playlistHotkeyUtils.test.ts` で確認します。
+
 Playlistの保存後Quitはfile内容に加え、実Main registryの対象windowが生存し`isDirty === false`となるまで既存15秒以内で待ちます。atomic publicationだけでは保存IPC応答とRendererからのclean通知が完了したとは限りません。dirty値やACKの書換え、終了assertionの除去、単なるsleep/期限延長で代替しません。
 
 Timelineの検索・focus・連続レビューは`scripts/e2e-ux-review.mjs`を使用します。ローカル合成映像・24行240件で、読み取りによる文書不変、閉じた高さ、狭幅、取消、保存再開、分析メニューの初回同期、実Renderer reload後の240件/編集済みノート復旧を検証します。品質ゲートの成功だけを快適さの根拠とせず、[UX評価記録](reports/2026-10-ux-review.md)の画像・操作負担・制限も確認します。
