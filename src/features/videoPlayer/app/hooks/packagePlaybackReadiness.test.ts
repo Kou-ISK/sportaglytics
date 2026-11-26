@@ -2,7 +2,10 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import type { PackageMediaAngle } from '../../../../types/package/media';
 import { getVideoJsPlayer } from '../../shared/videojs/videoJsAdapter';
-import { isPackageMediaBuffering } from './packagePlaybackReadiness';
+import {
+  commonProgressBeforeHold,
+  isPackageMediaBuffering,
+} from './packagePlaybackReadiness';
 
 vi.mock('../../shared/videojs/videoJsAdapter', () => ({
   getVideoJsPlayer: vi.fn(),
@@ -186,4 +189,38 @@ it('holds a failed range transport until original-return changes the actual bind
   video.src = 'file:///original.mp4';
   expect(isPackageMediaBuffering(angles, undefined, 15)).toBe(false);
   unbind();
+});
+
+it('credits only shared local progress on entering a hold, within the elapsed interval', () => {
+  const players = [5.3, 6.2].map((time) => {
+    const root = document.createElement('div');
+    const video = document.createElement('video');
+    root.append(video);
+    Object.defineProperties(video, {
+      currentSrc: { configurable: true, value: 'file:///media/clip.mp4' },
+      currentTime: { configurable: true, value: time },
+      paused: { value: false },
+      readyState: { value: 2 },
+    });
+    return { el: () => root, video };
+  });
+  vi.mocked(getVideoJsPlayer).mockImplementation(
+    (id) => players[id === 'video_0' ? 0 : 1],
+  );
+  const pair = [angles[0], angles[0]];
+  const sync = { isAnalyzed: true, syncOffset: 1 };
+  const progress = () => commonProgressBeforeHold(pair, sync, 15, 0.4);
+  expect(progress()).toBeCloseTo(0.2);
+  expect(commonProgressBeforeHold(angles, undefined, 15, 0.1)).toBe(0.1);
+  expect(commonProgressBeforeHold(angles, undefined, 2, 0.4)).toBe(0);
+  Object.defineProperty(players[1].video, 'seeking', {
+    configurable: true,
+    value: true,
+  });
+  expect(progress()).toBe(0);
+  Object.defineProperty(players[1].video, 'seeking', { value: false });
+  Object.defineProperty(players[1].video, 'currentSrc', {
+    value: 'file:///previous.mp4',
+  });
+  expect(progress()).toBe(0);
 });
