@@ -1,3 +1,4 @@
+import { formatSource } from '../../../../shared/media/videoSource';
 import type { PackageMediaAngle } from '../../../../types/package/media';
 import type { VideoSyncData } from '../../../../types/video/sync';
 import {
@@ -49,6 +50,47 @@ export const isPackageMediaBuffering = (
       video.seeking || video.readyState < HTMLMediaElement.HAVE_FUTURE_DATA
     );
   });
+
+/** Progress already made by every local angle before the first buffering tick. */
+export const commonProgressBeforeHold = (
+  angles: PackageMediaAngle[],
+  syncData: VideoSyncData | undefined,
+  time: number,
+  elapsed: number,
+): number => {
+  if (!angles.length || elapsed <= 0) return 0;
+  let progress = elapsed;
+  for (const [index, angle] of angles.entries()) {
+    const active = resolveMediaTime(
+      { clips: angle.clips, offsetSeconds: getAngleOffset(syncData, index) },
+      time,
+    );
+    const video = getVideoJsPlayer(`video_${index}`)
+      ?.el?.()
+      ?.querySelector('video');
+    if (
+      !active ||
+      active.clip.sourceKind !== 'local' ||
+      !(video instanceof HTMLVideoElement) ||
+      video.seeking ||
+      video.paused ||
+      video.ended ||
+      video.error ||
+      video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA ||
+      !video.currentSrc.startsWith('file:') ||
+      video.currentSrc !== formatSource(active.clip.source) ||
+      !Number.isFinite(video.currentTime) ||
+      getRangePlaybackClock(video)
+    )
+      return 0;
+    progress = Math.min(
+      progress,
+      video.currentTime - active.sourceTime,
+      active.globalEnd - time,
+    );
+  }
+  return Math.max(0, progress);
+};
 
 /** Paused seeks must request missing ranges without waiting for a playing rAF. */
 export const demandPackagePlaybackRanges = (
