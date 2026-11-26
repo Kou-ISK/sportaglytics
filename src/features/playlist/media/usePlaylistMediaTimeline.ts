@@ -222,13 +222,25 @@ export const usePlaylistMediaTimeline = (
           );
         }
         // Prepare all sources before allowing any clock to advance.
+        let replacedSource = false;
+        const markReplacement = (): void => {
+          replacedSource = true;
+        };
         const readiness = players.map(
           (adapter) =>
-            adapter?.sync(time.current, playing, annotationSeek) ?? true,
+            adapter?.sync(time.current, playing, annotationSeek, markReplacement) ??
+            true,
         );
         const ready = players.length > 0 && readiness.every(Boolean);
-        if (!ready) players.forEach((adapter) => adapter?.video.pause());
-        else if (playing && time.current < (current.currentItem?.endTime ?? Infinity))
+        if (!ready) {
+          players.forEach((adapter, index) => {
+            if (replacedSource && playing && readiness[index])
+              adapter?.holdForPeerFileChange(time.current);
+            else adapter?.video.pause();
+          });
+        } else if (
+          playing && time.current < (current.currentItem?.endTime ?? Infinity)
+        )
           players.forEach((adapter) => adapter?.playPrepared());
         if (ready && !error && !current.isFrozen) {
           if (!awaitingPresentation.current) {
