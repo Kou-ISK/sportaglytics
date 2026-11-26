@@ -4,11 +4,13 @@ import { afterEach, expect, it, vi } from 'vitest';
 import type { PackageMediaAngle } from '../../../../types/package/media';
 import { usePackagePlaybackClock } from './usePackagePlaybackClock';
 import {
+  commonProgressBeforeHold,
   isPackageMediaBuffering,
   demandPackagePlaybackRanges,
 } from './packagePlaybackReadiness';
 
 vi.mock('./packagePlaybackReadiness', () => ({
+  commonProgressBeforeHold: vi.fn(() => 0),
   isPackageMediaBuffering: vi.fn(() => false),
   demandPackagePlaybackRanges: vi.fn(),
 }));
@@ -177,6 +179,8 @@ it('holds the clock through decode waits and seeks without catching up on recove
   });
   vi.stubGlobal('cancelAnimationFrame', vi.fn());
   const setCurrentTime = vi.fn();
+  const setIsVideoPlaying = vi.fn();
+  const setMaxSec = vi.fn();
   const hook = renderHook(() =>
     usePackagePlaybackClock({
       mediaAngles: [
@@ -201,8 +205,8 @@ it('holds the clock through decode waits and seeks without catching up on recove
       videoPlayBackRate: 1,
       currentTime: 4500,
       setCurrentTime,
-      setIsVideoPlaying: vi.fn(),
-      setMaxSec: vi.fn(),
+      setIsVideoPlaying,
+      setMaxSec,
     }),
   );
   act(() => {
@@ -239,5 +243,28 @@ it('holds the clock through decode waits and seeks without catching up on recove
     frame(4700);
   });
   expect(setCurrentTime).toHaveBeenLastCalledWith(7000.1);
+  // Both decoders advanced before the next animation frame observed buffering.
+  vi.mocked(commonProgressBeforeHold).mockClear().mockReturnValueOnce(0.2);
+  vi.mocked(isPackageMediaBuffering).mockReturnValue(true);
+  setCurrentTime.mockClear();
+  act(() => {
+    frame(5000);
+    frame(6000);
+  });
+  expect(commonProgressBeforeHold).toHaveBeenCalledTimes(1);
+  expect(commonProgressBeforeHold).toHaveBeenCalledWith(
+    expect.any(Array),
+    undefined,
+    7000.1,
+    0.3,
+  );
+  expect(setCurrentTime).toHaveBeenCalledTimes(1);
+  expect(setCurrentTime.mock.lastCall?.[0]).toBeCloseTo(7000.3);
+  vi.mocked(isPackageMediaBuffering).mockReturnValue(false);
+  act(() => {
+    frame(6100);
+    frame(6200);
+  });
+  expect(setCurrentTime.mock.lastCall?.[0]).toBeCloseTo(7000.4);
   hook.unmount();
 });

@@ -11,6 +11,7 @@ import {
 } from '../../../../shared/media/mediaTimeline';
 import {
   isPackageMediaBuffering,
+  commonProgressBeforeHold,
   demandPackagePlaybackRanges,
 } from './packagePlaybackReadiness';
 
@@ -111,7 +112,12 @@ export const usePackagePlaybackClock = ({
   useLayoutEffect(() => {
     // Native observations (including the final stopped time) are authoritative
     // while native owns playback. Seed the next HTML rAF before releasing it.
-    if (nativeOwned || !isVideoPlaying || !useTimelineClock || !wasPlaying.current)
+    if (
+      nativeOwned ||
+      !isVideoPlaying ||
+      !useTimelineClock ||
+      !wasPlaying.current
+    )
       clock.current = currentTime;
     wasPlaying.current = isVideoPlaying;
   }, [currentTime, isVideoPlaying, useTimelineClock, nativeOwned]);
@@ -160,17 +166,31 @@ export const usePackagePlaybackClock = ({
         media.current.syncData,
         clock.current,
       );
+      const enteringHold = buffering && !bufferingRef.current;
       if (bufferingRef.current !== buffering) {
         bufferingRef.current = buffering;
         setMediaBuffering(buffering);
       }
-      if (previous !== undefined && !buffering) {
+      const elapsed =
+        previous === undefined
+          ? 0
+          : (Math.max(0, timestamp - previous) / 1000) * videoPlayBackRate;
+      const progress =
+        enteringHold &&
+        previous !== undefined &&
+        bounds.current.livePlaybackEnd === undefined
+          ? commonProgressBeforeHold(
+              media.current.mediaAngles,
+              media.current.syncData,
+              clock.current,
+              elapsed,
+            )
+          : buffering
+            ? 0
+            : elapsed;
+      if (previous !== undefined && (!buffering || progress > 0)) {
         const { livePlaybackEnd, timelineEnd, durationsKnown } = bounds.current;
-        const next = Math.min(
-          86400,
-          clock.current +
-            (Math.max(0, timestamp - previous) / 1000) * videoPlayBackRate,
-        );
+        const next = Math.min(86400, clock.current + progress);
         if (livePlaybackEnd !== undefined) {
           // Keep the last frame instead of seeking into an unfinished file. A later
           // segment update increases the limit; deliberate pause still stops this effect.
