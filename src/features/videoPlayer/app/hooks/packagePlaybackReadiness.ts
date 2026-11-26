@@ -70,6 +70,7 @@ export const commonProgressBeforeHold = (
       ?.querySelector('video');
     if (
       !active ||
+      !('sourceKind' in active.clip) ||
       active.clip.sourceKind !== 'local' ||
       !(video instanceof HTMLVideoElement) ||
       video.seeking ||
