@@ -6,11 +6,11 @@ interface PlaybackRefs {
 }
 
 export const applyPlaybackRate = (refs: PlaybackRefs, rate: number): void => {
-  if (refs.primary.current) {
-    refs.primary.current.playbackRate = rate;
-  }
-  if (refs.secondary.current) {
-    refs.secondary.current.playbackRate = rate;
+  for (const video of [refs.primary.current, refs.secondary.current]) {
+    if (!video) continue;
+    // A file boundary reloads the element and restores its default rate.
+    video.defaultPlaybackRate = rate;
+    video.playbackRate = rate;
   }
 };
 

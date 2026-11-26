@@ -125,10 +125,13 @@ export class TimelineVideoAdapter {
       throw new Error(
         '映像が保存された区間より早く終了しました。元映像と区間を確認してください。',
       );
-    if (playing && ready && this.video.paused)
-      void this.video.play().catch(() => undefined);
 
     return ready;
+  }
+
+  playPrepared(): void {
+    if (this.placement && this.video.paused)
+      void this.video.play().catch(() => undefined);
   }
 
   dispose(): void {
