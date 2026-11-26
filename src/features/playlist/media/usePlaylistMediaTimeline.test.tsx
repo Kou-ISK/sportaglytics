@@ -515,3 +515,28 @@ it('holds the ready angle without restarting it while the peer loads, then resum
   expect(media.video.play).toHaveBeenCalledOnce();
   expect(secondary.video.paused).toBe(false);
 });
+
+it('reanchors a playing peer once at a file boundary and waits for both decoders', async () => {
+  const second: MediaTimeline = {
+    offsetSeconds: 0,
+    clips: [
+      { ...timeline.clips[0], durationSeconds: 61 },
+      { ...timeline.clips[0], id: 'replacement', source: '/second.mp4', timelineStartSeconds: 61 },
+    ],
+  };
+  const { media, secondary, tick } = await setup([timeline, second]);
+  if (!secondary) throw Error('Expected second angle');
+  media.advance(61.04);
+  secondary.advance(61);
+  tick(1056);
+  expect(media.video.paused).toBe(true);
+  expect(media.seeks).toEqual([61.04]);
+  secondary.settle();
+  tick(1072);
+  expect(media.video.paused).toBe(true);
+  expect(media.seeks).toEqual([61.04]);
+  media.settle();
+  tick(1088);
+  expect(media.video.paused).toBe(false);
+  expect(secondary.video.paused).toBe(false);
+});
