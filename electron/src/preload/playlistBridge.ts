@@ -252,14 +252,19 @@ export const createPlaylistBridge = (
       getOpenWindowCount: async (): Promise<number> => {
         return await ipcRenderer.invoke(PLAYLIST_WINDOW_CHANNELS.getOpenCount);
       },
-      addItemToAllWindows: async (item: PlaylistItem): Promise<void> => {
-        if (!isPlaylistItem(item)) {
-          console.warn('Invalid playlist item rejected in preload');
-          return;
+      deliverItemsToPlaylistWindow: async (
+        items: PlaylistItem[],
+      ): Promise<boolean> => {
+        if (
+          !Array.isArray(items) ||
+          items.length === 0 ||
+          !items.every(isPlaylistItem)
+        ) {
+          return false;
         }
-        await ipcRenderer.invoke(
-          PLAYLIST_WINDOW_CHANNELS.addItemToAllWindows,
-          item,
+        return ipcRenderer.invoke(
+          PLAYLIST_WINDOW_CHANNELS.deliverItemsToPlaylistWindow,
+          items,
         );
       },
       onAddItem: (callback: (item: PlaylistItem) => void) => {

@@ -268,3 +268,28 @@ it.each([false, true])(
     ).toThrow('Paintの描画');
   },
 );
+
+it('omits Paint and freeze without changing source frames or instance text', () => {
+  const item = sampleItems[0];
+  const renderAnnotationPng = vi.fn(() => 'png');
+  const sourceSize = { width: 100, height: 50 };
+  const contentRect = { ...sourceSize, offsetX: 0, offsetY: 0 };
+  const [clip] = buildPlaylistExportClips({
+    sourceItems: [item],
+    includeEffects: false,
+    itemAnnotations: {},
+    minFreezeDuration: 2,
+    primaryContentRect: contentRect,
+    secondaryContentRect: contentRect,
+    primarySourceSize: sourceSize,
+    secondarySourceSize: sourceSize,
+    renderAnnotationPng,
+  });
+  expect(renderAnnotationPng).not.toHaveBeenCalled();
+  expect(clip).toMatchObject({
+    startTime: 10, endTime: 14, videoSource: 'main.mp4', videoSource2: 'sub.mp4',
+    freezeFrames: [], freezeAt: null, chromaKey: undefined, motionOverlays: undefined,
+    annotationPngPrimary: null, annotationPngSecondary: null,
+    memo: item.note, labels: item.labels, actionIndex: 1,
+  });
+});

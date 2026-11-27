@@ -24,7 +24,7 @@ export const usePlaylistIntegration = ({
     registerSeekCallback,
     registerPlayItemCallback,
     syncToWindow,
-    addTimelineItemsToAllWindows,
+    addTimelineItemsToPlaylistWindow,
     isWindowOpen,
     state: playlistState,
   } = usePlaylist();
@@ -68,12 +68,12 @@ export const usePlaylistIntegration = ({
 
   const handleAddToPlaylist = useCallback(
     async (items: TimelineData[]) => {
-      await addTimelineItemsToAllWindows(items, {
+      await addTimelineItemsToPlaylistWindow(items, {
         primary: videoList[0],
         secondary: videoList[1],
       });
     },
-    [addTimelineItemsToAllWindows, videoList],
+    [addTimelineItemsToPlaylistWindow, videoList],
   );
 
   return { handleAddToPlaylist };

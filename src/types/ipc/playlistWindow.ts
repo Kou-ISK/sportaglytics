@@ -31,7 +31,7 @@ export const PLAYLIST_WINDOW_CHANNELS = {
   closeWindow: 'playlist:close-window',
   isWindowOpen: 'playlist:is-window-open',
   getOpenCount: 'playlist:get-open-count',
-  addItemToAllWindows: 'playlist:add-item-to-all-windows',
+  deliverItemsToPlaylistWindow: 'playlist:deliver-items-to-window',
   syncToWindow: 'playlist:sync-to-window',
   sync: 'playlist:sync',
   command: 'playlist:command',

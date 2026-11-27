@@ -27,7 +27,7 @@ const electronMocks = vi.hoisted(() => {
 });
 
 const windowManagerMocks = vi.hoisted(() => ({
-  addItemToAllWindows: vi.fn(),
+  deliverItemsToPlaylistWindow: vi.fn(),
   closePlaylistWindow: vi.fn(),
   createPlaylistWindow: vi.fn(),
   getOpenWindowCount: vi.fn(() => 0),

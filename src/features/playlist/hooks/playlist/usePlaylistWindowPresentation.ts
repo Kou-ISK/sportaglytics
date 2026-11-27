@@ -40,6 +40,7 @@ export const usePlaylistWindowPresentation = ({
     exportMode: runtime.exportState.exportMode,
     exportFileName: runtime.exportState.exportFileName,
     overlayChoice: runtime.exportState.overlayChoice,
+    content: runtime.exportState.content,
     overlaySettings: runtime.exportState.overlaySettings,
     itemAnnotations: runtime.core.itemAnnotations,
     minFreezeDuration: MIN_FREEZE_DURATION,

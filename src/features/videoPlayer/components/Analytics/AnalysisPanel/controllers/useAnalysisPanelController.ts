@@ -23,6 +23,7 @@ interface UseAnalysisPanelControllerParams extends AnalysisPanelDerivedState {
   currentView: AnalysisView;
   onChangeView: (view: AnalysisView) => void;
   timeline: TimelineData[];
+  onReviewInstances?: (items: TimelineData[]) => void;
   onJumpToSegment?: (segment: TimelineData) => void;
   embedded?: boolean;
   isSyncing?: boolean;
@@ -40,6 +41,7 @@ export interface AnalysisPanelViewProps {
   hasTimelineData: boolean;
   resolvedTeamNames: string[];
   timeline: TimelineData[];
+  onReviewInstances?: (items: TimelineData[]) => void;
   onJumpToSegment?: (segment: TimelineData) => void;
   embedded?: boolean;
   isSyncing?: boolean;
@@ -114,6 +116,7 @@ export const useAnalysisPanelController = ({
   hasTimelineData,
   resolvedTeamNames,
   timeline,
+  onReviewInstances,
   onJumpToSegment,
   embedded = false,
   isSyncing = false,
@@ -175,6 +178,7 @@ export const useAnalysisPanelController = ({
     hasTimelineData,
     resolvedTeamNames,
     timeline,
+    onReviewInstances,
     onJumpToSegment,
     embedded,
     isSyncing,

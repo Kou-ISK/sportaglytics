@@ -13,6 +13,7 @@ export const AnalysisPanelView = ({
   resolvedTeamNames,
   timeline,
   onJumpToSegment,
+  onReviewInstances,
   embedded = false,
   isSyncing = false,
   onCreateAiPlaylist,
@@ -93,6 +94,7 @@ export const AnalysisPanelView = ({
           timeline={timeline}
           resolvedTeamNames={resolvedTeamNames}
           onJumpToSegment={onJumpToSegment}
+          onReviewInstances={onReviewInstances}
           onCreateAiPlaylist={onCreateAiPlaylist}
           dashboardFilters={dashboardFilters}
           onDashboardFiltersChange={onDashboardFiltersChange}

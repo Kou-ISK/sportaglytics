@@ -18,6 +18,8 @@ type MatrixBodyRowProps = {
   rowParentSpans: Map<string, number>;
   columnHeaders: Header[];
   rowCells: MatrixCell[];
+  onSelectForReview?: (title: string, entries: TimelineData[]) => void;
+  onReviewInstances?: (items: TimelineData[]) => void;
   onDrilldown: (title: string, entries: TimelineData[]) => void;
   exportMode?: 'screen' | 'print';
 };
@@ -29,6 +31,8 @@ export const MatrixBodyRow = ({
   rowParentSpans,
   columnHeaders,
   rowCells,
+  onSelectForReview,
+  onReviewInstances,
   onDrilldown,
   exportMode = 'screen',
 }: MatrixBodyRowProps) => {
@@ -37,6 +41,24 @@ export const MatrixBodyRow = ({
   const cellValueFontSize = isPrint ? '0.66rem' : '0.62rem';
   const rowTotal = rowCells.reduce((sum, cell) => sum + cell.count, 0);
   const rowEntries = rowCells.flatMap((cell) => cell.entries);
+  const rowName = rowHeader.child || '未設定';
+  const rowHeading =
+    !isPrint && rowEntries.length > 0 && onReviewInstances ? (
+      <Button
+        size="small"
+        sx={{ minWidth: 0, padding: 0, font: 'inherit', color: 'inherit' }}
+        aria-label={`${rowHeader.parent ?? ''} ${rowName}、行の映像を再生`.trim()}
+        onClick={(event) => {
+          if (event.detail === 0) onReviewInstances(rowEntries);
+          else onSelectForReview?.(rowName, rowEntries);
+        }}
+        onDoubleClick={() => onReviewInstances(rowEntries)}
+      >
+        {rowName}
+      </Button>
+    ) : (
+      rowName
+    );
   const isFirstOfParent =
     rowIndex === 0 || rowHeaders[rowIndex - 1]?.parent !== rowHeader.parent;
   const rowspan = rowHeader.parent
@@ -90,7 +112,7 @@ export const MatrixBodyRow = ({
             wordBreak: isPrint ? 'break-word' : 'normal',
           }}
         >
-          {rowHeader.child || '未設定'}
+          {rowHeading}
         </TableCell>
       )}
       {rowHeader.parent && (
@@ -112,13 +134,13 @@ export const MatrixBodyRow = ({
             wordBreak: isPrint ? 'break-word' : 'normal',
           }}
         >
-          {rowHeader.child || '未設定'}
+          {rowHeading}
         </TableCell>
       )}
       {columnHeaders.map((columnHeader, colIndex) => {
         const cell = rowCells[colIndex] ?? { count: 0, entries: [] };
         const rowLabel = rowHeader.parent
-          ? `${rowHeader.parent} ${rowHeader.child || '未設定'}`
+          ? `${rowHeader.parent} ${rowHeading}`
           : rowHeader.child || '未設定';
         const colLabel = columnHeader.parent
           ? `${columnHeader.parent} ${columnHeader.child || '未設定'}`
@@ -139,7 +161,47 @@ export const MatrixBodyRow = ({
             {!isPrint && cell.count > 0 ? (
               <Button
                 size="small"
-                onClick={() => onDrilldown(titleLabel, cell.entries)}
+                aria-label={
+                  onReviewInstances
+                    ? `${titleLabel}、${cell.count}件を再生`
+                    : undefined
+                }
+                onClick={(event) => {
+                  if (!onReviewInstances) onDrilldown(titleLabel, cell.entries);
+                  else if (event.detail === 0) onReviewInstances(cell.entries);
+                  else onSelectForReview?.(titleLabel, cell.entries);
+                }}
+                onDoubleClick={
+                  onReviewInstances
+                    ? () => onReviewInstances(cell.entries)
+                    : undefined
+                }
+                onContextMenu={
+                  onReviewInstances
+                    ? (event) => {
+                        event.preventDefault();
+                        onDrilldown(titleLabel, cell.entries);
+                      }
+                    : undefined
+                }
+                onKeyDown={
+                  onReviewInstances
+                    ? (event) => {
+                        if (
+                          event.key === 'ContextMenu' ||
+                          (event.shiftKey && event.key === 'F10')
+                        ) {
+                          event.preventDefault();
+                          onDrilldown(titleLabel, cell.entries);
+                        }
+                      }
+                    : undefined
+                }
+                title={
+                  onReviewInstances
+                    ? 'ダブルクリックまたはEnterで再生、右クリックで一覧'
+                    : undefined
+                }
                 sx={{ fontSize: cellValueFontSize, minWidth: 30, p: 0.5 }}
               >
                 {cell.count}
@@ -178,7 +240,7 @@ export const MatrixBodyRow = ({
             size="small"
             onClick={() => {
               const rowLabel = rowHeader.parent
-                ? `${rowHeader.parent} ${rowHeader.child || '未設定'}`
+                ? `${rowHeader.parent} ${rowHeading}`
                 : rowHeader.child || '未設定';
               onDrilldown(`${rowLabel} × 合計`, rowEntries);
             }}

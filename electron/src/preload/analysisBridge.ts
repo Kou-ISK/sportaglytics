@@ -4,6 +4,7 @@ import {
   ANALYSIS_WINDOW_CHANNELS,
   isAnalysisAiPlaylistPayload,
   isAnalysisWindowSyncPayload,
+  isAnalysisReviewIds,
   isTimelineData,
   type AnalysisAiPlaylistPayload,
   type AnalysisWindowSyncPayload,
@@ -94,6 +95,22 @@ export const createAnalysisBridge = (
           ANALYSIS_WINDOW_CHANNELS.sync,
           callback,
         );
+      },
+      sendReviewInstances: (ids: string[]) => {
+        if (isAnalysisReviewIds(ids)) {
+          ipcRenderer.send(ANALYSIS_WINDOW_CHANNELS.reviewInstances, ids);
+        }
+      },
+      onReviewInstances: (callback: (ids: string[]) => void) => {
+        const wrapped = (_event: IpcRendererEvent, ids: unknown) => {
+          if (isAnalysisReviewIds(ids)) callback(ids);
+        };
+        ipcRenderer.on(ANALYSIS_WINDOW_CHANNELS.reviewInstances, wrapped);
+        return () =>
+          ipcRenderer.removeListener(
+            ANALYSIS_WINDOW_CHANNELS.reviewInstances,
+            wrapped,
+          );
       },
       sendJumpToSegment: (segment: TimelineData) => {
         if (!isTimelineData(segment)) {

@@ -1,3 +1,4 @@
+import { getPlaylistExportSelection, type PlaylistExportContent } from '../../domain/playlistExportContent';
 import { renderSlideFrame } from '../../utils/slideCanvas';
 import { organizerGroups } from '../../domain/organizerRows';
 import { useCallback, useState } from 'react';
@@ -36,6 +37,7 @@ interface UsePlaylistExportParams {
   selectedAngleIndex: number;
   exportMode: ClipExportMode;
   exportFileName: string;
+  content: PlaylistExportContent;
   overlaySettings: ClipExportOverlaySettings;
   itemAnnotations: Record<string, ItemAnnotation>;
   minFreezeDuration: number;
@@ -81,6 +83,7 @@ export const usePlaylistExport = ({
   selectedAngleIndex,
   exportMode,
   exportFileName,
+  content,
   overlaySettings,
   itemAnnotations,
   minFreezeDuration,
@@ -104,9 +107,11 @@ export const usePlaylistExport = ({
       return { success: false, message: '書き出しAPIが利用できません' };
     }
 
-    const sourceItems = exportScope === 'selected' ? selectedItems : items;
-    const onlySlides = sourceItems.length > 0 && sourceItems.every((item) => item.slide);
-    const effectiveAngle = onlySlides ? 'defaultAngles' : angleOption;
+    const { items: sourceItems, hasVideo } = getPlaylistExportSelection(items, selectedItems, exportScope, content.includeSlides);
+    if (sourceItems.length === 0) {
+      return { success: false, message: '書き出すアイテムがありません' };
+    }
+    const effectiveAngle = hasVideo ? angleOption : 'defaultAngles';
     const resolvedSources = resolveClipExportSourceSelection(videoSources);
     const sourceValidationError = validateClipExportSources({
       angleOption: effectiveAngle,
@@ -119,10 +124,6 @@ export const usePlaylistExport = ({
         success: false,
         message: sourceValidationError,
       };
-    }
-
-    if (sourceItems.length === 0) {
-      return { success: false, message: '書き出すアイテムがありません' };
     }
 
     try {
@@ -138,6 +139,7 @@ export const usePlaylistExport = ({
       const clips = buildPlaylistExportClips({
         slideFrames,
         sourceItems,
+        includeEffects: content.includeEffects,
         itemAnnotations,
         minFreezeDuration,
         primaryContentRect,
@@ -175,7 +177,7 @@ export const usePlaylistExport = ({
         resolvedSources,
         exportMode,
         exportFileName,
-        overlay: overlaySettings,
+        overlay: hasVideo ? overlaySettings : { ...overlaySettings, enabled: false },
         successMessage: 'プレイリストを書き出しました',
         onProgress: setExportProgress,
       });
@@ -192,6 +194,7 @@ export const usePlaylistExport = ({
     }
   }, [
     angleOption,
+    content,
     exportFileName,
     exportMode,
     exportScope,

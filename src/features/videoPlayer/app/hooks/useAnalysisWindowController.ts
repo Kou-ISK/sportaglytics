@@ -6,6 +6,7 @@ import { useRawTimelineCsvExport } from '../../analysis/hooks/useRawTimelineCsvE
 import {
   closeAnalysisWindow,
   sendAnalysisCreateAiPlaylist,
+  sendAnalysisReviewInstances,
   sendAnalysisJumpToSegment,
   subscribeAnalysisWindowSync,
 } from '../gateways/analysisWindowGateway';
@@ -17,6 +18,7 @@ interface UseAnalysisWindowControllerResult {
   isSyncing: boolean;
   setAnalysisView: React.Dispatch<React.SetStateAction<AnalysisView>>;
   handleClose: () => void;
+  handleReviewInstances: (items: TimelineData[]) => void;
   handleJumpToSegment: (segment: TimelineData) => void;
   handleCreateAiPlaylist: (payload: AnalysisAiPlaylistPayload) => Promise<void>;
 }
@@ -57,6 +59,10 @@ export const useAnalysisWindowController =
       globalThis.window.close();
     }, []);
 
+    const handleReviewInstances = useCallback((items: TimelineData[]) => {
+      sendAnalysisReviewInstances(items.map((item) => item.id));
+    }, []);
+
     const handleJumpToSegment = useCallback((segment: TimelineData) => {
       sendAnalysisJumpToSegment(segment);
     }, []);
@@ -75,6 +81,7 @@ export const useAnalysisWindowController =
       isSyncing,
       setAnalysisView,
       handleClose,
+      handleReviewInstances,
       handleJumpToSegment,
       handleCreateAiPlaylist,
     };

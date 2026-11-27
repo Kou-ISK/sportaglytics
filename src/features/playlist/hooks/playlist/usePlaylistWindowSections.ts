@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { useOrganizerRows } from './useOrganizerRows';
+import { getPlaylistExportSelection } from '../../domain/playlistExportContent';
 import { organizerGroups } from '../../domain/organizerRows';
 import { useClipExportTextPreview } from '../../../../shared/clipExport/useClipExportTextPreview';
 import { buildPlaylistTextClips } from '../../utils/playlistClipExportBuilder';
@@ -200,7 +201,9 @@ export const usePlaylistWindowSections = ({
     onSelectItem: selectItem,
     onPlayItem: playback.handlePlayItem,
   }), actions: rowEditing.actions };
-  const sourceItems = exportState.exportScope === 'selected' ? selection.selectedItems : history.items;
+  const { items: sourceItems, hasVideo, availableSlideCount } = useMemo(() => getPlaylistExportSelection(
+    history.items, selection.selectedItems, exportState.exportScope, exportState.content.includeSlides,
+  ), [history.items, selection.selectedItems, exportState.exportScope, exportState.content.includeSlides]);
   const rowSummary = useMemo(() => {
     const videoIds = new Set(sourceItems.filter((item) => !item.slide).map((item) => item.id));
     return organizerGroups(sourceItems, core.playlistRows)
@@ -213,11 +216,7 @@ export const usePlaylistWindowSections = ({
 
   const textPreview = useClipExportTextPreview({
     open: exportState.exportDialogOpen,
-    clips: buildPlaylistTextClips(
-      exportState.exportScope === 'selected'
-        ? selection.selectedItems
-        : history.items,
-    ),
+    clips: buildPlaylistTextClips(sourceItems),
     videoSources: core.videoSources,
     angleOption: exportState.angleOption,
     selectedAngleIndex: exportState.selectedAngleIndex,
@@ -241,8 +240,11 @@ export const usePlaylistWindowSections = ({
     setExportScope: exportState.setExportScope,
     selectedCount: selection.selectedCount,
     rowSummary,
-    slideCount: sourceItems.filter((item) => item.slide).length,
-    onlySlides: sourceItems.length > 0 && sourceItems.every((item) => item.slide),
+    content: exportState.content,
+    setContent: exportState.setContent,
+    availableSlideCount,
+    hasVideo,
+    outputItemCount: sourceItems.length,
     exportMode: exportState.exportMode,
     setExportMode: exportState.setExportMode,
     angleOption: exportState.angleOption,
@@ -252,11 +254,8 @@ export const usePlaylistWindowSections = ({
     setSelectedAngleIndex: exportState.setSelectedAngleIndex,
     overlayChoice: exportState.overlayChoice,
     onOverlayChoice: exportState.chooseOverlay,
-    notePreview: (exportState.exportScope === 'selected'
-      ? selection.selectedItems
-      : history.items
-    )
-      .filter((item) => item.note)
+    notePreview: sourceItems
+      .filter((item) => !item.slide && item.note)
       .map((item) => `${item.actionName}: ${item.note}`)
       .join('\n\n'),
     overlaySettings: exportState.overlaySettings,
