@@ -127,6 +127,8 @@ export const VideoPlayerScreen = (): React.ReactElement => {
     seek: handleCurrentTime,
     setPlaying: setisVideoPlaying,
     revision: loadRevision,
+    mediaEnd: maxSec,
+    enabled: syncMode !== 'manual',
   });
   useEffect(
     () =>

@@ -113,6 +113,14 @@ try {
           memo: '',
           color: '#2878d0',
         },
+        {
+          id: 'review-to-media-end',
+          actionName: 'Defence',
+          startTime: 12.75,
+          endTime: 14,
+          memo: '',
+          color: '#b24d36',
+        },
       ],
     }),
   );
@@ -225,6 +233,16 @@ try {
     settingsTimeline,
     path.join(dir, 'pair-check.stpkg', 'timeline.json'),
   );
+  await settingsTimeline.getByTestId('timeline-instance-review-to-media-end').dblclick();
+  const finalReview = page.getByText('映像レビュー 1 / 1', { exact: true });
+  await finalReview.waitFor();
+  await finalReview.waitFor({ state: 'hidden', timeout: 8000 });
+  await settingsTimeline.waitForFunction(() => {
+    const head = document.querySelector('[aria-label="タイムラインの再生位置"]');
+    return Number(head?.getAttribute('aria-valuenow')) === 14;
+  });
+  await page.getByRole('button', { name: '再生', exact: true }).waitFor();
+  console.log('Multi-clip review clears at the exact end of the package');
   await exerciseAngleSync(page, app, ['Control+Shift+K', 'Control+Shift+L']);
   // Closing the sync surface precedes the async config write. Read only a completed document.
   let applied;

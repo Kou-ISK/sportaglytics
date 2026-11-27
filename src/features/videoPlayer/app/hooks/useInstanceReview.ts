@@ -7,6 +7,8 @@ interface InstanceReviewOptions {
   seek: (event: Event, time: number) => void;
   setPlaying: (value: boolean) => void;
   revision: number;
+  mediaEnd?: number;
+  enabled?: boolean;
 }
 
 interface Review {
@@ -21,6 +23,8 @@ export function useInstanceReview({
   seek,
   setPlaying,
   revision,
+  mediaEnd = 0,
+  enabled = true,
 }: InstanceReviewOptions) {
   const current = useRef<Review | null>(null);
   const [active, setActive] = useState<Review | null>(null);
@@ -47,22 +51,24 @@ export function useInstanceReview({
 
   const start = useCallback(
     (items: TimelineData[]) => {
+      if (!enabled) return;
       const valid = items.filter(
         ({ startTime, endTime }) =>
           Number.isFinite(startTime) &&
           Number.isFinite(endTime) &&
           startTime >= 0 &&
+          (mediaEnd <= 0 || startTime < mediaEnd) &&
           endTime > startTime,
       );
       if (valid.length > 0) move({ items: valid, index: 0, revision });
     },
-    [move, revision],
+    [enabled, mediaEnd, move, revision],
   );
 
   useEffect(() => {
     const review = current.current;
     if (!review) return;
-    if (review.revision !== revision) {
+    if (!enabled || review.revision !== revision) {
       stop();
       return;
     }
@@ -71,11 +77,14 @@ export function useInstanceReview({
       entered.current = clock >= clip.startTime && clock < clip.endTime;
       return;
     }
-    if (!playing || clock < clip.endTime) return;
+    // The package clock may publish its exact end together with playing=false.
+    // A manual pause before that boundary must not consume a queued clip.
+    const atMediaEnd = mediaEnd > 0 && clock >= mediaEnd;
+    if (!atMediaEnd && (!playing || clock < clip.endTime)) return;
     const index = review.index + 1;
     if (index === review.items.length) stop();
     else move({ ...review, index });
-  }, [clock, move, playing, revision, stop]);
+  }, [clock, enabled, mediaEnd, move, playing, revision, stop]);
 
   return { active, start, stop };
 }
