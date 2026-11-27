@@ -117,12 +117,12 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   assert.deepEqual(saved.items.sort((a,b) => a.presentationOrder-b.presentationOrder).map((i) => i.id), ['A1','B1','A2']);
   page = await open();
   for (const [mode, prefix, expected] of [
-    ['Organizer の行ごと', 'by-theme', ['red,blue', 'green']],
+    ['Organizerの行ごと', 'by-theme', ['red,blue', 'green']],
     ['アクションごと', 'by-action', ['red,green', 'blue']],
   ]) {
     await clickExportMenu(page);
-    const dialog = page.getByRole('dialog').filter({hasText:'プレイリストを書き出し'});
-    await dialog.getByRole('button', { name: mode, exact: true }).click();
+    const dialog = page.getByRole('dialog', { name: 'プレイリストのMP4書き出し', exact: true });
+    await dialog.getByRole('radio', { name: new RegExp('^' + mode) }).check();
     if (prefix === 'by-theme') {
       await dialog.getByText(/出力 2 本/).waitFor();
       await dialog.getByText('Theme · 2 件').waitFor();
@@ -178,7 +178,7 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   await item(savedSlide.id).dblclick();
   await page.getByRole('img',{name:'Meeting question'}).waitFor();
   await command('A','この行を MP4 に書き出す');
-  const dialog = page.getByRole('dialog').filter({ hasText:'プレイリストを書き出し' });
+  const dialog = page.getByRole('dialog', { name: 'プレイリストのMP4書き出し', exact: true });
   await dialog.getByText('Theme · 3 件').waitFor();
   await dialog.getByLabel('ファイル名 (拡張子不要)').fill('meeting-a');
   await dialog.getByRole('radio',{name:'含めない',exact:true}).check();
@@ -240,7 +240,12 @@ export async function exerciseOrganizerRows({ app, main, dir, output, clickExpor
   await page.getByRole('menuitem',{name:'この行を MP4 に書き出す'}).click();
   await dialog.getByText('Introduction · 1 件').waitFor();
   await dialog.getByLabel('ファイル名 (拡張子不要)').fill('single-slide');
-  await dialog.getByRole('radio',{name:'含めない',exact:true}).check();
+  const includeSlides = dialog.getByRole('checkbox', { name: /^スライド・タイトル/ });
+  await includeSlides.uncheck();
+  assert.equal(await dialog.getByRole('button', { name:'書き出す', exact:true }).isDisabled(), true);
+  await includeSlides.check();
+  assert.equal(await dialog.getByRole('radio', { name:'含めない', exact:true }).count(), 0,
+    'slide-only export does not ask for a text overlay choice on nonexistent clips');
   const finalProgress = app.waitForEvent('window');
   await dialog.getByRole('button',{name:'書き出す',exact:true}).click();
   const last = await finalProgress;

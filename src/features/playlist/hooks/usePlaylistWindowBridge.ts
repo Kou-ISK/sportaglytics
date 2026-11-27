@@ -13,8 +13,7 @@ import type {
 } from '../../../types/playlist/window';
 import type { PlayItemCallback, SeekCallback } from './playlistCallbacks';
 import {
-  addPlaylistItemToAllWindows,
-  ensurePlaylistWindowOpen,
+  deliverItemsToPlaylistWindow,
   observePlaylistWindowState,
   openPlaylistWindow as openPlaylistWindowGateway,
   subscribePlaylistCommand,
@@ -34,7 +33,7 @@ interface UsePlaylistWindowBridgeParams {
 
 interface UsePlaylistWindowBridgeResult {
   openPlaylistWindow: () => Promise<void>;
-  addItemsToAllWindows: (
+  addItemsToPlaylistWindow: (
     items: PlaylistItem[],
     videoSources?: { primary?: string | null; secondary?: string | null },
   ) => Promise<void>;
@@ -55,14 +54,6 @@ export const usePlaylistWindowBridge = ({
   seekCallbackRef,
   playItemCallbackRef,
 }: UsePlaylistWindowBridgeParams): UsePlaylistWindowBridgeResult => {
-  const ensureWindowOpen = useCallback(async () => {
-    const opened = await ensurePlaylistWindowOpen();
-    if (opened) {
-      setIsWindowOpen(true);
-    }
-    return opened;
-  }, [setIsWindowOpen]);
-
   const openPlaylistWindow = useCallback(async () => {
     const opened = await openPlaylistWindowGateway();
     if (opened) {
@@ -70,26 +61,24 @@ export const usePlaylistWindowBridge = ({
     }
   }, [setIsWindowOpen]);
 
-  const addItemsToAllWindows = useCallback(
+  const addItemsToPlaylistWindow = useCallback(
     async (
       items: PlaylistItem[],
       videoSources?: { primary?: string | null; secondary?: string | null },
     ) => {
       if (items.length === 0) return;
 
-      const isOpen = await ensureWindowOpen();
-      if (!isOpen) return;
-
-      for (const item of items) {
-        await addPlaylistItemToAllWindows({
+      const added = await deliverItemsToPlaylistWindow(
+        items.map((item) => ({
           ...item,
           videoSource: item.videoSource ?? videoSources?.primary ?? undefined,
           videoSource2:
             item.videoSource2 ?? videoSources?.secondary ?? undefined,
-        });
-      }
+        })),
+      );
+      if (added) setIsWindowOpen(true);
     },
-    [ensureWindowOpen],
+    [setIsWindowOpen],
   );
 
   const syncToWindow = useCallback(
@@ -126,9 +115,7 @@ export const usePlaylistWindowBridge = ({
         case 'play-item': {
           const item = state.playlists
             .flatMap((p) =>
-              p.rows || p.schemaVersion
-                ? getPresentationItems(p)
-                : p.items,
+              p.rows || p.schemaVersion ? getPresentationItems(p) : p.items,
             )
             .find((playlistItem) => playlistItem.id === command.itemId);
           if (item) {
@@ -172,7 +159,7 @@ export const usePlaylistWindowBridge = ({
 
   return {
     openPlaylistWindow,
-    addItemsToAllWindows,
+    addItemsToPlaylistWindow,
     syncToWindow,
   };
 };

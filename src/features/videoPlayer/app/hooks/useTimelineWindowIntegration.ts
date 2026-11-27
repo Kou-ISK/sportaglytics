@@ -92,6 +92,7 @@ interface UseTimelineWindowIntegrationParams {
   onPasteItems: (items: TimelineData[], targetRowId: string) => string[];
   onUndo: () => void;
   onRedo: () => void;
+  onReviewInstances?: (items: TimelineData[]) => void;
   onAddToPlaylist: (items: TimelineData[]) => void;
 }
 
@@ -418,6 +419,16 @@ export const useTimelineWindowIntegration = (
         case 'redo':
           current.onRedo();
           break;
+        case 'review-instances': {
+          if (command.documentId !== current.getDocumentId()) break;
+          const byId = new Map(current.timeline.map((item) => [item.id, item]));
+          current.onReviewInstances?.(
+            command.ids
+              .map((id) => byId.get(id))
+              .filter((item): item is TimelineData => item !== undefined),
+          );
+          break;
+        }
         case 'add-to-playlist':
           current.onAddToPlaylist(
             command.ids

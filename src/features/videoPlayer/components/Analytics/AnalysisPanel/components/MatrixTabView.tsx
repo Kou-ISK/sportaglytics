@@ -1,5 +1,13 @@
-import React from 'react';
-import { Box, Button, Paper, Stack, Typography } from '@mui/material';
+import React, { useState } from 'react';
+import {
+  Box,
+  Button,
+  Menu,
+  MenuItem,
+  Paper,
+  Stack,
+  Typography,
+} from '@mui/material';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
 import { buildHierarchicalMatrix } from '../../../../../../utils/matrixBuilder';
@@ -44,6 +52,7 @@ export interface MatrixTabViewProps {
   ) => Promise<void>;
   onDrilldown: (title: string, entries: TimelineData[]) => void;
   onDetailClose: () => void;
+  onReviewInstances?: (items: TimelineData[]) => void;
   onJumpToSegment?: (segment: TimelineData) => void;
 }
 
@@ -74,8 +83,16 @@ export const MatrixTabView = ({
   onCreateDetailPlaylist,
   onDrilldown,
   onDetailClose,
+  onReviewInstances,
   onJumpToSegment,
 }: MatrixTabViewProps) => {
+  const [selection, setSelected] = useState<{
+    matrix: MatrixTabViewProps['customMatrix'];
+    title: string;
+    entries: TimelineData[];
+  } | null>(null);
+  const selected = selection?.matrix === customMatrix ? selection : null;
+  const [exportMenu, setExportMenu] = useState<HTMLElement | null>(null);
   if (!hasData) {
     return <NoDataPlaceholder message={emptyMessage} />;
   }
@@ -117,21 +134,54 @@ export const MatrixTabView = ({
           )}
         />
 
-        <Box display="flex" justifyContent="flex-end" gap={1}>
+        <Box
+          display="flex"
+          justifyContent="flex-end"
+          gap={1}
+          sx={{ flexWrap: 'wrap' }}
+        >
+          {onReviewInstances && (
+            <Button
+              size="small"
+              disabled={!selected}
+              onClick={() => {
+                if (selected) onDrilldown(selected.title, selected.entries);
+              }}
+            >
+              場面一覧
+            </Button>
+          )}
           <Button
             size="small"
             variant="outlined"
-            onClick={() => void onExportMatrix('csv')}
+            aria-haspopup="menu"
+            aria-expanded={Boolean(exportMenu)}
+            onClick={(event) => setExportMenu(event.currentTarget)}
           >
-            この表をCSVで保存
+            表を書き出す
           </Button>
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={() => void onExportMatrix('xlsx')}
+          <Menu
+            anchorEl={exportMenu}
+            open={Boolean(exportMenu)}
+            onClose={() => setExportMenu(null)}
           >
-            この表をXLSXで保存
-          </Button>
+            <MenuItem
+              onClick={() => {
+                setExportMenu(null);
+                void onExportMatrix('csv');
+              }}
+            >
+              CSVで保存
+            </MenuItem>
+            <MenuItem
+              onClick={() => {
+                setExportMenu(null);
+                void onExportMatrix('xlsx');
+              }}
+            >
+              XLSXで保存
+            </MenuItem>
+          </Menu>
         </Box>
 
         <Paper
@@ -155,6 +205,23 @@ export const MatrixTabView = ({
                   rowParentSpans={customMatrix.rowParentSpans}
                   colParentSpans={customMatrix.colParentSpans}
                   matrix={customMatrix.matrix}
+                  onSelectForReview={(title, entries) =>
+                    setSelected({ matrix: customMatrix, title, entries })
+                  }
+                  onReviewInstances={
+                    onReviewInstances
+                      ? (items) => {
+                          const unique = [
+                            ...new Map(
+                              items.map((item) => [item.id, item]),
+                            ).values(),
+                          ];
+                          onReviewInstances(
+                            unique.sort((a, b) => a.startTime - b.startTime),
+                          );
+                        }
+                      : undefined
+                  }
                   onDrilldown={onDrilldown}
                 />
                 <Typography variant="caption" color="text.secondary">

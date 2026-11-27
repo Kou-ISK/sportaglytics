@@ -75,12 +75,6 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
       ? theme.palette.common.black
       : theme.palette.common.white;
 
-  const borderColor = isFocused
-    ? theme.palette.primary.main
-    : isSelected
-      ? theme.palette.primary.main
-      : 'transparent';
-
   const labelText =
     item.labels && item.labels.length > 0
       ? item.labels.map((label) => label.name).join(', ')
@@ -181,18 +175,21 @@ export const TimelineLaneItem: React.FC<TimelineLaneItemProps> = ({
           alignItems: 'center',
           justifyContent: 'center',
           px: width >= 8 ? 0.5 : 0,
-          border: isSelected || isFocused ? 3 : 1,
+          border: 1,
           scrollMarginBlock: (theme) => theme.spacing(0.5),
-          borderColor,
+          borderColor: isSelected ? theme.palette.primary.main : 'transparent',
+          boxShadow: isSelected
+            ? `inset 0 0 0 1px ${theme.palette.primary.main}`
+            : 'none',
           outline:
             isFocused || isHovered
-              ? `2px solid ${theme.palette.primary.main}`
+              ? `${isFocused ? 2 : 1}px solid ${theme.palette.primary.main}`
               : 'none',
           outlineOffset: 2,
           zIndex: theme.custom.zIndex.timelineItem,
           transition: theme.custom.motion.transitionInteractive,
           '&:hover': {
-            outline: `1px solid ${theme.palette.primary.main}`,
+            outline: `${isFocused ? 2 : 1}px solid ${theme.palette.primary.main}`,
             zIndex: theme.custom.zIndex.timelineItem,
           },
           '&:focus-visible': {

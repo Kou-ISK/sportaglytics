@@ -60,6 +60,8 @@
 
 | ARCH-EX-028 | 2026-11-27 | Git / release | v0.17.44 を main 基点の限定 PR で準備 | develop の未配信モデル方針を除外する | develop 統合済み #335 の5ファイルと版準備のみ | 通常 CI・署名公証・同一 DMG の取込と再生の受入・更新と配布物照合 | v0.17.44 の配布照合または 2026-12-11 の早い方 | maintainers | [#335](https://github.com/Kou-ISK/sportaglytics/pull/335) | Proposed |
 
+| ARCH-EX-029 | 2026-11-28 | Git / release | v0.17.45 を main 基点の限定 PR で準備 | develop の未配信モデル方針を除外する | #337 の再生・プレイリスト・UI修正、検証と必要な版準備のみ | 通常 CI、署名公証、同一 DMG の E2E、更新と配布物照合を維持 | v0.17.45 の配布照合または 2026-12-12 の早い方 | maintainers | [#337](https://github.com/Kou-ISK/sportaglytics/pull/337) | Proposed |
+
 ## 月次レビュー
 
 - 毎月 1 回、Open の例外を見直して優先順位を更新する。

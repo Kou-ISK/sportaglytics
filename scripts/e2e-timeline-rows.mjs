@@ -876,7 +876,8 @@ try {
   );
   await page.keyboard.press('Tab');
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
-  await firstInstance.dblclick();
+  await firstInstance.click({ button: 'right' });
+  await page.getByRole('menuitem', { name: '編集', exact: true }).click();
   await page.getByRole('dialog', { name: 'アクション編集' }).waitFor();
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
   await firstInstance.click();

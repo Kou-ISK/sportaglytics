@@ -5,6 +5,7 @@ import type { PlaylistSyncData } from '../../../src/types/playlist/window';
 import { getPlaylistWindows } from './state';
 import * as manager from './windowManager';
 import { BrowserWindow } from 'electron';
+import { beginPlaylistDocumentLoad } from './documentLoad';
 
 const mocks = vi.hoisted(() => {
   class Window {
@@ -21,6 +22,7 @@ const mocks = vi.hoisted(() => {
     loadURL = vi.fn();
     setMenuBarVisibility = vi.fn();
     focus = vi.fn();
+    getTitle = (): string => 'プレイリスト';
     isDestroyed = (): boolean => this.destroyed;
     on = (name: string, listener: (...args: unknown[]) => void): void => {
       this.listeners.set(name, listener);
@@ -33,10 +35,13 @@ const mocks = vi.hoisted(() => {
     }
   }
   const instances: Window[] = [];
-  return { Window, instances, getSession: vi.fn() };
+  return { Window, instances, getSession: vi.fn(), showMessageBox: vi.fn() };
 });
 
-vi.mock('electron', () => ({ BrowserWindow: mocks.Window, dialog: {} }));
+vi.mock('electron', () => ({
+  BrowserWindow: mocks.Window,
+  dialog: { showMessageBox: mocks.showMessageBox },
+}));
 vi.mock('../rendererUrl', () => ({
   getRendererUrl: () => 'file:///fixture#/playlist',
 }));
@@ -57,30 +62,46 @@ const clip: PlaylistItem = {
   addedAt: 1,
 };
 
-describe('playlist renderer delivery', () => {
+describe('playlist destination and delivery', () => {
+  let owner: BrowserWindow;
   beforeEach(() => {
     getPlaylistWindows().clear();
     mocks.instances.length = 0;
-    mocks.getSession.mockReset();
+    owner = new BrowserWindow();
+    const session = {
+      id: 'package-a',
+      packagePath: '/match-a.stpkg',
+      mainWindow: owner,
+    };
+    mocks.getSession
+      .mockReset()
+      .mockImplementation((candidate: unknown) =>
+        candidate === owner ? session : null,
+      );
+    mocks.showMessageBox.mockReset();
   });
 
-  it('retains the first clip while the new renderer has no add-item listener', () => {
-    const window = manager.createPlaylistWindow();
-    manager.addItemToAllWindows(clip);
-    expect(mocks.instances[0].webContents.send).not.toHaveBeenCalled();
-    expect([...getPlaylistWindows().values()][0].isDirty).toBe(true);
-    const received: PlaylistItem[] = [];
-    mocks.instances[0].webContents.send.mockImplementation((channel, item) => {
-      if (channel === PLAYLIST_WINDOW_CHANNELS.addItem) received.push(item);
-    });
-    manager.markPlaylistRendererReady(window.webContents);
-    expect(received).toEqual([clip]);
-    manager.markPlaylistRendererReady(window.webContents);
-    expect(received).toEqual([clip]);
+  const screen = (index: number) => mocks.instances[index].webContents.send;
+  const second = { ...clip, id: 'second' };
+
+  it('creates one destination and retains the whole batch exactly once until ready', async () => {
+    expect(
+      await manager.deliverItemsToPlaylistWindow([clip, second], owner),
+    ).toBe(true);
+    const [info] = getPlaylistWindows().values();
+    expect(info.isDirty).toBe(true);
+    expect(screen(1)).not.toHaveBeenCalled();
+    manager.markPlaylistRendererReady(info.window.webContents);
+    manager.markPlaylistRendererReady(info.window.webContents);
+    expect(screen(1).mock.calls).toEqual([
+      [PLAYLIST_WINDOW_CHANNELS.addItem, clip],
+      [PLAYLIST_WINDOW_CHANNELS.addItem, second],
+    ]);
+    expect(mocks.showMessageBox).not.toHaveBeenCalled();
   });
 
-  it('delivers queued sync and clips in order, then sends new clips immediately', () => {
-    const window = manager.createPlaylistWindow();
+  it('flushes pre-ready sync before clips and does not replay them on a second ready', async () => {
+    const receiver = manager.createPlaylistWindow(undefined, owner);
     const sync: PlaylistSyncData = {
       state: {
         playlists: [],
@@ -93,92 +114,108 @@ describe('playlist renderer delivery', () => {
       videoSources: [],
       currentTime: 0,
     };
-    manager.syncToPlaylistWindow(sync);
-    manager.addItemToAllWindows(clip);
-    manager.addItemToAllWindows({ ...clip, id: 'second' });
-    manager.markPlaylistRendererReady(window.webContents);
-    expect(mocks.instances[0].webContents.send.mock.calls).toEqual([
+    manager.syncToPlaylistWindow(sync, owner);
+    expect(await manager.deliverItemsToPlaylistWindow([clip], owner)).toBe(
+      true,
+    );
+    manager.markPlaylistRendererReady(receiver.webContents);
+    manager.markPlaylistRendererReady(receiver.webContents);
+    expect(screen(1).mock.calls).toEqual([
       [PLAYLIST_WINDOW_CHANNELS.sync, sync],
       [PLAYLIST_WINDOW_CHANNELS.addItem, clip],
-      [PLAYLIST_WINDOW_CHANNELS.addItem, { ...clip, id: 'second' }],
     ]);
-    manager.addItemToAllWindows({ ...clip, id: 'third' });
-    expect(mocks.instances[0].webContents.send).toHaveBeenLastCalledWith(
-      PLAYLIST_WINDOW_CHANNELS.addItem,
-      { ...clip, id: 'third' },
+  });
+
+  it('adds only to the chosen destination, in batch order', async () => {
+    const first = manager.createPlaylistWindow(
+      '/analysis/Scouting.stpl',
+      owner,
     );
-  });
-
-  it('holds delivery again on reload and ignores an unknown or destroyed receiver', () => {
-    const window = manager.createPlaylistWindow();
-    manager.markPlaylistRendererReady(window.webContents);
-    mocks.instances[0].webContents.listeners.get('did-start-loading')?.();
-    manager.addItemToAllWindows(clip);
-    expect(mocks.instances[0].webContents.send).not.toHaveBeenCalled();
-    manager.markPlaylistRendererReady({ ...window.webContents });
-    expect(mocks.instances[0].webContents.send).not.toHaveBeenCalled();
-    mocks.instances[0].destroyed = true;
-    manager.markPlaylistRendererReady(window.webContents);
-    expect(mocks.instances[0].webContents.send).not.toHaveBeenCalled();
-  });
-
-  it('keeps two windows pending independently', () => {
-    const first = manager.createPlaylistWindow();
-    const second = manager.createPlaylistWindow();
-    manager.addItemToAllWindows(clip);
+    const last = manager.createPlaylistWindow('/review/Scouting.stpl', owner);
     manager.markPlaylistRendererReady(first.webContents);
-    expect(mocks.instances[0].webContents.send).toHaveBeenCalledTimes(1);
-    expect(mocks.instances[1].webContents.send).not.toHaveBeenCalled();
-    manager.markPlaylistRendererReady(second.webContents);
-    expect(mocks.instances[1].webContents.send).toHaveBeenCalledTimes(1);
-  });
-
-  it('flushes additions once and in order after a successful renderer reload', () => {
-    const window = manager.createPlaylistWindow();
-    manager.markPlaylistRendererReady(window.webContents);
-    mocks.instances[0].webContents.listeners.get('did-start-loading')?.();
-    manager.addItemToAllWindows(clip);
-    manager.addItemToAllWindows({ ...clip, id: 'after-reload' });
-    expect(mocks.instances[0].webContents.send).not.toHaveBeenCalled();
-    manager.markPlaylistRendererReady(window.webContents);
-    manager.markPlaylistRendererReady(window.webContents);
-    expect(mocks.instances[0].webContents.send.mock.calls).toEqual([
-      [PLAYLIST_WINDOW_CHANNELS.addItem, clip],
-      [PLAYLIST_WINDOW_CHANNELS.addItem, { ...clip, id: 'after-reload' }],
-    ]);
-  });
-
-  it('removes a closed window and its delivery queue from the registry', () => {
-    const window = manager.createPlaylistWindow();
-    manager.addItemToAllWindows(clip);
+    manager.markPlaylistRendererReady(last.webContents);
+    mocks.showMessageBox.mockResolvedValue({ response: 2 });
     expect(
-      [...getPlaylistWindows().values()][0].pendingDeliveries,
-    ).toHaveLength(1);
-    mocks.instances[0].destroyed = true;
-    mocks.instances[0].listeners.get('closed')?.();
-    expect(getPlaylistWindows().size).toBe(0);
-    manager.markPlaylistRendererReady(window.webContents);
-    manager.addItemToAllWindows({ ...clip, id: 'later' });
-    expect(mocks.instances[0].webContents.send).not.toHaveBeenCalled();
+      await manager.deliverItemsToPlaylistWindow([clip, second], owner),
+    ).toBe(true);
+    expect(mocks.showMessageBox).toHaveBeenCalledWith(
+      owner,
+      expect.objectContaining({
+        buttons: [
+          'キャンセル',
+          '1. Scouting（analysis）',
+          '2. Scouting（review）',
+        ],
+      }),
+    );
+    expect(screen(1)).not.toHaveBeenCalled();
+    expect(screen(2).mock.calls).toEqual([
+      [PLAYLIST_WINDOW_CHANNELS.addItem, clip],
+      [PLAYLIST_WINDOW_CHANNELS.addItem, second],
+    ]);
+    expect(
+      [...getPlaylistWindows().values()].map(({ isDirty }) => isDirty),
+    ).toEqual([false, true]);
   });
 
-  it('queues additions only for windows belonging to the sending package session', () => {
-    const ownerA = new BrowserWindow();
+  it('cancels without mutating any document', async () => {
+    manager.createPlaylistWindow(undefined, owner);
+    manager.createPlaylistWindow(undefined, owner);
+    mocks.showMessageBox.mockResolvedValue({ response: 0 });
+    expect(await manager.deliverItemsToPlaylistWindow([clip], owner)).toBe(
+      false,
+    );
+    expect(
+      [...getPlaylistWindows().values()].every(({ isDirty }) => !isDirty),
+    ).toBe(true);
+  });
+
+  it.each(['close', 'replace'])(
+    'does not reroute if the selected document changes (%s)',
+    async (change) => {
+      manager.createPlaylistWindow(undefined, owner);
+      manager.createPlaylistWindow(undefined, owner);
+      const [, info] = getPlaylistWindows().values();
+      mocks.showMessageBox
+        .mockImplementationOnce(async () => {
+          if (change === 'close') {
+            mocks.instances[2].destroyed = true;
+            mocks.instances[2].listeners.get('closed')?.();
+          } else {
+            beginPlaylistDocumentLoad(info);
+          }
+          return { response: 2 };
+        })
+        .mockResolvedValueOnce({ response: 0 });
+      expect(await manager.deliverItemsToPlaylistWindow([clip], owner)).toBe(
+        false,
+      );
+      expect(mocks.showMessageBox).toHaveBeenCalledTimes(2);
+      expect(
+        [...getPlaylistWindows().values()].every(({ isDirty }) => !isDirty),
+      ).toBe(true);
+    },
+  );
+
+  it('queues across a renderer reload in the same package and never sends to another package', async () => {
     const ownerB = new BrowserWindow();
-    mocks.getSession.mockImplementation((owner: unknown) =>
-      owner === ownerA
-        ? { id: 'package-a', mainWindow: ownerA }
-        : { id: 'package-b', mainWindow: ownerB },
+    const previous = mocks.getSession.getMockImplementation();
+    const sessionB = { id: 'package-b', mainWindow: ownerB };
+    mocks.getSession.mockImplementation((candidate: unknown) =>
+      candidate === ownerB ? sessionB : previous?.(candidate),
     );
-    const playlistA = manager.createPlaylistWindow(undefined, ownerA);
+    const playlistA = manager.createPlaylistWindow(undefined, owner);
     const playlistB = manager.createPlaylistWindow(undefined, ownerB);
-    manager.addItemToAllWindows(clip, ownerA);
-    manager.markPlaylistRendererReady(playlistB.webContents);
-    expect(mocks.instances[3].webContents.send).not.toHaveBeenCalled();
     manager.markPlaylistRendererReady(playlistA.webContents);
-    expect(mocks.instances[2].webContents.send).toHaveBeenCalledWith(
-      PLAYLIST_WINDOW_CHANNELS.addItem,
-      clip,
-    );
+    mocks.instances[2].webContents.listeners.get('did-start-loading')?.();
+    await manager.deliverItemsToPlaylistWindow([clip], owner);
+    expect(screen(2)).not.toHaveBeenCalled();
+    manager.markPlaylistRendererReady(playlistB.webContents);
+    expect(screen(3)).not.toHaveBeenCalled();
+    manager.markPlaylistRendererReady(playlistA.webContents);
+    manager.markPlaylistRendererReady(playlistA.webContents);
+    expect(screen(2).mock.calls).toEqual([
+      [PLAYLIST_WINDOW_CHANNELS.addItem, clip],
+    ]);
   });
 });

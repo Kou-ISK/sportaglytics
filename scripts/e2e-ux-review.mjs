@@ -536,6 +536,13 @@ try {
   );
   console.log('Playlist handoff verified');
   await screenshot(playlist, 'ux-review-playlist');
+  // The previous assertion uses a disposable unsaved document. Close it so
+  // the saved-document load/reload probe has exactly one destination;
+  // multi-destination choosing and cancel are covered in e2e-playlist-open-menu.
+  await Promise.all([
+    playlist.waitForEvent('close', { timeout: 5000 }),
+    (await app.browserWindow(playlist)).evaluate((window) => window.destroy()),
+  ]);
   await verifySavedPlaylistLoadDelivery(
     app,
     main,
@@ -555,6 +562,28 @@ try {
   await analysis
     .getByText('対象データ数: 240 / 240', { exact: true })
     .waitFor();
+  await analysis.getByRole('button', { name: '軸設定を変更' }).click();
+  const columnType = analysis.locator('[id="列軸-type-select"]');
+  await columnType.click();
+  await analysis
+    .getByRole('option', { name: 'ラベルグループ', exact: true })
+    .click();
+  await analysis.locator('[id="列軸-group-select"]').click();
+  await analysis
+    .getByRole('option', { name: '全てのラベル', exact: true })
+    .click();
+  await analysis.keyboard.press('Escape');
+  const matrixCell = analysis
+    .getByRole('button', { name: /、[0-9]+件を再生$/ })
+    .first();
+  const details = analysis.getByRole('button', { name: '場面一覧' });
+  await matrixCell.click();
+  assert.equal(await details.isEnabled(), true);
+  assert.equal(await main.getByText(/^映像レビュー /).count(), 0);
+  await matrixCell.dblclick();
+  await main.getByText(/^映像レビュー 1 \/ [0-9]+$/).waitFor();
+  await main.getByRole('button', { name: 'レビューを終了' }).click();
+  await main.getByText(/^映像レビュー /).waitFor({ state: 'hidden' });
   // Real renderer reload discards its listener while the owner document remains
   // unchanged. It must recover the same 240 scenes through the ready handshake.
   await analysis.reload();

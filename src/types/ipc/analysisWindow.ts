@@ -19,6 +19,7 @@ export const ANALYSIS_WINDOW_CHANNELS = {
   syncToWindow: 'analysis:sync-to-window',
   sync: 'analysis:sync',
   requestSync: 'analysis:request-sync',
+  reviewInstances: 'analysis:review-instances',
   jumpToSegment: 'analysis:jump-to-segment',
   createAiPlaylist: 'analysis:create-ai-playlist',
   dashboardExternalOpen: 'analysis-dashboard:external-open',
@@ -50,6 +51,8 @@ export interface IAnalysisWindowAPI {
   requestSync: () => void;
   onSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
   offSync: (callback: (payload: AnalysisWindowSyncPayload) => void) => void;
+  sendReviewInstances: (ids: string[]) => void;
+  onReviewInstances: (callback: (ids: string[]) => void) => () => void;
   sendJumpToSegment: (segment: TimelineData) => void;
   sendCreateAiPlaylist: (payload: AnalysisAiPlaylistPayload) => void;
   onJumpToSegment: (callback: (segment: TimelineData) => void) => () => void;
@@ -58,6 +61,9 @@ export interface IAnalysisWindowAPI {
   ) => () => void;
   onDashboardExternalOpen: (callback: (filePath: string) => void) => () => void;
 }
+
+export const isAnalysisReviewIds = (value: unknown): value is string[] =>
+  isStringArray(value) && value.length > 0 && value.length <= 20000;
 
 export const isAnalysisView = (value: unknown): value is AnalysisView => {
   return typeof value === 'string' && ANALYSIS_VIEWS.has(value as AnalysisView);

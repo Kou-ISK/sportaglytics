@@ -21,6 +21,8 @@ export interface ClipExportTextOptionsProps {
     update: (previous: ClipExportOverlaySettings) => ClipExportOverlaySettings,
   ) => void;
   notePreview?: string;
+  prompt?: string;
+  instructions?: string;
   textPreview?: ClipExportTextPreviewState;
 }
 
@@ -31,11 +33,13 @@ export const ClipExportTextOptionsView = ({
   setOverlaySettings,
   notePreview,
   textPreview,
+  prompt = '今回の映像にオーバーレイテキストを含めますか？',
+  instructions = '書き出すたびに選択してください。含めない場合もPaintの描画とフリーズは出力します。テキストを含める場合は再エンコードします。',
 }: ClipExportTextOptionsProps): ReactElement => (
   <Stack spacing={1}>
     <FormControl component="fieldset" required>
       <FormLabel component="legend">
-        今回の映像にオーバーレイテキストを含めますか？
+        {prompt}
       </FormLabel>
       <RadioGroup
         row
@@ -105,8 +109,7 @@ export const ClipExportTextOptionsView = ({
       </>
     )}
     <Typography variant="caption" color="text.secondary">
-      書き出すたびに選択してください。含めない場合もPaintの描画とフリーズは出力します。
-      テキストを含める場合は再エンコードします。
+      {instructions}
     </Typography>
   </Stack>
 );

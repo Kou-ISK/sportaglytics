@@ -38,7 +38,7 @@ export const useAnalysisIntegration = ({
 }: UseAnalysisIntegrationParams): UseAnalysisIntegrationResult => {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [analysisView, setAnalysisView] = useState<AnalysisView>('dashboard');
-  const { addItemsToAllWindows } = usePlaylist();
+  const { addItemsToPlaylistWindow } = usePlaylist();
 
   const openAnalysisWindow = useCallback(
     async (nextView?: AnalysisView) => {
@@ -94,7 +94,7 @@ export const useAnalysisIntegration = ({
       if (!payload?.items || payload.items.length === 0) return;
 
       try {
-        await addItemsToAllWindows(payload.items, {
+        await addItemsToPlaylistWindow(payload.items, {
           primary: videoList[0],
           secondary: videoList[1],
         });
@@ -102,7 +102,7 @@ export const useAnalysisIntegration = ({
         console.debug('AIプレイリストの作成に失敗しました。', error);
       }
     },
-    [addItemsToAllWindows, videoList],
+    [addItemsToPlaylistWindow, videoList],
   );
 
   const createPlaylistRef = useRef(handleCreateAiPlaylist);

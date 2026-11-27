@@ -52,5 +52,6 @@ export interface VisualTimelineProps {
   audioSelections?: readonly ClipExportAudioSelection[];
   onUndo?: () => void;
   onRedo?: () => void;
+  onReviewInstances?: (items: TimelineData[]) => void;
   onAddToPlaylist?: (items: TimelineData[]) => void;
 }

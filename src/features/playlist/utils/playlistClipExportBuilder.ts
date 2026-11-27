@@ -22,6 +22,7 @@ interface SourceSize {
 interface BuildPlaylistExportClipsParams {
   slideFrames?: ReadonlyMap<string, string>;
   sourceItems: PlaylistItem[];
+  includeEffects?: boolean;
   itemAnnotations: Record<string, ItemAnnotation>;
   minFreezeDuration: number;
   primaryContentRect: ContentRect;
@@ -74,6 +75,7 @@ export const buildPlaylistTextClips = (
 export const buildPlaylistExportClips = ({
   slideFrames,
   sourceItems,
+  includeEffects = true,
   itemAnnotations,
   minFreezeDuration,
   primaryContentRect,
@@ -90,7 +92,7 @@ export const buildPlaylistExportClips = ({
       if (!slideFrame) throw new Error('スライド画像の準備が完了していません。');
       return { id: item.id, actionName: item.actionName, startTime: 0, endTime: item.endTime, slideFrame };
     }
-    const annotation = itemAnnotations[item.id] || item.annotation;
+    const annotation = includeEffects ? itemAnnotations[item.id] || item.annotation : undefined;
     const freezeDuration = Math.max(
       minFreezeDuration,
       annotation?.freezeDuration || minFreezeDuration,

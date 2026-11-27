@@ -82,6 +82,7 @@ interface TimelineActionSectionProps {
     seekMode?: VideoSeekMode,
   ) => void;
   /** プレイリストに追加（位置情報付き） */
+  onReviewInstances?: (items: TimelineData[]) => void;
   onAddToPlaylist?: (items: TimelineData[]) => void;
 }
 
@@ -123,6 +124,7 @@ export const TimelineActionSection = ({
   performUndo,
   performRedo,
   handleCurrentTime,
+  onReviewInstances,
   onAddToPlaylist,
 }: TimelineActionSectionProps) => {
   return (
@@ -237,6 +239,7 @@ export const TimelineActionSection = ({
             audioSelections={audioSelections}
             onUndo={performUndo}
             onRedo={performRedo}
+            onReviewInstances={onReviewInstances}
             onAddToPlaylist={onAddToPlaylist}
           />
         </Box>

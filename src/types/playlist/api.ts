@@ -40,7 +40,7 @@ export interface IPlaylistAPI {
     callback: (data: PlaylistSaveProgressPayload) => void,
   ) => () => void;
   getOpenWindowCount: () => Promise<number>;
-  addItemToAllWindows: (item: PlaylistItem) => Promise<void>;
+  deliverItemsToPlaylistWindow: (items: PlaylistItem[]) => Promise<boolean>;
   onAddItem: (callback: (item: PlaylistItem) => void) => void;
   offAddItem: (callback: (item: PlaylistItem) => void) => void;
   setWindowTitle: (title: string) => void;

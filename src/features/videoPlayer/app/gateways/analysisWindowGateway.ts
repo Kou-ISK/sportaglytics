@@ -112,6 +112,14 @@ export const sendAnalysisCreateAiPlaylist = (
   }
 };
 
+export const sendAnalysisReviewInstances = (ids: string[]): void => {
+  getAnalysisApi()?.sendReviewInstances?.(ids);
+};
+
+export const subscribeAnalysisReviewInstances = (
+  callback: (ids: string[]) => void,
+): (() => void) => getAnalysisApi()?.onReviewInstances?.(callback) ?? noop;
+
 export const subscribeAnalysisJumpToSegment = (
   callback: (segment: TimelineData) => void,
 ): (() => void) => {
