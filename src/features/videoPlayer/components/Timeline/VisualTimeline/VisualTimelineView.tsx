@@ -315,7 +315,8 @@ export const VisualTimelineView = ({
                 onPreviewTime={onSeek}
                 onMoveItem={handleMoveItems}
                 onCreateItem={onCreateTimelineItem}
-                onEditRow={
+                onEditRow={() => onOpenRowEditor(row)}
+                onReviewRow={
                   onReviewInstances
                     ? () => {
                         const instances = [
@@ -324,7 +325,7 @@ export const VisualTimelineView = ({
                         instances.sort((a, b) => a.startTime - b.startTime);
                         onReviewInstances(instances);
                       }
-                    : () => onOpenRowEditor(row)
+                    : undefined
                 }
                 onRowClick={onRowClick}
                 onRowContextMenu={onRowContextMenu}

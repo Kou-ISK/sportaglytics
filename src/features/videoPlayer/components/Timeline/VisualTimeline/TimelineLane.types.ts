@@ -26,6 +26,7 @@ export interface TimelineLaneProps {
     color: string,
   ) => void;
   onEditRow?: () => void;
+  onReviewRow?: () => void;
   onRowClick: (event: React.MouseEvent, rowId: string) => void;
   onRowContextMenu: (event: React.MouseEvent, rowId: string) => void;
   onRowDragStart: (event: React.DragEvent<HTMLElement>, rowId: string) => void;
