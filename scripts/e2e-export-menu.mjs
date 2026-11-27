@@ -289,8 +289,7 @@ try {
   await review.getByTestId('organizer-clip-review-one').waitFor();
   await clickExportMenu(review);
   const playlistDialog = review
-    .getByRole('dialog')
-    .filter({ hasText: 'プレイリストを書き出し' });
+    .getByRole('dialog', { name: 'プレイリストのMP4書き出し', exact: true });
   await playlistDialog.waitFor();
   assert.equal(
     await exportDialog(timeline).count(),
