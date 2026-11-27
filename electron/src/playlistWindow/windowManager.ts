@@ -5,7 +5,10 @@ import type { PlaylistItem } from '../../../src/types/playlist/core';
 import type { PlaylistSyncData } from '../../../src/types/playlist/window';
 import { PLAYLIST_WINDOW_CHANNELS } from '../../../src/types/ipc/playlistWindow';
 import { applyWindowSecurity } from '../windowSecurity';
-import { cancelPlaylistDocumentLoad } from './documentLoad';
+import {
+  cancelPlaylistDocumentLoad,
+  playlistDocumentRevision,
+} from './documentLoad';
 import {
   getMainWindowRef,
   getPlaylistWindows,
@@ -211,21 +214,95 @@ export const getOpenWindowCount = (owner?: BrowserWindow | null): number => {
   return count;
 };
 
-export const addItemToAllWindows = (
-  item: PlaylistItem,
-  owner?: BrowserWindow | null,
-): void => {
-  const playlistWindows = getPlaylistWindows();
-  const session = resolveSession(owner);
-  for (const [, info] of playlistWindows) {
-    if (
-      !info.window.isDestroyed() &&
-      (!session || info.sessionId === session.id)
-    ) {
-      deliverToPlaylistWindow(info, { type: 'add-item', item });
-      info.isDirty = true;
+const destinationLabel = (info: PlaylistWindowInfo): string => {
+  const file = info.filePath ?? info.initialFilePath;
+  return file
+    ? `${path.basename(file, '.stpl')}（${path.basename(path.dirname(file))}）`
+    : info.window.getTitle();
+};
+
+const pendingDestinationPick = new WeakSet<BrowserWindow>();
+
+export const deliverItemsToPlaylistWindow = async (
+  items: PlaylistItem[],
+  owner: BrowserWindow,
+): Promise<boolean> => {
+  const session = getPackageSessionForWindow(owner);
+  if (!session || !items.length || pendingDestinationPick.has(owner)) {
+    return false;
+  }
+
+  const windows = getPlaylistWindows();
+  const candidates = () =>
+    [...windows.values()].filter(
+      (info) => info.sessionId === session.id && !info.window.isDestroyed(),
+    );
+  let targets = candidates();
+  if (!targets.length) {
+    createPlaylistWindow(undefined, owner);
+    targets = candidates();
+  }
+  if (!targets.length) return false;
+
+  let target = targets[0];
+  if (targets.length > 1) {
+    const packagePath = session.packagePath;
+    const choices = targets.map((info) => ({
+      info,
+      file: info.filePath,
+      revision: playlistDocumentRevision(info),
+    }));
+    pendingDestinationPick.add(owner);
+    try {
+      const { response } = await dialog.showMessageBox(owner, {
+        type: 'question',
+        title: 'プレイリストに追加',
+        message: `${items.length} 件を追加するプレイリストを選択`,
+        buttons: [
+          'キャンセル',
+          ...targets.map(
+            (info, index) => `${index + 1}. ${destinationLabel(info)}`,
+          ),
+        ],
+        cancelId: 0,
+        defaultId: 0,
+        noLink: true,
+        normalizeAccessKeys: false,
+      });
+      const selected = choices[response - 1];
+      if (!selected) return false;
+
+      // Do not silently switch to another window if the chosen document has
+      // closed, been replaced, or the submitting window changed package.
+      if (
+        owner.isDestroyed() ||
+        getPackageSessionForWindow(owner) !== session ||
+        session.packagePath !== packagePath ||
+        !candidates().includes(selected.info) ||
+        selected.info.filePath !== selected.file ||
+        playlistDocumentRevision(selected.info) !== selected.revision
+      ) {
+        if (!owner.isDestroyed()) {
+          await dialog.showMessageBox(owner, {
+            type: 'info',
+            message:
+              '追加先が変更されたため、プレイリストには追加されませんでした。',
+            detail: '追加先を開いた状態で、もう一度追加してください。',
+          });
+        }
+        return false;
+      }
+      target = selected.info;
+    } finally {
+      pendingDestinationPick.delete(owner);
     }
   }
+
+  target.isDirty = true;
+  for (const item of items) {
+    deliverToPlaylistWindow(target, { type: 'add-item', item });
+  }
+  return true;
 };
 
 export const setWindowDirty = (windowId: string, isDirty: boolean): void => {

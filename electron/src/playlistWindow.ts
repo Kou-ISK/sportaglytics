@@ -12,7 +12,7 @@ import {
   setMainWindowRefState,
 } from './playlistWindow/state';
 import {
-  addItemToAllWindows,
+  deliverItemsToPlaylistWindow,
   closeAllPlaylistWindows,
   closePlaylistWindow,
   closePlaylistWindowsForMainWindow,
@@ -40,7 +40,7 @@ export {
   closePlaylistWindowsForMainWindow,
   isPlaylistWindowOpen,
   getOpenWindowCount,
-  addItemToAllWindows,
+  deliverItemsToPlaylistWindow,
   setWindowDirty,
   syncToPlaylistWindow,
 };

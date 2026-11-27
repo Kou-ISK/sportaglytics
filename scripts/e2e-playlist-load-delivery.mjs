@@ -48,7 +48,7 @@ const verifyHeldAddition = async (app, main, page, clip) => {
   }, clip.id);
   try {
     await main.evaluate(
-      (item) => window.electronAPI.playlist.addItemToAllWindows(item),
+      (item) => window.electronAPI.playlist.deliverItemsToPlaylistWindow([item]),
       clip,
     );
     await page.waitForFunction(

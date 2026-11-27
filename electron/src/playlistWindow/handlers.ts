@@ -13,7 +13,7 @@ import {
   isEventFromWindow,
 } from '../ipc/windowSenderGuards';
 import {
-  addItemToAllWindows,
+  deliverItemsToPlaylistWindow,
   closePlaylistWindow,
   createPlaylistWindow,
   getOpenWindowCount,
@@ -96,18 +96,22 @@ export const registerPlaylistHandlers = (): void => {
   });
 
   ipcMain.handle(
-    PLAYLIST_WINDOW_CHANNELS.addItemToAllWindows,
-    (event, item: unknown) => {
+    PLAYLIST_WINDOW_CHANNELS.deliverItemsToPlaylistWindow,
+    (event, items: unknown) => {
+      const owner = getValidatedEventSenderWindow(event);
       if (
-        !isEventFromWindow(event, getMainWindowRef()) ||
-        !isPlaylistItem(item)
+        !owner ||
+        !isEventFromWindow(event, owner) ||
+        !Array.isArray(items) ||
+        items.length === 0 ||
+        !items.every(isPlaylistItem)
       ) {
-        return;
+        return false;
       }
 
       const session = getPackageSessionForSender(event.sender);
-      if (session) addItemToAllWindows(item, session.mainWindow);
-      else addItemToAllWindows(item);
+      if (session?.mainWindow !== owner) return false;
+      return deliverItemsToPlaylistWindow(items, owner);
     },
   );
 

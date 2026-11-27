@@ -101,9 +101,16 @@ try {
   await main.reload();
   await main.getByText('新しいパッケージを作成', { exact: true }).waitFor();
   await app.evaluate(({ dialog }) => {
+    globalThis.__playlistDestination = { response: 0, opened: 0, buttons: [] };
     globalThis.__playlistOpenErrors = [];
     dialog.showMessageBox = async (...args) => {
       const options = args.at(-1);
+      if (options.title === 'プレイリストに追加') {
+        const choice = globalThis.__playlistDestination;
+        choice.opened++;
+        choice.buttons = options.buttons;
+        return { response: choice.response, checkboxChecked: false };
+      }
       if (options.type === 'error')
         globalThis.__playlistOpenErrors.push(options.title);
       return { response: 1, checkboxChecked: false };
@@ -143,6 +150,45 @@ try {
     'Saved note',
   );
   assert.equal(await countWindows(), initialCount + 2);
+
+  const addBatch = (values) =>
+    main.evaluate(
+      (items) =>
+        window.electronAPI.playlist.deliverItemsToPlaylistWindow(items),
+      values,
+    );
+  const clips = ['batch-first', 'batch-second'].map((id) => ({
+    id,
+    timelineItemId: null,
+    actionName: 'Selected review',
+    startTime: 0,
+    endTime: 2,
+    addedAt: 1,
+    videoSource: movie,
+  }));
+  assert.equal(await addBatch(clips), false);
+  assert.equal(await first.getByTestId(/^sorter-row-batch-/).count(), 0);
+  assert.equal(await second.getByTestId(/^sorter-row-batch-/).count(), 0);
+  await app.evaluate(() => {
+    globalThis.__playlistDestination.response = 2;
+  });
+  assert.equal(await addBatch(clips), true);
+  await second.getByTestId('sorter-row-batch-first').waitFor();
+  await second.getByTestId('sorter-row-batch-second').waitFor();
+  assert.equal(await first.getByTestId(/^sorter-row-batch-/).count(), 0);
+  const destination = await app.evaluate(
+    () => globalThis.__playlistDestination,
+  );
+  assert.equal(
+    destination.opened,
+    2,
+    'One prompt per batch including cancellation',
+  );
+  assert.match(destination.buttons[1], /^1\. first/);
+  assert.match(destination.buttons[2], /^2\. second/);
+  console.log(
+    'Multi-playlist destination: cancellation, selected-only batch and untouched sibling passed',
+  );
 
   const firstId = await (
     await app.browserWindow(first)
