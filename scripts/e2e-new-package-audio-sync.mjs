@@ -18,7 +18,7 @@ const sampleRate = 16000;
 const seconds = 32;
 const sources = ['primary', 'secondary'].map(name => path.join(root, name + '.mp4'));
 
-function createMedia() {
+async function createMedia() {
   // Aperiodic amplitude and waveform give the correlator a unique match.
   const pcm = Buffer.alloc(sampleRate * seconds * 2);
   let seed = 42;
@@ -30,11 +30,15 @@ function createMedia() {
   }
   for (const [index, source] of sources.entries()) {
     const audio = index === 0 ? pcm : Buffer.concat([Buffer.alloc(sampleRate * delay * 2), pcm]);
+    // The output is intentionally shorter than the delayed source. A file
+    // avoids EPIPE if FFmpeg reaches its output limit before draining input.
+    const input = source + '.pcm';
+    await fs.writeFile(input, audio);
     execFileSync(ffmpegPath, [
-      '-hide_banner', '-loglevel', 'error', '-f', 's16le', '-ar', String(sampleRate), '-ac', '1', '-i', 'pipe:0',
+      '-hide_banner', '-loglevel', 'error', '-f', 's16le', '-ar', String(sampleRate), '-ac', '1', '-i', input,
       '-f', 'lavfi', '-i', 'color=c=blue:s=160x90:r=10', '-map', '1:v', '-map', '0:a',
       '-c:v', fixtureH264Encoder, '-pix_fmt', 'yuv420p', '-c:a', 'aac', '-t', String(seconds), source,
-    ], {input: audio, timeout: 60000});
+    ], {timeout: 60000});
   }
 }
 
@@ -107,7 +111,7 @@ async function mainPage(app) {
 
 let app;
 try {
-  createMedia();
+  await createMedia();
   app = await electron.launch(getElectronLaunchOptions(profile));
   let page = await mainPage(app);
   await page.evaluate(() => localStorage.setItem('sportaglytics-onboarding-completed', 'true'));
