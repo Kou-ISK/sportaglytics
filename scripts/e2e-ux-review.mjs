@@ -562,6 +562,17 @@ try {
   await analysis
     .getByText('対象データ数: 240 / 240', { exact: true })
     .waitFor();
+  await analysis.getByRole('button', { name: '軸設定を変更' }).click();
+  const columnType = analysis.locator('[id="列軸-type-select"]');
+  await columnType.click();
+  await analysis
+    .getByRole('option', { name: 'ラベルグループ', exact: true })
+    .click();
+  await analysis.locator('[id="列軸-group-select"]').click();
+  await analysis
+    .getByRole('option', { name: '全てのラベル', exact: true })
+    .click();
+  await analysis.keyboard.press('Escape');
   const matrixCell = analysis
     .getByRole('button', { name: /、[0-9]+件を再生$/ })
     .first();
