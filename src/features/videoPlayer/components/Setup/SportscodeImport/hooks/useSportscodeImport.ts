@@ -42,7 +42,7 @@ export const useSportscodeImport = ({
 }): SportscodeImportViewProps => {
   const operation = useRef(false);
   const [source, setSource] = useState<SportscodeXmlSource | null>(null);
-  const [video, setVideo] = useState('');
+  const [video, setVideo] = useState({ path: '', displayName: '' });
   const [name, setName] = useState('');
   const [offset, setOffset] = useState('0');
   const [confirmed, setConfirmed] = useState(false);
@@ -51,7 +51,10 @@ export const useSportscodeImport = ({
   useEffect(() => {
     if (!open) return;
     setSource(initialBundle?.xml ?? null);
-    setVideo(initialBundle?.videoPath ?? '');
+    setVideo({
+      path: initialBundle?.videoPath ?? '',
+      displayName: initialBundle?.videoDisplayName ?? '',
+    });
     setName(initialBundle?.name ?? '');
     setOffset('0');
     setConfirmed(false);
@@ -94,7 +97,10 @@ export const useSportscodeImport = ({
     try {
       const next = await selectVideoFile();
       if (next) {
-        setVideo(next);
+        setVideo({
+          path: next,
+          displayName: next.split(/[\\/]/).pop() ?? next,
+        });
         setConfirmed(false);
         setError('');
       }
@@ -110,14 +116,17 @@ export const useSportscodeImport = ({
       const bundle = await pickSportscodeBundle();
       if (!bundle) return;
       setSource(bundle.xml);
-      setVideo(bundle.videoPath);
+      setVideo({
+        path: bundle.videoPath,
+        displayName: bundle.videoDisplayName,
+      });
       setName(bundle.name);
       setOffset('0');
       setConfirmed(false);
       setError('');
     } catch (failure) {
       setSource(null);
-      setVideo('');
+      setVideo({ path: '', displayName: '' });
       setName('');
       setConfirmed(false);
       setError(importErrorMessage(failure, 'パッケージを選択できません。'));
@@ -127,7 +136,7 @@ export const useSportscodeImport = ({
     }
   }, []);
   const canImport = Boolean(
-    source && video && name.trim() && parsed.result && confirmed && !busy,
+    source && video.path && name.trim() && parsed.result && confirmed && !busy,
   );
   const importProject = useCallback(async (): Promise<void> => {
     if (!canImport || !source || !parsed.result || operation.current) return;
@@ -141,7 +150,7 @@ export const useSportscodeImport = ({
       const result = await createSportscodeProject({
         xmlPath: source.path,
         xmlSha256: source.sha256,
-        videoPath: video,
+        videoPath: video.path,
         directory,
         packageName: name.trim(),
         offsetSeconds: Number(offset),
@@ -174,7 +183,7 @@ export const useSportscodeImport = ({
     busy,
     error: error || parsed.error,
     xmlName: source?.path.split(/[\\/]/).pop() ?? '',
-    videoName: video.split(/[\\/]/).pop() ?? '',
+    videoName: video.displayName,
     name,
     offset,
     confirmed,

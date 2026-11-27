@@ -58,6 +58,15 @@ export const selectSportscodeBundle = async (
   return {
     name: path.basename(root).replace(/\.scpkg$/i, ''),
     videoPath: videoPath ?? '',
+    videoDisplayName:
+      videoPath && movies.length > 1
+        ? `${path
+            .relative(await fs.realpath(bundleRoot), videoPath)
+            .split(path.sep)
+            .join(
+              '/',
+            )}（候補${movies.length}本のうち、この1本のみ取り込みます）`
+        : path.basename(videoPath ?? ''),
     xml: xmlPath ? await readSportscodeXmlSource(xmlPath) : null,
   };
 };
