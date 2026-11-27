@@ -1,7 +1,9 @@
+import { subscribeAnalysisReviewInstances } from './gateways/analysisWindowGateway';
+import { useInstanceReview } from './hooks/useInstanceReview';
 import { angleIndexForView } from '../../../shared/media/angleView';
 import type { VideoViewMode } from '../../../shared/media/angleView';
 import React, { useState, useRef, useCallback, useEffect } from 'react';
-import { Box } from '@mui/material';
+import { Box, Button, Stack, Typography } from '@mui/material';
 import {
   AnalysisPanel,
   CodingPanelRuntime,
@@ -119,6 +121,26 @@ export const VideoPlayerScreen = (): React.ReactElement => {
     selectionRequestId,
     applySelectionRequest,
   } = useVideoPlayerScreenController(viewMode === 'dual');
+  const review = useInstanceReview({
+    clock: currentTime,
+    playing: isVideoPlaying,
+    seek: handleCurrentTime,
+    setPlaying: setisVideoPlaying,
+    revision: loadRevision,
+  });
+  useEffect(
+    () =>
+      subscribeAnalysisReviewInstances((ids) => {
+        const byId = new Map(timeline.map((item) => [item.id, item]));
+        review.start(
+          ids.flatMap((id) => {
+            const item = byId.get(id);
+            return item ? [item] : [];
+          }),
+        );
+      }),
+    [review.start, timeline],
+  );
   const { notify } = useNotification();
   const liveCapture = useLiveCapturePlayback({
     packagePath,
@@ -415,6 +437,9 @@ export const VideoPlayerScreen = (): React.ReactElement => {
     onPasteItems: pasteTimelineItemsToRow,
     onUndo: performUndo,
     onRedo: performRedo,
+    onReviewInstances: (items) => {
+      if (!angleSync.snapshot) review.start(items);
+    },
     onAddToPlaylist: (items) => void handleAddToPlaylist(items),
   });
 
@@ -466,6 +491,17 @@ export const VideoPlayerScreen = (): React.ReactElement => {
       }}
     >
       <TimelinePersistenceStatusView feedback={persistenceFeedback} />
+      {review.active && (
+        <Stack direction="row" alignItems="center" spacing={1} sx={{ px: 1 }}>
+          <Typography role="status" variant="caption">
+            映像レビュー {review.active.index + 1} /{' '}
+            {review.active.items.length}
+          </Typography>
+          <Button size="small" onClick={review.stop}>
+            レビューを終了
+          </Button>
+        </Stack>
+      )}
       <VideoPlayerLayout
         livePlaybackEnd={liveCapture.timelineState?.availableEndSeconds}
         openWizardRequestKey={openWizardRequestKey}
@@ -524,6 +560,12 @@ export const VideoPlayerScreen = (): React.ReactElement => {
         onViewChange={setAnalysisView}
         timeline={timeline}
         teamNames={teamNames}
+        onReviewInstances={(items) => {
+          if (!angleSync.snapshot) {
+            review.start(items);
+            setAnalysisOpen(false);
+          }
+        }}
         onJumpToSegment={handleJumpToSegment}
         onCreateAiPlaylist={handleCreateAiPlaylist}
       />

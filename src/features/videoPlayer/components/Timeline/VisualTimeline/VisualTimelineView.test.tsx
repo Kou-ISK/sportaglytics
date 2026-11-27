@@ -18,6 +18,7 @@ import { useVisualTimelineController } from './hooks/useVisualTimelineController
 import { reviewTimeline, reviewRows } from '../../../fixtures/timelineReview';
 
 const seek = vi.fn();
+const play = vi.fn();
 const update = vi.fn();
 const Harness = (): ReactElement => {
   const [selectedIds, onSelectionChange] = useState<string[]>([]);
@@ -28,6 +29,7 @@ const Harness = (): ReactElement => {
     selectedIds,
     onSelectionChange,
     onSeek: seek,
+    onReviewInstances: play,
     currentTime: 45,
     maxSec: 120,
     onDelete: vi.fn(),
@@ -37,6 +39,7 @@ const Harness = (): ReactElement => {
 };
 beforeEach(() => {
   seek.mockClear();
+  play.mockClear();
   update.mockClear();
   vi.stubGlobal(
     'ResizeObserver',
@@ -221,4 +224,20 @@ describe('timeline editing and seeking', () => {
     expect(seek.mock.calls).toHaveLength(3);
     expect(seek).toHaveBeenLastCalledWith(last, 'scrub');
   });
+});
+
+it('reviews one instance and all row instances, preserving the editing context menu', () => {
+  const item = reviewTimeline.find(
+    (instance) => instance.actionName === 'アタック',
+  )!;
+  fireEvent.doubleClick(screen.getByTestId(`timeline-instance-${item.id}`));
+  expect(play).toHaveBeenLastCalledWith([item]);
+  fireEvent.doubleClick(screen.getByRole('button', { name: 'アタック 行' }));
+  expect(play).toHaveBeenLastCalledWith(
+    reviewTimeline
+      .filter(({ actionName }) => actionName === 'アタック')
+      .sort((a, b) => a.startTime - b.startTime),
+  );
+  fireEvent.contextMenu(screen.getByRole('button', { name: 'アタック 行' }));
+  expect(screen.getByRole('menu')).toBeTruthy();
 });

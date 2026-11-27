@@ -17,6 +17,8 @@ interface TimelineFooterProps {
   canZoomIn: boolean;
   onZoomOut: () => void;
   onZoomIn: () => void;
+  onPlaySelection?: () => void;
+  canPlaySelection?: boolean;
   onAddRow?: () => void;
 }
 
@@ -30,6 +32,8 @@ export const TimelineFooter = ({
   onZoomOut,
   onZoomIn,
   onAddRow,
+  onPlaySelection,
+  canPlaySelection,
 }: TimelineFooterProps): ReactElement => {
   return (
     <Box
@@ -85,6 +89,16 @@ export const TimelineFooter = ({
         <Typography variant="caption" color="primary.main">
           {selectedCount} 件選択
         </Typography>
+      )}
+      {onPlaySelection && (
+        <Button
+          size="small"
+          disabled={!canPlaySelection}
+          onClick={onPlaySelection}
+          sx={{ whiteSpace: 'nowrap' }}
+        >
+          選択を再生
+        </Button>
       )}
       <Box sx={{ flex: 1 }} />
 

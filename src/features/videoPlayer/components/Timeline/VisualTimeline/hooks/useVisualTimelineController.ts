@@ -41,6 +41,7 @@ export const useVisualTimelineController = ({
   audioSelections,
   onUndo,
   onRedo,
+  onReviewInstances,
   onAddToPlaylist,
 }: VisualTimelineProps): VisualTimelineViewProps & {
   onRevealItem: (id: string) => void;
@@ -62,10 +63,13 @@ export const useVisualTimelineController = ({
     scrollLeft,
   } = useTimelineViewport({ maxSec, currentTime });
   const [pointerTime, setPointerTime] = React.useState<number | null>(null);
-  const seekFromBar = useCallback<VisualTimelineProps['onSeek']>((time, mode) => {
-    setPointerTime(mode === 'preview' ? time : null);
-    onSeek(time, mode);
-  }, [onSeek]);
+  const seekFromBar = useCallback<VisualTimelineProps['onSeek']>(
+    (time, mode) => {
+      setPointerTime(mode === 'preview' ? time : null);
+      onSeek(time, mode);
+    },
+    [onSeek],
+  );
   const seekHandlers = useTimelineSeek(
     clientXToContentX,
     positionToTime,
@@ -440,7 +444,8 @@ export const useVisualTimelineController = ({
     scrollLeft,
     axisRef,
     maxSec,
-    currentTimePosition: pointerTime === null ? currentTimePosition : timeToPosition(pointerTime),
+    currentTimePosition:
+      pointerTime === null ? currentTimePosition : timeToPosition(pointerTime),
     containerWidth,
     timeMarkers,
     timeToPosition,
@@ -463,6 +468,7 @@ export const useVisualTimelineController = ({
       handleItemContextMenu(event, id);
     },
     onEditItem: openDraftFromItemId,
+    onReviewInstances,
     onSelectRowItems: selectAllItems,
     firstTeamName,
     onUpdateTimeRange,

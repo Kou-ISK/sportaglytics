@@ -10,6 +10,8 @@ interface MatrixSectionProps {
   rowParentSpans: Map<string, number>;
   colParentSpans: Map<string, number>;
   matrix: Array<Array<{ count: number; entries: TimelineData[] }>>;
+  onSelectForReview?: (title: string, entries: TimelineData[]) => void;
+  onReviewInstances?: (items: TimelineData[]) => void;
   onDrilldown: (title: string, entries: TimelineData[]) => void;
   exportMode?: 'screen' | 'print';
 }
@@ -20,6 +22,8 @@ export const MatrixSection = ({
   rowParentSpans,
   colParentSpans,
   matrix,
+  onSelectForReview,
+  onReviewInstances,
   onDrilldown,
   exportMode = 'screen',
 }: MatrixSectionProps) => {
@@ -81,6 +85,32 @@ export const MatrixSection = ({
             columnHeaders={columnHeaders}
             rowParentSpans={rowParentSpans}
             colParentSpans={colParentSpans}
+            onColumnClick={
+              onReviewInstances
+                ? (index, keyboard) => {
+                    const entries = matrix.flatMap(
+                      (row) => row[index]?.entries ?? [],
+                    );
+                    if (keyboard) onReviewInstances(entries);
+                    else {
+                      const header = columnHeaders[index];
+                      onSelectForReview?.(
+                        [header.parent, header.child].filter(Boolean).join(' '),
+                        entries,
+                      );
+                    }
+                  }
+                : undefined
+            }
+            onColumnDoubleClick={
+              onReviewInstances
+                ? (index) => {
+                    onReviewInstances(
+                      matrix.flatMap((row) => row[index]?.entries ?? []),
+                    );
+                  }
+                : undefined
+            }
             hasColumnParent={hasColumnParent}
             exportMode={exportMode}
           />
@@ -98,6 +128,8 @@ export const MatrixSection = ({
                 rowParentSpans={rowParentSpans}
                 columnHeaders={columnHeaders}
                 rowCells={matrix[rowIndex] ?? []}
+                onSelectForReview={onSelectForReview}
+                onReviewInstances={onReviewInstances}
                 onDrilldown={onDrilldown}
                 exportMode={exportMode}
               />

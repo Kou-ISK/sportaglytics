@@ -13,6 +13,7 @@ interface AnalysisPanelProps {
   onViewChange?: (view: AnalysisView) => void;
   timeline: TimelineData[];
   teamNames: string[];
+  onReviewInstances?: (items: TimelineData[]) => void;
   onJumpToSegment?: (segment: TimelineData) => void;
   embedded?: boolean;
   isSyncing?: boolean;
@@ -29,6 +30,7 @@ export const AnalysisPanel = ({
   onViewChange,
   timeline,
   teamNames,
+  onReviewInstances,
   onJumpToSegment,
   embedded = false,
   isSyncing = false,
@@ -55,6 +57,7 @@ export const AnalysisPanel = ({
     currentView,
     onChangeView: handleChangeView,
     timeline,
+    onReviewInstances,
     onJumpToSegment,
     embedded,
     isSyncing,

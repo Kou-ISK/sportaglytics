@@ -24,6 +24,7 @@ import type { MatrixTabViewProps } from '../components/MatrixTabView';
 export interface MatrixTabControllerParams {
   hasData: boolean;
   timeline: TimelineData[];
+  onReviewInstances?: (items: TimelineData[]) => void;
   onJumpToSegment?: (segment: TimelineData) => void;
   emptyMessage: string;
   totalTimelineCount?: number;
@@ -64,6 +65,7 @@ const buildMatrixPlaylistItems = (entries: TimelineData[]): PlaylistItem[] => {
 export const useMatrixTabController = ({
   hasData,
   timeline,
+  onReviewInstances,
   onJumpToSegment,
   emptyMessage,
   totalTimelineCount,
@@ -286,6 +288,7 @@ export const useMatrixTabController = ({
     onDetailClose: () => {
       setDetail(null);
     },
+    onReviewInstances,
     onJumpToSegment,
   };
 };

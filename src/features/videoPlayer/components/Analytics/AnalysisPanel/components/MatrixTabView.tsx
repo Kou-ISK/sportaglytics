@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Box, Button, Paper, Stack, Typography } from '@mui/material';
 import type { TimelineData } from '../../../../../../types/timeline/core';
 import type { MatrixAxisConfig } from '../../../../../../types/analysis/matrix';
@@ -44,6 +44,7 @@ export interface MatrixTabViewProps {
   ) => Promise<void>;
   onDrilldown: (title: string, entries: TimelineData[]) => void;
   onDetailClose: () => void;
+  onReviewInstances?: (items: TimelineData[]) => void;
   onJumpToSegment?: (segment: TimelineData) => void;
 }
 
@@ -74,8 +75,13 @@ export const MatrixTabView = ({
   onCreateDetailPlaylist,
   onDrilldown,
   onDetailClose,
+  onReviewInstances,
   onJumpToSegment,
 }: MatrixTabViewProps) => {
+  const [selected, setSelected] = useState<{
+    title: string;
+    entries: TimelineData[];
+  } | null>(null);
   if (!hasData) {
     return <NoDataPlaceholder message={emptyMessage} />;
   }
@@ -117,7 +123,23 @@ export const MatrixTabView = ({
           )}
         />
 
-        <Box display="flex" justifyContent="flex-end" gap={1}>
+        <Box
+          display="flex"
+          justifyContent="flex-end"
+          gap={1}
+          sx={{ flexWrap: 'wrap' }}
+        >
+          {onReviewInstances && (
+            <Button
+              size="small"
+              disabled={!selected}
+              onClick={() => {
+                if (selected) onDrilldown(selected.title, selected.entries);
+              }}
+            >
+              場面一覧
+            </Button>
+          )}
           <Button
             size="small"
             variant="outlined"
@@ -155,6 +177,23 @@ export const MatrixTabView = ({
                   rowParentSpans={customMatrix.rowParentSpans}
                   colParentSpans={customMatrix.colParentSpans}
                   matrix={customMatrix.matrix}
+                  onSelectForReview={(title, entries) =>
+                    setSelected({ title, entries })
+                  }
+                  onReviewInstances={
+                    onReviewInstances
+                      ? (items) => {
+                          const unique = [
+                            ...new Map(
+                              items.map((item) => [item.id, item]),
+                            ).values(),
+                          ];
+                          onReviewInstances(
+                            unique.sort((a, b) => a.startTime - b.startTime),
+                          );
+                        }
+                      : undefined
+                  }
                   onDrilldown={onDrilldown}
                 />
                 <Typography variant="caption" color="text.secondary">

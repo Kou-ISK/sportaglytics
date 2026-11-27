@@ -79,6 +79,7 @@ export interface VisualTimelineViewProps {
   rowColorDraft: string;
   onRowNameDraftChange: (value: string) => void;
   onRowColorDraftChange: (value: string) => void;
+  onReviewInstances?: (items: TimelineData[]) => void;
   onOpenRowEditor: (row: TimelineRow) => void;
   onCloseRowEditor: () => void;
   onSaveRow: () => void;
@@ -151,6 +152,7 @@ export const VisualTimelineView = ({
   rowColorDraft,
   onRowNameDraftChange,
   onRowColorDraftChange,
+  onReviewInstances,
   onOpenRowEditor,
   onCloseRowEditor,
   onSaveRow,
@@ -176,6 +178,32 @@ export const VisualTimelineView = ({
   selectionBox,
   dialogsProps,
 }: VisualTimelineViewProps) => {
+  const playSelection = () => {
+    if (!onReviewInstances) return;
+    if (selectedRowIds.length) {
+      const rowsById = new Map(rows.map((row) => [row.id, row.name]));
+      onReviewInstances(
+        selectedRowIds.flatMap((id) =>
+          [...(groupedByAction[rowsById.get(id) ?? ''] ?? [])].sort(
+            (a, b) => a.startTime - b.startTime,
+          ),
+        ),
+      );
+      return;
+    }
+    const itemsById = new Map(
+      Object.values(groupedByAction)
+        .flat()
+        .map((item) => [item.id, item]),
+    );
+    onReviewInstances(
+      selectedIds.flatMap((id) => {
+        const item = itemsById.get(id);
+        return item ? [item] : [];
+      }),
+    );
+  };
+
   return (
     <Box
       sx={{
@@ -266,7 +294,16 @@ export const VisualTimelineView = ({
                 onHoverChange={setHoveredItemId}
                 onItemClick={handleItemClick}
                 onItemContextMenu={handleItemContextMenu}
-                onEditItem={onEditItem}
+                onEditItem={
+                  onReviewInstances
+                    ? (id) => {
+                        const instance = (groupedByAction[row.name] ?? []).find(
+                          (item) => item.id === id,
+                        );
+                        if (instance) onReviewInstances([instance]);
+                      }
+                    : onEditItem
+                }
                 timeToPosition={timeToPosition}
                 positionToTime={positionToTime}
                 clientXToContentX={clientXToContentX}
@@ -278,7 +315,17 @@ export const VisualTimelineView = ({
                 onPreviewTime={onSeek}
                 onMoveItem={handleMoveItems}
                 onCreateItem={onCreateTimelineItem}
-                onEditRow={() => onOpenRowEditor(row)}
+                onEditRow={
+                  onReviewInstances
+                    ? () => {
+                        const instances = [
+                          ...(groupedByAction[row.name] ?? []),
+                        ];
+                        instances.sort((a, b) => a.startTime - b.startTime);
+                        onReviewInstances(instances);
+                      }
+                    : () => onOpenRowEditor(row)
+                }
                 onRowClick={onRowClick}
                 onRowContextMenu={onRowContextMenu}
                 onRowDragStart={onRowDragStart}
@@ -322,6 +369,8 @@ export const VisualTimelineView = ({
         canZoomIn={canZoomIn}
         onZoomOut={onZoomOut}
         onZoomIn={onZoomIn}
+        onPlaySelection={onReviewInstances ? playSelection : undefined}
+        canPlaySelection={selectedIds.length + selectedRowIds.length > 0}
         onAddRow={onAddRow}
       />
 
