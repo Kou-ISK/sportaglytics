@@ -555,6 +555,17 @@ try {
   await analysis
     .getByText('対象データ数: 240 / 240', { exact: true })
     .waitFor();
+  const matrixCell = analysis
+    .getByRole('button', { name: /、[0-9]+件を再生$/ })
+    .first();
+  const details = analysis.getByRole('button', { name: '場面一覧' });
+  await matrixCell.click();
+  assert.equal(await details.isEnabled(), true);
+  assert.equal(await main.getByText(/^映像レビュー /).count(), 0);
+  await matrixCell.dblclick();
+  await main.getByText(/^映像レビュー 1 \/ [0-9]+$/).waitFor();
+  await main.getByRole('button', { name: 'レビューを終了' }).click();
+  await main.getByText(/^映像レビュー /).waitFor({ state: 'hidden' });
   // Real renderer reload discards its listener while the owner document remains
   // unchanged. It must recover the same 240 scenes through the ready handshake.
   await analysis.reload();
