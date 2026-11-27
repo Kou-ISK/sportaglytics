@@ -9,6 +9,7 @@ export interface SportscodeXmlSource {
 export interface SportscodeBundleSelection {
   name: string;
   videoPath: string;
+  videoDisplayName: string;
   xml: SportscodeXmlSource | null;
 }
 

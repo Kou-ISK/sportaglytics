@@ -58,6 +58,8 @@
 
 | ARCH-EX-027 | 2026-11-26 | Git / release | v0.17.43 を develop 統合後に main 基点の限定 PR で反映する提案 | 未配信の既存タグを保持し develop のモデル配布ポリシーを混ぜない | #331 の時計補正、#333 のプレイリストの倍率と再開順序、片側ファイル切替時の同期補正・各回帰試験と版準備のみ。レビュー・全CI、署名公証、同一DMGでの既存受入と更新・公開照合を維持 | v0.17.43 の配布照合または 2026-12-10 の早い方 | maintainers | [#331](https://github.com/Kou-ISK/sportaglytics/pull/331) | Proposed |
 
+| ARCH-EX-028 | 2026-11-27 | Git / release | v0.17.44 を main 基点の限定 PR で準備 | develop の未配信モデル方針を除外する | develop 統合済み #335 の5ファイルと版準備のみ | 通常 CI・署名公証・同一 DMG の取込と再生の受入・更新と配布物照合 | v0.17.44 の配布照合または 2026-12-11 の早い方 | maintainers | [#335](https://github.com/Kou-ISK/sportaglytics/pull/335) | Proposed |
+
 ## 月次レビュー
 
 - 毎月 1 回、Open の例外を見直して優先順位を更新する。
