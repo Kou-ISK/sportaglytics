@@ -536,6 +536,13 @@ try {
   );
   console.log('Playlist handoff verified');
   await screenshot(playlist, 'ux-review-playlist');
+  // The previous assertion uses a disposable unsaved document. Close it so
+  // the saved-document load/reload probe has exactly one destination;
+  // multi-destination choosing and cancel are covered in e2e-playlist-open-menu.
+  await Promise.all([
+    playlist.waitForEvent('close', { timeout: 5000 }),
+    (await app.browserWindow(playlist)).evaluate((window) => window.destroy()),
+  ]);
   await verifySavedPlaylistLoadDelivery(
     app,
     main,
