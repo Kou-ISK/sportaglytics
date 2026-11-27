@@ -100,6 +100,32 @@ describe('playlist destination and delivery', () => {
     expect(mocks.showMessageBox).not.toHaveBeenCalled();
   });
 
+  it('flushes pre-ready sync before clips and does not replay them on a second ready', async () => {
+    const receiver = manager.createPlaylistWindow(undefined, owner);
+    const sync: PlaylistSyncData = {
+      state: {
+        playlists: [],
+        activePlaylistId: null,
+        playingItemId: null,
+        loopMode: 'none',
+      },
+      videoPath: null,
+      videoPath2: null,
+      videoSources: [],
+      currentTime: 0,
+    };
+    manager.syncToPlaylistWindow(sync, owner);
+    expect(await manager.deliverItemsToPlaylistWindow([clip], owner)).toBe(
+      true,
+    );
+    manager.markPlaylistRendererReady(receiver.webContents);
+    manager.markPlaylistRendererReady(receiver.webContents);
+    expect(screen(1).mock.calls).toEqual([
+      [PLAYLIST_WINDOW_CHANNELS.sync, sync],
+      [PLAYLIST_WINDOW_CHANNELS.addItem, clip],
+    ]);
+  });
+
   it('adds only to the chosen destination, in batch order', async () => {
     const first = manager.createPlaylistWindow(
       '/analysis/Scouting.stpl',
