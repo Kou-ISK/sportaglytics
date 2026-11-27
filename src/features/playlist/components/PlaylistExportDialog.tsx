@@ -5,6 +5,9 @@ import {
 import React from 'react';
 import {
   Button,
+  Checkbox,
+  FormControl,
+  FormLabel,
   Dialog,
   DialogActions,
   DialogContent,
@@ -26,7 +29,16 @@ import type {
   ClipExportScope,
 } from '../../../shared/clipExport/clipExportTypes';
 
+import type { PlaylistExportContent } from '../domain/playlistExportContent';
+
 export type { AngleOption, ExportMode, OverlaySettings };
+
+const exportModes: ReadonlyArray<{ value: ExportMode; label: string; detail: string }> = [
+  { value: 'single', label: '1ファイル', detail: '再生順に1本へ結合' },
+  { value: 'perInstance', label: 'インスタンスごと', detail: '各クリップ・スライドを別々に' },
+  { value: 'perRow', label: 'アクションごと', detail: '同じアクション名でまとめる' },
+  { value: 'organizerRows', label: 'Organizerの行ごと', detail: '作成したテーマ行でまとめる' },
+];
 
 type PlaylistExportDialogProps = ClipExportTextOptionsProps & {
   open: boolean;
@@ -37,8 +49,11 @@ type PlaylistExportDialogProps = ClipExportTextOptionsProps & {
   exportScope: ClipExportScope;
   setExportScope: (value: ClipExportScope) => void;
   selectedItemCount: number;
-  slideCount?: number;
-  onlySlides?: boolean;
+  content: PlaylistExportContent;
+  setContent: React.Dispatch<React.SetStateAction<PlaylistExportContent>>;
+  availableSlideCount: number;
+  hasVideo: boolean;
+  outputItemCount: number;
   rowSummary?: { id: string; name: string; count: number; hasVideo?: boolean }[];
   exportMode: ExportMode;
   setExportMode: (value: ExportMode) => void;
@@ -64,8 +79,11 @@ export const PlaylistExportDialog = ({
   setExportScope,
   selectedItemCount,
   rowSummary = [],
-  slideCount = 0,
-  onlySlides = false,
+  content,
+  setContent,
+  availableSlideCount,
+  hasVideo,
+  outputItemCount,
   exportMode,
   setExportMode,
   angleOption,
@@ -80,10 +98,10 @@ export const PlaylistExportDialog = ({
   onOverlayChoice,
   notePreview,
   textPreview,
-}: PlaylistExportDialogProps) => {
+}: PlaylistExportDialogProps): React.ReactElement => {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>プレイリストを書き出し</DialogTitle>
+      <DialogTitle>プレイリストのMP4書き出し</DialogTitle>
       <DialogContent dividers sx={{ display: 'grid', gap: 1.5 }}>
         <TextField
           label="ファイル名 (拡張子不要)"
@@ -114,34 +132,34 @@ export const PlaylistExportDialog = ({
           </RadioGroup>
         </Stack>
         <Divider />
-        <Stack
-          direction="row"
-          spacing={1}
-          useFlexGap
-          flexWrap="wrap"
-          alignItems="center"
-        >
-          <Typography variant="body2" sx={{ whiteSpace: 'nowrap' }}>
-            出力モード
-          </Typography>
-          <ToggleButtonGroup
-            exclusive
-            size="small"
-            sx={{ '& .MuiToggleButton-root': { whiteSpace: 'nowrap' } }}
+        <FormControl component="fieldset">
+          <FormLabel component="legend">出力モード</FormLabel>
+          <RadioGroup
+            aria-label="出力モード"
+            sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 166px), 1fr))', gap: 0.5 }}
             value={exportMode}
-            onChange={(_, value) => value && setExportMode(value)}
+            onChange={(_, value) => {
+              const option = exportModes.find((mode) => mode.value === value);
+              if (option) setExportMode(option.value);
+            }}
           >
-            <ToggleButton value="single">1ファイル</ToggleButton>
-            <ToggleButton value="perInstance">インスタンスごと</ToggleButton>
-            <ToggleButton value="perRow">アクションごと</ToggleButton>
-            <ToggleButton value="organizerRows">Organizer の行ごと</ToggleButton>
-          </ToggleButtonGroup>
-        </Stack>
+            {exportModes.map(({ value, label, detail }) => (
+              <FormControlLabel
+                key={value}
+                value={value}
+                control={<Radio size="small" />}
+                sx={{ m: 0, minWidth: 0, minHeight: 44 }}
+                label={<><Typography variant="body2" component="span" display="block">{label}</Typography>
+                  <Typography variant="caption" color="text.secondary" component="span">{detail}</Typography></>}
+              />
+            ))}
+          </RadioGroup>
+        </FormControl>
         {exportMode === 'organizerRows' && (
           <Stack spacing={0.5} aria-label="行別の書き出し予定">
             <Typography variant="subtitle2">
               出力 {rowSummary.reduce((sum, row) => sum +
-                (row.hasVideo !== false && !onlySlides && angleOption === 'allAngles'
+                (row.hasVideo !== false && hasVideo && angleOption === 'allAngles'
                   ? videoSources.filter((source) => source.trim()).length : 1), 0)} 本
             </Typography>
             {rowSummary.map((row, index) => (
@@ -150,10 +168,7 @@ export const PlaylistExportDialog = ({
             {!rowSummary.length && <Typography variant="body2">対象行がありません</Typography>}
           </Stack>
         )}
-        {slideCount > 0 && <Typography variant="body2" color="text.secondary">
-          スライド {slideCount} 件を指定秒数で表示します。映像と同じ MP4 に収める場合は 1280×720・30 fps で出力します。
-        </Typography>}
-        {!onlySlides && <Stack spacing={2}>
+        {hasVideo && <Stack spacing={2}>
           <Stack
             direction="row"
             spacing={1}
@@ -170,7 +185,7 @@ export const PlaylistExportDialog = ({
               value={angleOption}
               sx={{
                 flexWrap: 'wrap',
-                '& .MuiToggleButton-root': { whiteSpace: 'nowrap' },
+                '& .MuiToggleButton-root': { minWidth: 0, whiteSpace: 'normal' },
               }}
               onChange={(_, value) =>
                 value && setAngleOption(value as AngleOption)
@@ -225,14 +240,45 @@ export const PlaylistExportDialog = ({
           )}
         </Stack>}
         <Divider />
-        <ClipExportTextOptionsView
-          overlayChoice={overlayChoice}
-          onOverlayChoice={onOverlayChoice}
-          overlaySettings={overlaySettings}
-          setOverlaySettings={setOverlaySettings}
-          notePreview={notePreview}
-          textPreview={textPreview}
-        />
+        <Stack spacing={1}>
+          <Typography variant="subtitle2">MP4に含める内容</Typography>
+          <FormControlLabel
+            label="エフェクト（Paint・フリーズ・クロマキー）"
+            control={<Checkbox
+              size="small"
+              checked={content.includeEffects}
+              disabled={!hasVideo}
+              onChange={(_, checked) => setContent((previous) => ({ ...previous, includeEffects: checked }))}
+            />}
+          />
+          <FormControlLabel
+            label={`スライド・タイトル（${availableSlideCount}件）`}
+            control={<Checkbox
+              size="small"
+              checked={content.includeSlides}
+              disabled={availableSlideCount === 0}
+              onChange={(_, checked) => setContent((previous) => ({ ...previous, includeSlides: checked }))}
+            />}
+          />
+          {content.includeSlides && availableSlideCount > 0 && <Typography variant="caption" color="text.secondary">
+            各スライドは設定した秒数だけ表示します。映像と同じMP4に収める場合は1280×720・30 fpsです。
+          </Typography>}
+          {hasVideo && <ClipExportTextOptionsView
+            overlayChoice={overlayChoice}
+            onOverlayChoice={onOverlayChoice}
+            overlaySettings={overlaySettings}
+            setOverlaySettings={setOverlaySettings}
+            notePreview={notePreview}
+            textPreview={textPreview}
+            prompt="インスタンステキスト（映像に焼き込む文字）"
+            instructions="書き出すたびに選択してください。入れる場合は再エンコードします。"
+          />}
+          {outputItemCount === 0 && <Typography variant="body2" role="status">
+            {availableSlideCount > 0
+              ? 'スライドを除外したため、書き出すアイテムがありません。'
+              : '書き出すアイテムがありません。'}
+          </Typography>}
+        </Stack>
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose}>キャンセル</Button>
@@ -240,7 +286,8 @@ export const PlaylistExportDialog = ({
           onClick={onExport}
           variant="contained"
           disabled={
-            disableExport || overlayChoice === null || textPreview?.blocked ||
+            disableExport || outputItemCount === 0 ||
+            (hasVideo && (overlayChoice === null || textPreview?.blocked)) ||
             (exportMode === 'organizerRows' && !rowSummary.length)
           }
         >

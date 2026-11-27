@@ -1,3 +1,4 @@
+import type { PlaylistExportContent } from '../../domain/playlistExportContent';
 import type { ClipExportTextPreviewState } from '../../../../shared/clipExport/useClipExportTextPreview';
 import type {
   DrawingObject,
@@ -133,8 +134,11 @@ export interface BuildDialogsSectionParams {
   exportScope: ClipExportScope;
   setExportScope: React.Dispatch<React.SetStateAction<ClipExportScope>>;
   selectedCount: number;
-  slideCount?: number;
-  onlySlides?: boolean;
+  content: PlaylistExportContent;
+  setContent: React.Dispatch<React.SetStateAction<PlaylistExportContent>>;
+  availableSlideCount: number;
+  hasVideo: boolean;
+  outputItemCount: number;
   rowSummary?: { id: string; name: string; count: number; hasVideo?: boolean }[];
   exportMode: ExportMode;
   setExportMode: React.Dispatch<React.SetStateAction<ExportMode>>;

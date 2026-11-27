@@ -1,3 +1,4 @@
+import { getPlaylistExportSelection, type PlaylistExportContent } from '../../domain/playlistExportContent';
 import { useCallback } from 'react';
 import type {
   AnnotationTarget,
@@ -25,6 +26,7 @@ interface UsePlaylistWindowExportFlowParams {
   exportMode: ClipExportMode;
   exportFileName: string;
   overlayChoice: boolean | null;
+  content: PlaylistExportContent;
   overlaySettings: ClipExportOverlaySettings;
   itemAnnotations: Record<string, ItemAnnotation>;
   minFreezeDuration: number;
@@ -71,6 +73,7 @@ export const usePlaylistWindowExportFlow = ({
   exportMode,
   exportFileName,
   overlayChoice,
+  content,
   overlaySettings,
   itemAnnotations,
   minFreezeDuration,
@@ -98,7 +101,8 @@ export const usePlaylistWindowExportFlow = ({
     selectedAngleIndex,
     exportMode,
     exportFileName,
-    overlaySettings,
+    content,
+    overlaySettings: { ...overlaySettings, enabled: overlayChoice === true },
     itemAnnotations,
     minFreezeDuration,
     primaryContentRect,
@@ -109,8 +113,9 @@ export const usePlaylistWindowExportFlow = ({
     onMissingApi,
   });
 
+  const { hasVideo } = getPlaylistExportSelection(items, selectedItems, exportScope, content.includeSlides);
   const handleExportPlaylist = useCallback(() => {
-    if (overlayChoice === null) {
+    if (hasVideo && overlayChoice === null) {
       onError('オーバーレイテキストを含めるか選択してください');
       return;
     }
@@ -123,7 +128,7 @@ export const usePlaylistWindowExportFlow = ({
         onError(result.message);
       }
     });
-  }, [exportPlaylist, onError, onSuccess, overlayChoice, setExportDialogOpen]);
+  }, [exportPlaylist, hasVideo, onError, onSuccess, overlayChoice, setExportDialogOpen]);
 
   return {
     exportProgress,
