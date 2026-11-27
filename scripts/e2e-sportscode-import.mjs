@@ -16,7 +16,10 @@ const destination = path.join(root, 'new-projects');
 await fs.mkdir(sources);
 await fs.mkdir(destination);
 const xmlPath = path.join(sources, 'Synthetic #%.xml');
-const videoPath = path.join(sources, 'Synthetic #%.mp4');
+const videoPath = path.join(sources, 'Near', 'Synthetic #%.mp4');
+const otherVideoPath = path.join(sources, 'Wide', 'Synthetic #%.mp4');
+await fs.mkdir(path.dirname(videoPath));
+await fs.mkdir(path.dirname(otherVideoPath));
 const baseXml = await fs.readFile(
   'src/features/videoPlayer/components/Setup/SportscodeImport/fixtures/synthetic-edit-list.xml',
   'utf8',
@@ -53,7 +56,24 @@ execFileSync(ffmpegPath, [
   '-y',
   videoPath,
 ]);
+execFileSync(ffmpegPath, [
+  '-v',
+  'error',
+  '-f',
+  'lavfi',
+  '-i',
+  'color=c=red:s=320x180:r=24:d=20',
+  '-threads',
+  '2',
+  '-c:v',
+  fixtureH264Encoder,
+  '-pix_fmt',
+  'yuv420p',
+  otherVideoPath,
+]);
 const originalVideo = await fs.readFile(videoPath);
+const otherVideo = await fs.readFile(otherVideoPath);
+assert.notDeepEqual(originalVideo, otherVideo);
 await fs.chmod(xmlPath, 0o444);
 await fs.chmod(videoPath, 0o444);
 const artifacts =
@@ -97,6 +117,7 @@ try {
         null,
         destination,
         sources,
+        videoPath,
         destination,
       ];
       dialog.showOpenDialog = async (...args) => {
@@ -163,6 +184,12 @@ try {
     .getByRole('button', { name: 'パッケージを開く', exact: true })
     .click();
   await dialog.getByText('3行 / 2場面', { exact: false }).waitFor();
+  await dialog
+    .getByText(
+      'Near/Synthetic #%.mp4（候補2本のうち、この1本のみ取り込みます）',
+      { exact: true },
+    )
+    .waitFor({ timeout: 5000 });
   assert.equal(await dialog.getByRole('spinbutton').inputValue(), '0');
   await confirm.check();
   await screenshot(main, 'preview');
@@ -220,6 +247,7 @@ try {
   assert.equal(calls[2].filters, undefined);
   assert.equal(await fs.readFile(xmlPath, 'utf8'), xml);
   assert.deepEqual(await fs.readFile(videoPath), originalVideo);
+  assert.deepEqual(await fs.readFile(otherVideoPath), otherVideo);
   assert.deepEqual(
     timeline.instances[0].labels.slice(-preservedLabels.length),
     preservedLabels,
@@ -307,7 +335,7 @@ try {
     xml,
   );
   assert.deepEqual(
-    await fs.readFile(path.join(offline, path.basename(videoPath))),
+    await fs.readFile(path.join(offline, path.relative(sources, videoPath))),
     originalVideo,
   );
   await screenshot(reopenedTimeline, 'reopened-label-groups');
