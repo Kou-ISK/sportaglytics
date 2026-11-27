@@ -19,6 +19,7 @@ interface AnalysisPanelContentProps {
   hasTimelineData: boolean;
   timeline: TimelineData[];
   resolvedTeamNames: string[];
+  onReviewInstances?: (items: TimelineData[]) => void;
   onJumpToSegment?: (segment: TimelineData) => void;
   onCreateAiPlaylist?: (payload: {
     name: string;
@@ -46,6 +47,7 @@ export const AnalysisPanelContent = ({
   hasTimelineData,
   timeline,
   resolvedTeamNames,
+  onReviewInstances,
   onJumpToSegment,
   onCreateAiPlaylist,
   dashboardFilters,
@@ -93,6 +95,7 @@ export const AnalysisPanelContent = ({
           timeline={timeline}
           onJumpToSegment={onJumpToSegment}
           emptyMessage="クロス集計を表示するにはタイムラインを作成してください。"
+          onReviewInstances={onReviewInstances}
           totalTimelineCount={timeline.length}
           matrixAxes={matrixAxes}
           onMatrixAxesChange={onMatrixAxesChange}

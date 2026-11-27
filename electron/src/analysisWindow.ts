@@ -9,6 +9,7 @@ import {
   ANALYSIS_WINDOW_CHANNELS,
   isAnalysisAiPlaylistPayload,
   isAnalysisWindowSyncPayload,
+  isAnalysisReviewIds,
   isTimelineData,
 } from '../../src/types/ipc/analysisWindow';
 import {
@@ -251,6 +252,25 @@ export const registerAnalysisWindowHandlers = (): void => {
         return;
       }
       sendAnalysisSync(payload, session.mainWindow);
+    },
+  );
+
+  ipcMain.on(
+    ANALYSIS_WINDOW_CHANNELS.reviewInstances,
+    (event, ids: unknown) => {
+      const session = resolveSenderSession(event.sender);
+      if (
+        !session ||
+        !isEventFromWindow(event, getState(session).analysisWindow) ||
+        !isAnalysisReviewIds(ids) ||
+        session.mainWindow.isDestroyed()
+      )
+        return;
+      session.mainWindow.webContents.send(
+        ANALYSIS_WINDOW_CHANNELS.reviewInstances,
+        ids,
+      );
+      session.mainWindow.focus();
     },
   );
 

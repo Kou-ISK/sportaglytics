@@ -124,6 +124,7 @@ export type TimelineWindowCommand =
   | { type: 'paste-items'; items: TimelineData[]; targetRowId: string }
   | { type: 'undo' }
   | { type: 'redo' }
+  | { type: 'review-instances'; documentId: string; ids: string[] }
   | { type: 'add-to-playlist'; ids: string[] }
   | { type: 'hotkey-key-down'; hotkeyId: string }
   | { type: 'hotkey-key-up'; hotkeyId: string };
@@ -320,6 +321,12 @@ export const isTimelineWindowCommand = (
       return (
         parseTimelineDocumentId(value.documentId) !== null &&
         isStringArray(value.ids)
+      );
+    case 'review-instances':
+      return (
+        parseTimelineDocumentId(value.documentId) !== null &&
+        isStringArray(value.ids) &&
+        value.ids.length <= 20000
       );
     case 'delete-rows':
     case 'add-to-playlist':

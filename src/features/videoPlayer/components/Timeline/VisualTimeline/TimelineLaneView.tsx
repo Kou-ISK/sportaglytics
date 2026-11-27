@@ -20,6 +20,7 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
   onEditItem,
   onMoveItem,
   onEditRow,
+  onReviewRow,
   onRowClick,
   onRowContextMenu,
   onRowDragStart,
@@ -63,7 +64,7 @@ export const TimelineLaneView: React.FC<TimelineLaneViewProps> = ({
         aria-pressed={isRowSelected}
         data-testid={`timeline-row-header-${rowId}`}
         onClick={(event) => onRowClick(event, rowId)}
-        onDoubleClick={onEditRow}
+        onDoubleClick={onReviewRow ?? onEditRow}
         onKeyDown={(event) => {
           if (event.key === 'Enter') onEditRow?.();
         }}

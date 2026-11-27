@@ -1,4 +1,5 @@
 import { useClipExportDialogState } from '../../../../shared/clipExport/useClipExportDialogState';
+import type { PlaylistExportContent } from '../../domain/playlistExportContent';
 import { useEffect, useState } from 'react';
 import { subscribeClipExportMenuRequest } from '../../../../shared/clipExport/clipExportGateway';
 import {
@@ -10,6 +11,8 @@ import {
 
 interface UsePlaylistExportStateResult {
   exportDialogOpen: boolean;
+  content: PlaylistExportContent;
+  setContent: React.Dispatch<React.SetStateAction<PlaylistExportContent>>;
   overlayChoice: boolean | null;
   chooseOverlay: (enabled: boolean) => void;
   setExportDialogOpen: React.Dispatch<React.SetStateAction<boolean>>;
@@ -38,6 +41,10 @@ export const usePlaylistExportState = (): UsePlaylistExportStateResult => {
     overlayChoice,
     chooseOverlay,
   } = useClipExportDialogState();
+  const [content, setContent] = useState<PlaylistExportContent>({
+    includeEffects: true,
+    includeSlides: true,
+  });
   const [exportMode, setExportMode] = useState<ClipExportMode>('single');
   const [angleOption, setAngleOption] =
     useState<ClipExportAngleOption>('defaultAngles');
@@ -52,6 +59,8 @@ export const usePlaylistExportState = (): UsePlaylistExportStateResult => {
 
   return {
     exportDialogOpen,
+    content,
+    setContent,
     overlayChoice,
     chooseOverlay,
     setExportDialogOpen,

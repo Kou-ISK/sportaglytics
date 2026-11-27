@@ -11,6 +11,7 @@ export const AnalysisWindowScreen = () => {
     isSyncing,
     setAnalysisView,
     handleClose,
+    handleReviewInstances,
     handleJumpToSegment,
     handleCreateAiPlaylist,
   } = useAnalysisWindowController();
@@ -24,6 +25,7 @@ export const AnalysisWindowScreen = () => {
         onViewChange={setAnalysisView}
         timeline={timeline}
         teamNames={teamNames}
+        onReviewInstances={handleReviewInstances}
         onJumpToSegment={handleJumpToSegment}
         embedded
         isSyncing={isSyncing}

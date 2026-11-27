@@ -187,8 +187,7 @@ export async function exercisePlaylistSorter({
   }
   await clickExportMenu(page);
   const dialog = page
-    .getByRole('dialog')
-    .filter({ hasText: 'プレイリストを書き出し' });
+    .getByRole('dialog', { name: 'プレイリストのMP4書き出し', exact: true });
   assert.equal(
     await dialog
       .getByRole('button', { name: '書き出す', exact: true })

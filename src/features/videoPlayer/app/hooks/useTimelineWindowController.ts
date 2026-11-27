@@ -162,6 +162,12 @@ const useTimelineWindowControllerState = () => {
     ): void => onSeek(Array.isArray(value) ? value[0] : value, mode),
     onSeekRelative: (seconds: number): void =>
       send({ type: 'seek-relative', seconds }),
+    onReviewInstances: (items: TimelineData[]): void =>
+      send({
+        type: 'review-instances',
+        documentId: snapshot.documentId,
+        ids: items.map((item) => item.id),
+      }),
     onAddToPlaylist: (items: TimelineData[]): void =>
       send({ type: 'add-to-playlist', ids: items.map((item) => item.id) }),
   };

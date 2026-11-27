@@ -107,20 +107,6 @@ export const openPlaylistWindow = async (): Promise<boolean> => {
   }
 };
 
-export const ensurePlaylistWindowOpen = async (): Promise<boolean> => {
-  const count = await getPlaylistOpenWindowCount();
-  if (count > 0) {
-    return true;
-  }
-
-  const opened = await openPlaylistWindow();
-  if (!opened) {
-    return false;
-  }
-
-  return true;
-};
-
 export const isPlaylistWindowOpen = async (): Promise<boolean> => {
   const playlistApi = getPlaylistApi();
   if (!playlistApi) {
@@ -148,8 +134,8 @@ export const syncPlaylistWindow = (data: PlaylistSyncData): void => {
   }
 };
 
-export const addPlaylistItemToAllWindows = async (
-  item: PlaylistItem,
+export const deliverItemsToPlaylistWindow = async (
+  items: PlaylistItem[],
 ): Promise<boolean> => {
   const playlistApi = getPlaylistApi();
   if (!playlistApi) {
@@ -157,10 +143,9 @@ export const addPlaylistItemToAllWindows = async (
   }
 
   try {
-    await playlistApi.addItemToAllWindows(item);
-    return true;
+    return await playlistApi.deliverItemsToPlaylistWindow(items);
   } catch (error: unknown) {
-    console.debug('[PlaylistWindowGateway] addItemToAllWindows failed', error);
+    console.debug('[PlaylistWindowGateway] deliverItemsToPlaylistWindow failed', error);
     return false;
   }
 };

@@ -650,7 +650,7 @@ try {
   ]);
   await playlist.getByTestId('organizer-clip-synthetic-clip').waitFor();
   await owner.main.evaluate(
-    (item) => window.electronAPI.playlist.addItemToAllWindows(item),
+    (item) => window.electronAPI.playlist.deliverItemsToPlaylistWindow([item]),
     {
       ...clip,
       id: 'synthetic-added-clip',

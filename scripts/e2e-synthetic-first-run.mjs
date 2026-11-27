@@ -143,7 +143,49 @@ const closeAfterSave = async () => {
 };
 try {
   app = await launch();
-  let { timeline } = await openSample(true);
+  const firstOpen = await openSample(true);
+  const { main } = firstOpen;
+  let { timeline } = firstOpen;
+  const original = timeline.getByTestId(
+    'timeline-instance-synthetic-first-tag',
+  );
+  const review = main.getByText('映像レビュー 1 / 1', { exact: true });
+  const isWatching = () => {
+    const video = document.querySelector('#video_0_html5_api');
+    return (
+      video instanceof HTMLVideoElement &&
+      video.currentTime > 2 &&
+      video.currentTime < 5 &&
+      !video.paused
+    );
+  };
+  await original.dblclick();
+  await review.waitFor();
+  await main.waitForFunction(isWatching);
+  assert.equal(
+    await timeline.getByRole('dialog', { name: 'アクション編集' }).count(),
+    0,
+  );
+  await review.waitFor({ state: 'hidden', timeout: 8000 });
+  await main.waitForFunction(() => {
+    const video = document.querySelector('#video_0_html5_api');
+    return (
+      video instanceof HTMLVideoElement &&
+      video.paused &&
+      video.currentTime >= 4.9 &&
+      video.currentTime < 5.65
+    );
+  });
+  await timeline
+    .getByRole('button', { name: '練習 / パス 行', exact: true })
+    .dblclick();
+  await review.waitFor();
+  await main.waitForFunction(isWatching);
+  await main.getByRole('button', { name: 'レビューを終了' }).click();
+  await review.waitFor({ state: 'hidden' });
+  console.log(
+    'Instance and row double-click play bounded review without opening the edit dialog',
+  );
   await timeline.getByTestId('timeline-instance-synthetic-first-tag').click();
   await timeline.keyboard.press(`${primaryModifier}+c`);
   await timeline
@@ -157,7 +199,10 @@ try {
     (item) => item.id !== 'synthetic-first-tag',
   );
   assert.equal(copy.actionName, '練習 / メモ');
-  await timeline.getByTestId(`timeline-instance-${copy.id}`).dblclick();
+  await timeline
+    .getByTestId(`timeline-instance-${copy.id}`)
+    .click({ button: 'right' });
+  await timeline.getByRole('menuitem', { name: '編集', exact: true }).click();
   const edit = timeline.getByRole('dialog');
   await edit.getByLabel('開始秒').fill('6');
   await edit.getByLabel('終了秒').fill('9');
@@ -179,7 +224,10 @@ try {
   phase = 'reopen';
   app = await launch();
   ({ timeline } = await openSample(false));
-  await timeline.getByTestId(`timeline-instance-${copy.id}`).dblclick();
+  await timeline
+    .getByTestId(`timeline-instance-${copy.id}`)
+    .click({ button: 'right' });
+  await timeline.getByRole('menuitem', { name: '編集', exact: true }).click();
   assert.equal(
     await timeline.getByRole('dialog').getByLabel('開始秒').inputValue(),
     '6',

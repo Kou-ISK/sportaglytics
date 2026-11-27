@@ -1,5 +1,5 @@
 import React from 'react';
-import { TableCell, TableHead, TableRow } from '@mui/material';
+import { Button, TableCell, TableHead, TableRow } from '@mui/material';
 import {
   MATRIX_ROW_CHILD_COLUMN_WIDTH,
   MATRIX_ROW_PARENT_COLUMN_WIDTH,
@@ -14,6 +14,8 @@ type MatrixTableHeadProps = {
   rowParentSpans: Map<string, number>;
   colParentSpans: Map<string, number>;
   hasColumnParent: boolean;
+  onColumnClick?: (columnIndex: number, keyboard: boolean) => void;
+  onColumnDoubleClick?: (columnIndex: number) => void;
   exportMode?: 'screen' | 'print';
 };
 
@@ -23,6 +25,8 @@ export const MatrixTableHead = ({
   rowParentSpans: _rowParentSpans,
   colParentSpans: _colParentSpans,
   hasColumnParent,
+  onColumnClick,
+  onColumnDoubleClick,
   exportMode = 'screen',
 }: MatrixTableHeadProps) => {
   const isPrint = exportMode === 'print';
@@ -207,7 +211,7 @@ export const MatrixTableHead = ({
             }}
           />
         )}
-        {columnHeaders.map((header) => {
+        {columnHeaders.map((header, columnIndex) => {
           const key = header.parent
             ? `child-${header.parent}-${header.child}`
             : `child-${header.child}`;
@@ -226,7 +230,27 @@ export const MatrixTableHead = ({
                 wordBreak: isPrint ? 'break-word' : 'normal',
               }}
             >
-              {header.child || '未設定'}
+              {!isPrint && onColumnDoubleClick ? (
+                <Button
+                  size="small"
+                  sx={{
+                    minWidth: 0,
+                    padding: 0,
+                    font: 'inherit',
+                    writingMode: 'inherit',
+                    color: 'inherit',
+                  }}
+                  aria-label={`${header.parent ?? ''} ${header.child || '未設定'}、列の映像を再生`.trim()}
+                  onClick={(event) =>
+                    onColumnClick?.(columnIndex, event.detail === 0)
+                  }
+                  onDoubleClick={() => onColumnDoubleClick(columnIndex)}
+                >
+                  {header.child || '未設定'}
+                </Button>
+              ) : (
+                header.child || '未設定'
+              )}
             </TableCell>
           );
         })}

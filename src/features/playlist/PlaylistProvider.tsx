@@ -63,11 +63,11 @@ interface PlaylistContextValue {
     videoPath2?: string | null,
     packagePath?: string,
   ) => void;
-  addItemsToAllWindows: (
+  addItemsToPlaylistWindow: (
     items: PlaylistItem[],
     videoSources?: { primary?: string | null; secondary?: string | null },
   ) => Promise<void>;
-  addTimelineItemsToAllWindows: (
+  addTimelineItemsToPlaylistWindow: (
     items: TimelineData[],
     videoSources?: { primary?: string | null; secondary?: string | null },
   ) => Promise<void>;
@@ -141,7 +141,7 @@ export const PlaylistProvider: React.FC<PlaylistProviderProps> = ({
     [],
   );
 
-  const { openPlaylistWindow, addItemsToAllWindows, syncToWindow } =
+  const { openPlaylistWindow, addItemsToPlaylistWindow, syncToWindow } =
     usePlaylistWindowBridge({
       state,
       isWindowOpen,
@@ -152,17 +152,17 @@ export const PlaylistProvider: React.FC<PlaylistProviderProps> = ({
       playItemCallbackRef,
     });
 
-  const addTimelineItemsToAllWindows = useCallback(
+  const addTimelineItemsToPlaylistWindow = useCallback(
     async (
       items: TimelineData[],
       videoSources?: { primary?: string | null; secondary?: string | null },
     ) => {
-      await addItemsToAllWindows(
+      await addItemsToPlaylistWindow(
         buildPlaylistItemsFromTimeline(items, { videoSources }),
         videoSources,
       );
     },
-    [addItemsToAllWindows],
+    [addItemsToPlaylistWindow],
   );
 
   const value: PlaylistContextValue = {
@@ -182,8 +182,8 @@ export const PlaylistProvider: React.FC<PlaylistProviderProps> = ({
     openPlaylistWindow,
     isWindowOpen,
     syncToWindow,
-    addItemsToAllWindows,
-    addTimelineItemsToAllWindows,
+    addItemsToPlaylistWindow,
+    addTimelineItemsToPlaylistWindow,
     registerSeekCallback,
     registerPlayItemCallback,
     createRow,

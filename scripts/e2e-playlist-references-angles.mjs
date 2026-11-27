@@ -251,8 +251,7 @@ try {
   // Real export UI must retain each instance angle in a single output (not one file per angle).
   await page.keyboard.press(`${primaryModifier}+e`);
   const dialog = page
-    .getByRole('dialog')
-    .filter({ hasText: 'プレイリストを書き出し' });
+    .getByRole('dialog', { name: 'プレイリストのMP4書き出し', exact: true });
   await dialog.waitFor();
   assert.equal(
     await dialog
