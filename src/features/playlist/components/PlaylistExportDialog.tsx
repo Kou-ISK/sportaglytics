@@ -99,9 +99,10 @@ export const PlaylistExportDialog = ({
   notePreview,
   textPreview,
 }: PlaylistExportDialogProps): React.ReactElement => {
+  const titleId = React.useId();
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
-      <DialogTitle>プレイリストのMP4書き出し</DialogTitle>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm" aria-labelledby={titleId}>
+      <DialogTitle id={titleId}>プレイリストのMP4書き出し</DialogTitle>
       <DialogContent dividers sx={{ display: 'grid', gap: 1.5 }}>
         <TextField
           label="ファイル名 (拡張子不要)"
