@@ -164,3 +164,5 @@ Mac配布時のpublisher自動検出を無効にする判断と、許可リス�
 
 - [0087 Organizer row membership and presentation order](0087-organizer-row-membership.md) — Accepted
 - [0088 Package import source retention](0088-package-import-source-retention.md) — Proposed
+
+- [0089 One-click Code Window recording](0089-one-click-code-recording.md) — Accepted

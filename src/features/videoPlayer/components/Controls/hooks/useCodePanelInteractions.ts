@@ -100,6 +100,7 @@ export const useCodePanelInteractions = ({
   );
 
   const { handleActionClick } = useActionButtonInteractions({
+    activeRecordingsRef,
     activeMode,
     effectiveLinks,
     isSameActionName,
@@ -114,7 +115,58 @@ export const useCodePanelInteractions = ({
     getButtonColorByName,
   });
 
+  const getActionButtonById = useCallback(
+    (id: string) => {
+      const button = customLayout?.buttons.find(
+        (entry) => entry.id === id && entry.type === 'action',
+      );
+      if (!button || !customLayout) return undefined;
+      const name = replaceTeamPlaceholderAliases(button.name, teamContext);
+      if (containsUnresolvedTeamPlaceholder(name)) return undefined;
+      // The current timeline runtime keys recordings by name. Do not guess if
+      // two buttons in the layout resolve to the same row.
+      const matches = customLayout.buttons.filter(
+        (entry) =>
+          entry.type === 'action' &&
+          replaceTeamPlaceholderAliases(entry.name, teamContext) === name,
+      );
+      return matches.length === 1 ? { button, name } : undefined;
+    },
+    [customLayout, teamContext],
+  );
+
+  const startLinkedAction = useCallback(
+    (id: string) => {
+      const target = getActionButtonById(id);
+      if (!target || activeRecordingsRef.current[target.name]) return;
+      const { button, name } = target;
+      const teamName =
+        teamNames.find((team) => name.startsWith(`${team} `)) ??
+        teamNames[0] ??
+        'Team';
+      handleActionClick(
+        teamName,
+        { action: name, types: [], results: [] },
+        name,
+        button.color,
+        button.id,
+        button.leadTimeSeconds,
+        button.lagTimeSeconds,
+        button.recordingMode,
+        button.extendOnRepeat,
+        true,
+      );
+    },
+    [activeRecordingsRef, getActionButtonById, handleActionClick, teamNames],
+  );
+
+  const getExactActionNameById = useCallback(
+    (id: string) => getActionButtonById(id)?.name,
+    [getActionButtonById],
+  );
+
   const { handleLabelButtonClick } = useLabelButtonInteractions({
+    linkedActions: { getExactActionNameById, startLinkedAction },
     activeMode,
     hasSelectedTimelineItems: selectedIds.length > 0,
     teamNames,
@@ -205,6 +257,8 @@ export const useCodePanelInteractions = ({
           button.id,
           button.leadTimeSeconds,
           button.lagTimeSeconds,
+          button.recordingMode,
+          button.extendOnRepeat,
         );
         return;
       }

@@ -326,6 +326,57 @@ try {
           leadTimeSeconds: 0,
           lagTimeSeconds: 0,
         },
+        {
+          id: 'synthetic-one-click',
+          type: 'action',
+          name: 'Falcon One-click Scrum',
+          x: 20,
+          y: 90,
+          width: 180,
+          height: 50,
+          hotkey: 'W',
+          leadTimeSeconds: 2,
+          lagTimeSeconds: 3,
+          recordingMode: 'single-click',
+          extendOnRepeat: true,
+        },
+        ...[
+          { id: 'lineout', name: 'Coral Lineout', type: 'action' },
+          {
+            id: 'lineout-attack',
+            name: 'Coral Lineout Attack',
+            type: 'action',
+          },
+          { id: 'unrelated', name: 'Falcon Possession', type: 'action' },
+          {
+            id: 'won',
+            name: 'Result',
+            type: 'label',
+            labelValue: 'Won',
+            hotkey: 'E',
+            labelTargetMode: 'linked',
+          },
+        ].map((button, index) => ({
+          ...button,
+          x: 20,
+          y: 160 + 65 * index,
+          width: 180,
+          height: 50,
+        })),
+      ],
+      buttonLinks: [
+        {
+          id: 'tag-and-stop',
+          fromButtonId: 'won',
+          toButtonId: 'lineout',
+          type: 'deactivate',
+        },
+        {
+          id: 'start-attack',
+          fromButtonId: 'won',
+          toButtonId: 'lineout-attack',
+          type: 'activate',
+        },
       ],
     };
     assertSave(
@@ -491,6 +542,91 @@ try {
     savedFirstProject,
     'The other project session must remain unchanged',
   );
+  const seekCodingPosition = async (time) => {
+    await timeline.evaluate(
+      (target) =>
+        window.electronAPI.timelineWindow.sendCommand({
+          type: 'seek',
+          time: target,
+        }),
+      time,
+    );
+    await main.waitForFunction(
+      (target) =>
+        Math.abs(document.querySelector('video')?.currentTime - target) < 0.1,
+      time,
+    );
+  };
+  await seekCodingPosition(8);
+  await coding
+    .locator('[data-code-window-button="synthetic-one-click"]')
+    .click();
+  await seekCodingPosition(10);
+  await main.bringToFront();
+  await main.waitForFunction(() => document.hasFocus());
+  await main.keyboard.press('W');
+  await seekCodingPosition(11.5);
+  assert.equal(
+    JSON.parse(await fs.readFile(emptyPath, 'utf8')).instances.length,
+    1,
+  );
+  await seekCodingPosition(14);
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const { instances } = JSON.parse(await fs.readFile(emptyPath, 'utf8'));
+    if (instances.length >= 2) {
+      assert.equal(instances.length, 2);
+      const tag = instances.find(
+        (item) => item.actionName === 'Falcon One-click Scrum',
+      );
+      assert.ok(tag);
+      assert.ok(Math.abs(tag.startTime - 6) < 0.1);
+      assert.ok(Math.abs(tag.endTime - 13) < 0.1);
+      break;
+    }
+    if (attempt === 99)
+      assert.fail('One-click recording did not auto-complete');
+    await delay(50);
+  }
+  console.log(
+    'Code Window one-click activation, hotkey extension and auto-stop passed',
+  );
+  const pressCode = (id) =>
+    coding.locator(`[data-code-window-button="${id}"]`).click();
+  await pressCode('lineout');
+  await pressCode('unrelated');
+  await seekCodingPosition(15);
+  await coding.bringToFront();
+  await coding.waitForFunction(() => document.hasFocus());
+  await coding.keyboard.press('E');
+  await seekCodingPosition(17);
+  await pressCode('lineout-attack');
+  await seekCodingPosition(18);
+  await pressCode('unrelated');
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const { instances } = JSON.parse(await fs.readFile(emptyPath, 'utf8'));
+    if (instances.length >= 5) {
+      assert.equal(instances.length, 5);
+      const check = (name, start, end, labels) => {
+        const tag = instances.find((item) => item.actionName === name);
+        assert.ok(tag, name);
+        assert.ok(Math.abs(tag.startTime - start) < 0.1, name + ' start');
+        assert.ok(Math.abs(tag.endTime - end) < 0.1, name + ' end');
+        assert.deepEqual(tag.labels ?? [], labels);
+      };
+      check('Coral Lineout', 14, 15, [{ group: 'Result', name: 'Won' }]);
+      check('Coral Lineout Attack', 15, 17, []);
+      check('Falcon Possession', 14, 18, []);
+      break;
+    }
+    if (attempt === 99)
+      assert.fail(
+        'Linked result workflow did not save exactly three instances',
+      );
+    await delay(50);
+  }
+  console.log(
+    'Code Window linked result isolated the label and started the next independent interval',
+  );
   const probe = path.join(root, 'atomic.json');
   await fs.writeFile(probe, '{"sequence":-1}');
   const writes = main.evaluate(async (file) => {
@@ -546,10 +682,13 @@ try {
         api.sendCommand({ type: 'request-sync' });
       }),
   );
-  assert.deepEqual(
-    loadedInstances.map((item) => item.actionName),
-    ['Coral Synthetic coding'],
-  );
+  assert.deepEqual(loadedInstances.map((item) => item.actionName).sort(), [
+    'Coral Lineout',
+    'Coral Lineout Attack',
+    'Coral Synthetic coding',
+    'Falcon One-click Scrum',
+    'Falcon Possession',
+  ]);
   await capture(reopenedTimeline, 'retry-empty-reopened');
   console.log(
     `Package safety: failed read retained original, errors/retries reached both windows, atomic concurrent writes remained valid across ${reads} reads`,
