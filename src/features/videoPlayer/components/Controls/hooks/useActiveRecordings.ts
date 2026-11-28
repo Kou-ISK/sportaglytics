@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 
 export type ActiveRecordingSession = {
   teamName: string;
@@ -6,20 +6,28 @@ export type ActiveRecordingSession = {
   leadTimeSeconds: number;
   lagTimeSeconds: number;
   color?: string;
+  automatic?: { deadline: number; duration: number; extendOnRepeat: boolean };
   activateTargets: string[];
   activateTargetColors: Record<string, string | undefined>;
 };
 
 export const useActiveRecordings = (teamNames: string[]) => {
-  const [activeRecordings, setActiveRecordings] = useState<
+  const [activeRecordings, renderRecordings] = useState<
     Record<string, ActiveRecordingSession>
   >({});
   const [primaryAction, setPrimaryAction] = useState<string | null>(null);
   const activeRecordingsRef = useRef<typeof activeRecordings>({});
 
-  useEffect(() => {
-    activeRecordingsRef.current = activeRecordings;
-  }, [activeRecordings]);
+  const setActiveRecordings = useCallback<
+    React.Dispatch<React.SetStateAction<typeof activeRecordings>>
+  >((update) => {
+    const next =
+      typeof update === 'function'
+        ? update(activeRecordingsRef.current)
+        : update;
+    activeRecordingsRef.current = next;
+    renderRecordings(next);
+  }, []);
 
   const isSameActionName = useCallback(
     (a: string, b: string): boolean => {

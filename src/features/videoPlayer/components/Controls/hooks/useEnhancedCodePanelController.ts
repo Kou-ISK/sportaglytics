@@ -30,6 +30,7 @@ import { useCodePanelInteractions } from './useCodePanelInteractions';
 import type { EnhancedCodePanelProps } from '../EnhancedCodePanel.types';
 import type { EnhancedCodePanelViewProps } from '../EnhancedCodePanelView';
 import { useCodingTime } from './useCodingTime';
+import { useAutomaticRecordingCompletion } from './useAutomaticRecordingCompletion';
 import {
   openCodingPanelWindow,
   syncCodingPanelWindow,
@@ -59,6 +60,7 @@ interface UseEnhancedCodePanelControllerResult {
 
 export const useEnhancedCodePanelController = ({
   codingTime,
+  codingDuration,
   documentEditable = true,
   documentRevision = 0,
   addTimelineData,
@@ -215,7 +217,14 @@ export const useEnhancedCodePanelController = ({
     setPrimaryAction,
   ]);
 
+  const getCodingDuration = useCodingTime(
+    typeof codingDuration === 'number' && codingDuration > 0
+      ? codingDuration
+      : null,
+  );
   const completeRecording = useRecordingCompletion({
+    activeRecordingsRef,
+    getCodingDuration,
     addTimelineData,
     getCurrentTime,
     labelSelectionsRef,
@@ -224,6 +233,14 @@ export const useEnhancedCodePanelController = ({
     recentActionsRef,
     setActiveRecordings,
   });
+
+  useAutomaticRecordingCompletion(
+    documentEditable ? codingTime : null,
+    codingDuration,
+    activeRecordingsRef,
+    completeRecording,
+    activeRecordings,
+  );
 
   const effectiveLinks = useMemo(
     () => buildEffectiveLinks(actionLinks, customLayout, teamContext),
@@ -423,6 +440,15 @@ export const useEnhancedCodePanelController = ({
   const triggerAction = useCallback(
     (teamName: string, actionName: string, buttonId?: string) => {
       if (!documentEditable) return;
+      if (buttonId) {
+        // Canvas hotkeys must dispatch the same typed button as a click.
+        // In particular, a label hotkey must not start a row with its group name.
+        const button = customLayout?.buttons.find(
+          (entry) => entry.id === buttonId,
+        );
+        if (button) handleCustomButtonClick(button);
+        return;
+      }
       const matchingTeam = teamNames.find((team) =>
         actionName.startsWith(`${team} `),
       );
@@ -440,7 +466,7 @@ export const useEnhancedCodePanelController = ({
         } as ActionDefinition);
       const configuredButton = customLayout?.buttons.find(
         (entry) =>
-          entry.id === buttonId ||
+          entry.type === 'action' &&
           replaceTeamPlaceholderAliases(entry.name, teamContext) === actionName,
       );
 
@@ -452,6 +478,8 @@ export const useEnhancedCodePanelController = ({
         buttonId,
         configuredButton?.leadTimeSeconds,
         configuredButton?.lagTimeSeconds,
+        configuredButton?.recordingMode,
+        configuredButton?.extendOnRepeat,
       );
     },
     [
@@ -460,6 +488,7 @@ export const useEnhancedCodePanelController = ({
       getButtonColorByName,
       documentEditable,
       handleActionClick,
+      handleCustomButtonClick,
       teamContext,
       teamNames,
     ],

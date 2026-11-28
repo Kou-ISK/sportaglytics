@@ -13,6 +13,61 @@ describe('normalizeAppSettings', () => {
     expect(normalizeAppSettings('invalid')).toEqual(DEFAULT_SETTINGS);
   });
 
+  it('preserves explicit Code Window options by button type', () => {
+    const layout = createDefaultCodeWindowLayout();
+    const sample = layout.buttons[0];
+    const normalized =
+      normalizeAppSettings({
+        codingPanel: {
+          activeCodeWindowId: 'my-window',
+          codeWindows: [
+            {
+              ...layout,
+              id: 'my-window',
+              buttons: [
+                {
+                  ...sample,
+                  type: 'action',
+                  id: 'legacy',
+                  lagTimeSeconds: 4,
+                  extendOnRepeat: true,
+                },
+                {
+                  ...sample,
+                  type: 'action',
+                  id: 'auto',
+                  lagTimeSeconds: 2.5,
+                  recordingMode: 'single-click',
+                  extendOnRepeat: true,
+                  labelTargetMode: 'linked',
+                },
+                {
+                  ...sample,
+                  type: 'label',
+                  id: 'result',
+                  labelTargetMode: 'linked',
+                  recordingMode: 'single-click',
+                  extendOnRepeat: true,
+                },
+              ],
+            },
+          ],
+        },
+      }).codingPanel?.codeWindows?.find((entry) => entry.id === 'my-window')
+        ?.buttons ?? [];
+    expect(normalized[0]?.lagTimeSeconds).toBe(4);
+    expect(normalized[0]?.recordingMode).toBeUndefined();
+    expect(normalized[0]?.extendOnRepeat).toBeUndefined();
+    expect(normalized[1]).toMatchObject({
+      recordingMode: 'single-click',
+      extendOnRepeat: true,
+      lagTimeSeconds: 2.5,
+    });
+    expect(normalized[1]?.labelTargetMode).toBeUndefined();
+    expect(normalized[2]?.labelTargetMode).toBe('linked');
+    expect(normalized[2]?.recordingMode).toBeUndefined();
+  });
+
   it('absorbs legacy settings fields and fills missing sections', () => {
     const legacyLayout = createDefaultCodeWindowLayout();
     const templateWidget = createTemplateDashboardWidgets()[0];

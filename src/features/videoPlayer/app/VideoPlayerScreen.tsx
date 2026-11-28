@@ -544,6 +544,7 @@ export const VideoPlayerScreen = (): React.ReactElement => {
         }
         documentEditable={timelineEditable}
         documentRevision={loadRevision}
+        codingDuration={maxSec}
         addTimelineData={addTimelineData}
         teamNames={teamNames}
         firstTeamName={firstTeamName}

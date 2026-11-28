@@ -28,6 +28,7 @@ describe('code window link notifications', () => {
     const { result } = renderHook(() =>
       useActionButtonInteractions({
         activeMode: 'code',
+        activeRecordingsRef: { current: {} },
         effectiveLinks: [
           { from: 'タックル', to: 'ポゼッション', type: 'activate' },
         ],
