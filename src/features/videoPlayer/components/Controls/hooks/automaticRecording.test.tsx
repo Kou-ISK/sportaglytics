@@ -37,6 +37,7 @@ const setup = (duration = 120) => {
         ...recording,
         ...labels,
         activeMode: 'code',
+        canvasScope: 'layout-1',
         effectiveLinks: [],
         getCurrentTime: () => position,
         setWarning: vi.fn(),
@@ -45,13 +46,19 @@ const setup = (duration = 120) => {
         getButtonColorByName: () => undefined,
       });
       return {
-        click: (mode?: 'single-click', extend = false, after = 5) =>
+        click: (
+          mode?: 'single-click',
+          extend = false,
+          after = 5,
+          name = 'Red Scrum',
+          id = 'red',
+        ) =>
           handleActionClick(
             'Red',
             { action: 'Scrum', types: [], results: [] },
-            'Red Scrum',
+            name,
             undefined,
-            'red',
+            id,
             3,
             after,
             mode,
@@ -146,6 +153,24 @@ describe('Code Window one-click intervals', () => {
       17,
       35,
     ]);
+  });
+
+  it('uses source identity to stop the original recording without touching another button', () => {
+    const { result, move, addTimelineData } = setup();
+    act(() => result.current.click());
+    move(21);
+    act(() => result.current.click(undefined, false, 0, 'Red Scrum', 'other'));
+    expect(addTimelineData).not.toHaveBeenCalled();
+    expect(Object.keys(result.current.active)).toEqual(['Red Scrum']);
+    act(() => result.current.click(undefined, false, 0, 'Blue Scrum', 'other'));
+    move(22);
+    act(() => result.current.click(undefined, false, 0, 'Blue Scrum', 'red'));
+    expect(addTimelineData.mock.calls[0]?.slice(0, 3)).toEqual([
+      'Red Scrum',
+      17,
+      27,
+    ]);
+    expect(Object.keys(result.current.active)).toEqual(['Blue Scrum']);
   });
 
   it('allows lead-only coding while paused and resolves two stops only once', () => {

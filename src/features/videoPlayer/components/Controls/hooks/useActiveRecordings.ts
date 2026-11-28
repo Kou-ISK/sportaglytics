@@ -1,6 +1,9 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 
+export type RecordingSource = { scope: string; buttonId: string };
+
 export type ActiveRecordingSession = {
+  source?: RecordingSource;
   teamName: string;
   startTime: number;
   leadTimeSeconds: number;
@@ -10,6 +13,17 @@ export type ActiveRecordingSession = {
   activateTargets: string[];
   activateTargetColors: Record<string, string | undefined>;
 };
+
+export const findSourceRecordingKey = (
+  recordings: Record<string, ActiveRecordingSession>,
+  source: RecordingSource,
+): string | undefined =>
+  Object.keys(recordings).find((key) => {
+    const active = recordings[key]?.source;
+    return (
+      active?.scope === source.scope && active.buttonId === source.buttonId
+    );
+  });
 
 export const useActiveRecordings = (teamNames: string[]) => {
   const [activeRecordings, renderRecordings] = useState<

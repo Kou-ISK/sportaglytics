@@ -14,8 +14,7 @@ import { CodeWindowButtonSurface } from '../../../../components/ui/composites/Co
 type CustomCodeLayoutProps = {
   layout: CodeWindowLayout;
   teamContext: TeamContext;
-  activeRecordings: Record<string, { startTime: number }>; // shape used only for existence
-  primaryAction: string | null;
+  activeButtonIds: string[];
   activeLabelButtons: Record<string, boolean>;
   isRecording: boolean;
   selectedTimelineLabels: SCLabel[];
@@ -39,8 +38,7 @@ const hasSelectedTimelineLabel = (
 export const CustomCodeLayout = ({
   layout,
   teamContext,
-  activeRecordings,
-  primaryAction,
+  activeButtonIds,
   activeLabelButtons,
   isRecording,
   selectedTimelineLabels,
@@ -67,9 +65,7 @@ export const CustomCodeLayout = ({
           teamContext,
         );
         const isActive =
-          button.type === 'action' &&
-          Boolean(activeRecordings[resolvedButtonName]);
-        const isSelected = isActive || primaryAction === resolvedButtonName;
+          button.type === 'action' && activeButtonIds.includes(button.id);
         const isLabelSelected =
           button.type === 'label' &&
           (activeLabelButtons[button.id] ||
@@ -91,8 +87,8 @@ export const CustomCodeLayout = ({
             button={button}
             displayText={displayText}
             buttonColor={buttonColor}
-            isActive={isSelected || isLabelSelected}
-            isRecording={isRecording && isSelected}
+            isActive={isActive || isLabelSelected}
+            isRecording={isRecording && isActive}
             onClick={() => onButtonClick(button)}
           />
         );

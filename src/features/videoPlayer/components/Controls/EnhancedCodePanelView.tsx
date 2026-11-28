@@ -19,6 +19,7 @@ export interface EnhancedCodePanelViewProps {
   customLayout: CodeWindowLayout | null;
   teamContext: TeamContext;
   activeRecordings: Record<string, { startTime: number }>;
+  activeCanvasButtonIds?: string[];
   primaryAction: string | null;
   activeLabelButtons: Record<string, boolean>;
   isRecording: boolean;
@@ -53,6 +54,7 @@ export const EnhancedCodePanelView = ({
   customLayout,
   teamContext,
   activeRecordings,
+  activeCanvasButtonIds,
   primaryAction,
   activeLabelButtons,
   isRecording,
@@ -139,8 +141,7 @@ export const EnhancedCodePanelView = ({
           <CustomCodeLayout
             layout={customLayout}
             teamContext={teamContext}
-            activeRecordings={activeRecordings}
-            primaryAction={primaryAction}
+            activeButtonIds={activeCanvasButtonIds ?? []}
             activeLabelButtons={activeLabelButtons}
             isRecording={isRecording}
             selectedTimelineLabels={selectedTimelineLabels}

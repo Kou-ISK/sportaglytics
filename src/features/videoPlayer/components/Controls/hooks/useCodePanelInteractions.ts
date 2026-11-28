@@ -12,7 +12,10 @@ import {
 import { resolveActionLabelGroups } from '../../../shared/actionLabelGroups';
 import type { EffectiveLink } from '../effectiveLinks';
 import { useActionButtonInteractions } from './useActionButtonInteractions';
-import type { ActiveRecordingSession } from './useActiveRecordings';
+import {
+  findSourceRecordingKey,
+  type ActiveRecordingSession,
+} from './useActiveRecordings';
 import type { LabelSelectionsMap } from './useLabelSelections';
 import { useLabelButtonInteractions } from './useLabelButtonInteractions';
 
@@ -27,6 +30,7 @@ type UseCodePanelInteractionsParams = {
     labels: { name: string; group: string }[],
   ) => void;
   customLayout: CodeWindowLayout | null;
+  canvasScope?: string;
   effectiveLinks: EffectiveLink[];
   isSameActionName: (a: string, b: string) => boolean;
   resolveRecordingKey: (name: string) => string | undefined;
@@ -62,6 +66,7 @@ export const useCodePanelInteractions = ({
   selectedIds,
   onApplyLabels,
   customLayout,
+  canvasScope,
   effectiveLinks,
   isSameActionName,
   resolveRecordingKey,
@@ -102,6 +107,7 @@ export const useCodePanelInteractions = ({
   const { handleActionClick } = useActionButtonInteractions({
     activeRecordingsRef,
     activeMode,
+    canvasScope,
     effectiveLinks,
     isSameActionName,
     resolveRecordingKey,
@@ -135,10 +141,21 @@ export const useCodePanelInteractions = ({
     [customLayout, teamContext],
   );
 
+  const getActiveRecordingKeyById = useCallback(
+    (id: string): string | undefined =>
+      canvasScope === undefined
+        ? undefined
+        : findSourceRecordingKey(activeRecordingsRef.current, {
+            scope: canvasScope,
+            buttonId: id,
+          }),
+    [activeRecordingsRef, canvasScope],
+  );
+
   const startLinkedAction = useCallback(
     (id: string) => {
       const target = getActionButtonById(id);
-      if (!target || activeRecordingsRef.current[target.name]) return;
+      if (!target) return;
       const { button, name } = target;
       const teamName =
         teamNames.find((team) => name.startsWith(`${team} `)) ??
@@ -157,16 +174,11 @@ export const useCodePanelInteractions = ({
         true,
       );
     },
-    [activeRecordingsRef, getActionButtonById, handleActionClick, teamNames],
-  );
-
-  const getExactActionNameById = useCallback(
-    (id: string) => getActionButtonById(id)?.name,
-    [getActionButtonById],
+    [getActionButtonById, handleActionClick, teamNames],
   );
 
   const { handleLabelButtonClick } = useLabelButtonInteractions({
-    linkedActions: { getExactActionNameById, startLinkedAction },
+    linkedActions: { getActiveRecordingKeyById, startLinkedAction },
     activeMode,
     hasSelectedTimelineItems: selectedIds.length > 0,
     teamNames,
