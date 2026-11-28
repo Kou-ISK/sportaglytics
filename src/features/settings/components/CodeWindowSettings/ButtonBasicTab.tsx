@@ -89,8 +89,23 @@ export const ButtonBasicTab = ({
             color="text.secondary"
             sx={{ display: 'block', mb: 1.5 }}
           >
-            ボタンを押した時刻より前後をタイムラインに含めます。未設定は0秒です。
+            開始時刻より前の映像も含められます。手動終了と1クリックはボタンごとに選べます。
           </Typography>
+          <FormControlLabel
+            control={
+              <Switch
+                checked={button.recordingMode === 'single-click'}
+                onChange={(_, checked) =>
+                  onChange(
+                    'recordingMode',
+                    checked ? 'single-click' : undefined,
+                  )
+                }
+              />
+            }
+            label="1クリックで記録"
+            sx={{ mb: 1 }}
+          />
           <TextField
             fullWidth
             size="small"
@@ -109,7 +124,7 @@ export const ButtonBasicTab = ({
               htmlInput: {
                 min: 0,
                 max: MAX_RECORDING_PADDING_SECONDS,
-                step: 1,
+                step: 0.1,
               },
             }}
             sx={{ mb: 1 }}
@@ -118,7 +133,11 @@ export const ButtonBasicTab = ({
             fullWidth
             size="small"
             type="number"
-            label="終了後に含める秒数"
+            label={
+              button.recordingMode === 'single-click'
+                ? '開始から自動終了までの秒数'
+                : '終了後に含める秒数'
+            }
             value={button.lagTimeSeconds ?? 0}
             onChange={(event) =>
               onNumberChange(
@@ -132,11 +151,22 @@ export const ButtonBasicTab = ({
               htmlInput: {
                 min: 0,
                 max: MAX_RECORDING_PADDING_SECONDS,
-                step: 1,
+                step: 0.1,
               },
             }}
             sx={{ mb: 2 }}
           />
+          {button.recordingMode === 'single-click' && (
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={button.extendOnRepeat === true}
+                  onChange={(_, checked) => onChange('extendOnRepeat', checked)}
+                />
+              }
+              label="終了前にもう一度押すと延長"
+            />
+          )}
         </>
       ) : (
         <>
@@ -223,6 +253,26 @@ export const ButtonBasicTab = ({
               placeholder="ラベルの値を入力"
               sx={{ mb: 2 }}
             />
+          )}
+          <FormControlLabel
+            control={
+              <Switch
+                checked={button.labelTargetMode === 'linked'}
+                onChange={(_, checked) =>
+                  onChange('labelTargetMode', checked ? 'linked' : undefined)
+                }
+              />
+            }
+            label="リンク済みのコードだけに付ける"
+          />
+          {button.labelTargetMode === 'linked' && (
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              display="block"
+            >
+              排他リンクで対象を指定します。終了リンクの場合はラベルを付けてから記録を終了します。
+            </Typography>
           )}
         </>
       )}

@@ -30,6 +30,7 @@ import { useCodePanelInteractions } from './useCodePanelInteractions';
 import type { EnhancedCodePanelProps } from '../EnhancedCodePanel.types';
 import type { EnhancedCodePanelViewProps } from '../EnhancedCodePanelView';
 import { useCodingTime } from './useCodingTime';
+import { useAutomaticRecordingCompletion } from './useAutomaticRecordingCompletion';
 import {
   openCodingPanelWindow,
   syncCodingPanelWindow,
@@ -59,6 +60,7 @@ interface UseEnhancedCodePanelControllerResult {
 
 export const useEnhancedCodePanelController = ({
   codingTime,
+  codingDuration,
   documentEditable = true,
   documentRevision = 0,
   addTimelineData,
@@ -215,7 +217,14 @@ export const useEnhancedCodePanelController = ({
     setPrimaryAction,
   ]);
 
+  const getCodingDuration = useCodingTime(
+    typeof codingDuration === 'number' && codingDuration > 0
+      ? codingDuration
+      : null,
+  );
   const completeRecording = useRecordingCompletion({
+    activeRecordingsRef,
+    getCodingDuration,
     addTimelineData,
     getCurrentTime,
     labelSelectionsRef,
@@ -224,6 +233,14 @@ export const useEnhancedCodePanelController = ({
     recentActionsRef,
     setActiveRecordings,
   });
+
+  useAutomaticRecordingCompletion(
+    documentEditable ? codingTime : null,
+    codingDuration,
+    activeRecordingsRef,
+    completeRecording,
+    activeRecordings,
+  );
 
   const effectiveLinks = useMemo(
     () => buildEffectiveLinks(actionLinks, customLayout, teamContext),
@@ -452,6 +469,8 @@ export const useEnhancedCodePanelController = ({
         buttonId,
         configuredButton?.leadTimeSeconds,
         configuredButton?.lagTimeSeconds,
+        configuredButton?.recordingMode,
+        configuredButton?.extendOnRepeat,
       );
     },
     [
