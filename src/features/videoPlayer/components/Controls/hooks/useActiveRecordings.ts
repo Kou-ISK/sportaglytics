@@ -1,25 +1,47 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
+
+export type RecordingSource = { scope: string; buttonId: string };
 
 export type ActiveRecordingSession = {
+  source?: RecordingSource;
   teamName: string;
   startTime: number;
   leadTimeSeconds: number;
   lagTimeSeconds: number;
   color?: string;
+  automatic?: { deadline: number; duration: number; extendOnRepeat: boolean };
   activateTargets: string[];
   activateTargetColors: Record<string, string | undefined>;
 };
 
+export const findSourceRecordingKey = (
+  recordings: Record<string, ActiveRecordingSession>,
+  source: RecordingSource,
+): string | undefined =>
+  Object.keys(recordings).find((key) => {
+    const active = recordings[key]?.source;
+    return (
+      active?.scope === source.scope && active.buttonId === source.buttonId
+    );
+  });
+
 export const useActiveRecordings = (teamNames: string[]) => {
-  const [activeRecordings, setActiveRecordings] = useState<
+  const [activeRecordings, renderRecordings] = useState<
     Record<string, ActiveRecordingSession>
   >({});
   const [primaryAction, setPrimaryAction] = useState<string | null>(null);
   const activeRecordingsRef = useRef<typeof activeRecordings>({});
 
-  useEffect(() => {
-    activeRecordingsRef.current = activeRecordings;
-  }, [activeRecordings]);
+  const setActiveRecordings = useCallback<
+    React.Dispatch<React.SetStateAction<typeof activeRecordings>>
+  >((update) => {
+    const next =
+      typeof update === 'function'
+        ? update(activeRecordingsRef.current)
+        : update;
+    activeRecordingsRef.current = next;
+    renderRecordings(next);
+  }, []);
 
   const isSameActionName = useCallback(
     (a: string, b: string): boolean => {

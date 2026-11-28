@@ -168,7 +168,15 @@ const normalizeCodeWindowButton = (value: unknown): CodeWindowButton | null => {
     normalized.fontSize = fontSize;
   }
 
+  if (type === 'label' && value.labelTargetMode === 'linked') {
+    normalized.labelTargetMode = 'linked';
+  }
+
   if (type === 'action') {
+    if (value.recordingMode === 'single-click') {
+      normalized.recordingMode = 'single-click';
+      if (value.extendOnRepeat === true) normalized.extendOnRepeat = true;
+    }
     const leadTimeSeconds = normalizeNonNegativeNumber(value.leadTimeSeconds);
     if (leadTimeSeconds != null) {
       normalized.leadTimeSeconds = leadTimeSeconds;

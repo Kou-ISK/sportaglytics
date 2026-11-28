@@ -12,7 +12,10 @@ import {
 import { resolveActionLabelGroups } from '../../../shared/actionLabelGroups';
 import type { EffectiveLink } from '../effectiveLinks';
 import { useActionButtonInteractions } from './useActionButtonInteractions';
-import type { ActiveRecordingSession } from './useActiveRecordings';
+import {
+  findSourceRecordingKey,
+  type ActiveRecordingSession,
+} from './useActiveRecordings';
 import type { LabelSelectionsMap } from './useLabelSelections';
 import { useLabelButtonInteractions } from './useLabelButtonInteractions';
 
@@ -27,6 +30,7 @@ type UseCodePanelInteractionsParams = {
     labels: { name: string; group: string }[],
   ) => void;
   customLayout: CodeWindowLayout | null;
+  canvasScope?: string;
   effectiveLinks: EffectiveLink[];
   isSameActionName: (a: string, b: string) => boolean;
   resolveRecordingKey: (name: string) => string | undefined;
@@ -62,6 +66,7 @@ export const useCodePanelInteractions = ({
   selectedIds,
   onApplyLabels,
   customLayout,
+  canvasScope,
   effectiveLinks,
   isSameActionName,
   resolveRecordingKey,
@@ -100,7 +105,9 @@ export const useCodePanelInteractions = ({
   );
 
   const { handleActionClick } = useActionButtonInteractions({
+    activeRecordingsRef,
     activeMode,
+    canvasScope,
     effectiveLinks,
     isSameActionName,
     resolveRecordingKey,
@@ -114,7 +121,64 @@ export const useCodePanelInteractions = ({
     getButtonColorByName,
   });
 
+  const getActionButtonById = useCallback(
+    (id: string) => {
+      const button = customLayout?.buttons.find(
+        (entry) => entry.id === id && entry.type === 'action',
+      );
+      if (!button || !customLayout) return undefined;
+      const name = replaceTeamPlaceholderAliases(button.name, teamContext);
+      if (containsUnresolvedTeamPlaceholder(name)) return undefined;
+      // The current timeline runtime keys recordings by name. Do not guess if
+      // two buttons in the layout resolve to the same row.
+      const matches = customLayout.buttons.filter(
+        (entry) =>
+          entry.type === 'action' &&
+          replaceTeamPlaceholderAliases(entry.name, teamContext) === name,
+      );
+      return matches.length === 1 ? { button, name } : undefined;
+    },
+    [customLayout, teamContext],
+  );
+
+  const getActiveRecordingKeyById = useCallback(
+    (id: string): string | undefined =>
+      canvasScope === undefined
+        ? undefined
+        : findSourceRecordingKey(activeRecordingsRef.current, {
+            scope: canvasScope,
+            buttonId: id,
+          }),
+    [activeRecordingsRef, canvasScope],
+  );
+
+  const startLinkedAction = useCallback(
+    (id: string) => {
+      const target = getActionButtonById(id);
+      if (!target) return;
+      const { button, name } = target;
+      const teamName =
+        teamNames.find((team) => name.startsWith(`${team} `)) ??
+        teamNames[0] ??
+        'Team';
+      handleActionClick(
+        teamName,
+        { action: name, types: [], results: [] },
+        name,
+        button.color,
+        button.id,
+        button.leadTimeSeconds,
+        button.lagTimeSeconds,
+        button.recordingMode,
+        button.extendOnRepeat,
+        true,
+      );
+    },
+    [getActionButtonById, handleActionClick, teamNames],
+  );
+
   const { handleLabelButtonClick } = useLabelButtonInteractions({
+    linkedActions: { getActiveRecordingKeyById, startLinkedAction },
     activeMode,
     hasSelectedTimelineItems: selectedIds.length > 0,
     teamNames,
@@ -205,6 +269,8 @@ export const useCodePanelInteractions = ({
           button.id,
           button.leadTimeSeconds,
           button.lagTimeSeconds,
+          button.recordingMode,
+          button.extendOnRepeat,
         );
         return;
       }

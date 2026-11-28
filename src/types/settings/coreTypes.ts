@@ -23,6 +23,7 @@ export interface CodeWindowButton {
   type: 'action' | 'label';
   name: string;
   labelValue?: string;
+  labelTargetMode?: 'linked';
   x: number;
   y: number;
   width: number;
@@ -38,7 +39,10 @@ export interface CodeWindowButton {
   fontSize?: number;
   /** Seconds to include before an action button is activated. */
   leadTimeSeconds?: number;
-  /** Seconds to include after an action button is deactivated. */
+  /** In single-click mode this is the duration after activation, not stop padding. */
+  recordingMode?: 'single-click';
+  extendOnRepeat?: boolean;
+  /** Seconds to include after manual stop or single-click activation. */
   lagTimeSeconds?: number;
 }
 

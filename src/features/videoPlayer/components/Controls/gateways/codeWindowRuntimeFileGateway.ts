@@ -1,7 +1,7 @@
 import type { CodeWindowLayout } from '../../../../../types/settings/coreTypes';
 
 type CodeWindowFilePayload = {
-  version: number;
+  version: 1 | 2;
   layout: CodeWindowLayout;
 };
 
@@ -20,7 +20,7 @@ export const isCodeWindowFilePayload = (
 ): value is CodeWindowFilePayload => {
   return (
     isRecord(value) &&
-    value.version === 1 &&
+    (value.version === 1 || value.version === 2) &&
     isRecord(value.layout) &&
     typeof value.layout.id === 'string' &&
     typeof value.layout.name === 'string' &&
@@ -75,6 +75,22 @@ export const chooseRuntimeCodeWindowFile =
     }
   };
 
+/** Version 1 clients accept the layout but silently ignore these options.
+ * Keep unconfigured templates shareable and refuse a silent downgrade.
+ */
+export const createCodeWindowFilePayload = (
+  layout: CodeWindowLayout,
+): CodeWindowFilePayload => ({
+  version: layout.buttons.some(
+    (button) =>
+      (button.type === 'action' && button.recordingMode === 'single-click') ||
+      (button.type === 'label' && button.labelTargetMode === 'linked'),
+  )
+    ? 2
+    : 1,
+  layout,
+});
+
 export const saveRuntimeCodeWindowFile = async (
   layout: CodeWindowLayout,
   filePath?: string,
@@ -85,13 +101,7 @@ export const saveRuntimeCodeWindowFile = async (
   }
 
   try {
-    return await api.saveFile(
-      {
-        version: 1,
-        layout,
-      },
-      filePath,
-    );
+    return await api.saveFile(createCodeWindowFilePayload(layout), filePath);
   } catch (error: unknown) {
     console.debug('[codeWindowRuntimeFileGateway] save failed', error);
     return null;

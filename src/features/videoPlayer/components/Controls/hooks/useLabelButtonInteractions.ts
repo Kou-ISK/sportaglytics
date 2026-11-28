@@ -4,9 +4,16 @@ import type { EffectiveLink } from '../effectiveLinks';
 import { findRelatedLinks, resolveLinkEffects } from './codePanelLinkRules';
 import type { ActiveRecordingSession } from './useActiveRecordings';
 import type { LabelSelectionsMap } from './useLabelSelections';
+import { planLinkedLabelOperation } from '../domain/linkedLabelOperation';
+
+interface LinkedActions {
+  getActiveRecordingKeyById: (id: string) => string | undefined;
+  startLinkedAction: (id: string) => void;
+}
 
 interface UseLabelButtonInteractionsParams {
   activeMode: 'code' | 'label';
+  linkedActions?: LinkedActions;
   hasSelectedTimelineItems: boolean;
   teamNames: string[];
   effectiveLinks: EffectiveLink[];
@@ -39,6 +46,7 @@ interface UseLabelButtonInteractionsParams {
 
 export const useLabelButtonInteractions = ({
   activeMode,
+  linkedActions,
   hasSelectedTimelineItems,
   teamNames,
   effectiveLinks,
@@ -62,6 +70,36 @@ export const useLabelButtonInteractions = ({
         setActiveLabelButtons((prev) => ({ ...prev, [button.id]: false }));
       }, 1000);
 
+      if (activeMode === 'label') {
+        if (hasSelectedTimelineItems)
+          handleApplyLabel(labelButtonName, labelValue);
+        else setWarning('タイムラインのアクションを選択してください');
+        return;
+      }
+
+      if (button.labelTargetMode === 'linked' && linkedActions) {
+        const { labelNames, stopNames, startIds } = planLinkedLabelOperation(
+          effectiveLinks,
+          button.id,
+          linkedActions.getActiveRecordingKeyById,
+        );
+        if (labelNames.length === 0) {
+          setWarning('このラベルのリンク先で記録中のコードがありません');
+          return;
+        }
+        updateLabelSelections((prev) => {
+          const next = { ...prev };
+          for (const name of labelNames)
+            next[name] = { ...next[name], [labelButtonName]: labelValue };
+          return next;
+        });
+        for (const name of stopNames)
+          completeRecording(name, { [labelButtonName]: labelValue });
+        for (const id of startIds) linkedActions.startLinkedAction(id);
+        setWarning(null);
+        return;
+      }
+
       const relatedLinks = findRelatedLinks(
         effectiveLinks,
         labelButtonName,
@@ -83,6 +121,7 @@ export const useLabelButtonInteractions = ({
         break;
       }
 
+      const alreadyRecording = Object.keys(activeRecordingsRef.current);
       for (const targetActionName of effects.activateTargets) {
         const time = getCurrentTime();
         if (time === null) break;
@@ -108,7 +147,7 @@ export const useLabelButtonInteractions = ({
       }
 
       const targetActions = new Set<string>([
-        ...Object.keys(activeRecordingsRef.current),
+        ...alreadyRecording,
         ...toDeactivate,
       ]);
       if (targetActions.size > 0) {
@@ -129,17 +168,6 @@ export const useLabelButtonInteractions = ({
         completeRecording(actionName, { [labelButtonName]: labelValue }),
       );
 
-      if (activeMode === 'label' && hasSelectedTimelineItems) {
-        handleApplyLabel(labelButtonName, labelValue);
-      }
-      if (
-        activeMode === 'label' &&
-        !hasSelectedTimelineItems &&
-        targetActions.size === 0
-      ) {
-        setWarning('タイムラインのアクションを選択してください');
-        return;
-      }
       setWarning(null);
     },
     [
@@ -152,6 +180,7 @@ export const useLabelButtonInteractions = ({
       handleApplyLabel,
       hasSelectedTimelineItems,
       isSameActionName,
+      linkedActions,
       resolveRecordingKey,
       setActiveLabelButtons,
       setActiveRecordings,

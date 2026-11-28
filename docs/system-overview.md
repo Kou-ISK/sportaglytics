@@ -207,7 +207,7 @@ TimelineDocument
 
 `.stcw` は独立ドキュメントとして扱います。コード／ラベル／編集モードは対象Code Window内で切り替え、アプリ全体のmodeにはしません。
 
-Action buttonには `leadTimeSeconds` / `lagTimeSeconds` を保存できます。未設定は0秒です。Button clickとhotkey codingは同じ `resolveRecordingRange()` を通ります。
+Action buttonには `leadTimeSeconds` / `lagTimeSeconds` を保存できます。未設定は0秒です。Button clickとhotkey codingは同じ `resolveRecordingRange()` を通ります。明示的な1クリックモードではラグを押下後の自動終了時間として扱い、パッケージ時刻で確定します（[ADR 0089](adr/0089-one-click-code-recording.md)）。ラベルのリンク限定モードはボタンIDで付与先を解決し、ラベルを保存してから次の独立した記録を開始します。
 
 ## 分析
 
