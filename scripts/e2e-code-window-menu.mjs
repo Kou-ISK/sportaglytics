@@ -249,6 +249,65 @@ try {
   assert.equal(unchangedDocument.layout.canvasHeight, 600);
   console.log('Code window file selection flow passed');
 
+  // An ordinary v1 template is still editable. Saving after opting in to
+  // incompatible behavior must prevent an older app from silently using it.
+  const guardedPath = path.join(workPath, 'One-click compatibility.stcw');
+  await editorButton.dblclick();
+  await codeWindowPage
+    .getByRole('switch', { name: '1クリックで記録', exact: true })
+    .check();
+  await codeWindowPage.keyboard.press('Escape');
+  await electronApp.evaluate(({ dialog }, filePath) => {
+    dialog.showSaveDialog = async () => ({ canceled: false, filePath });
+  }, guardedPath);
+  await codeWindowPage.getByRole('button', { name: '別名保存' }).click();
+  const guardedDocument = await (async () => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      try {
+        return JSON.parse(await fs.readFile(guardedPath, 'utf-8'));
+      } catch (error) {
+        if (attempt === 99) throw error;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+    }
+  })();
+  assert.equal(guardedDocument.version, 2);
+  assert.equal(guardedDocument.layout.buttons[0].recordingMode, 'single-click');
+  assert.equal(
+    JSON.parse(await fs.readFile(selectedCodeWindowPath, 'utf-8')).version,
+    1,
+    'the original file stays unchanged after Save As',
+  );
+  // Select a different path so the inspector replaces its current draft.
+  const reopenedPath = path.join(workPath, 'Reopened compatibility.stcw');
+  guardedDocument.layout.name = 'Reopened compatibility example';
+  await fs.writeFile(reopenedPath, JSON.stringify(guardedDocument), 'utf-8');
+  await electronApp.evaluate(({ dialog }, filePath) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [filePath],
+    });
+  }, reopenedPath);
+  await clickMenuItem('open-code-window-file');
+  await codeWindowPage
+    .getByText('Reopened compatibility example', { exact: true })
+    .waitFor();
+  await codeWindowPage.getByRole('button', { name: 'コード' }).click();
+  await runtimeButton.waitFor();
+  await codeWindowPage.getByRole('button', { name: '編集' }).click();
+  await editorButton.dblclick();
+  await codeWindowPage
+    .getByRole('switch', { name: '1クリックで記録', exact: true })
+    .waitFor();
+  assert.equal(
+    await codeWindowPage
+      .getByRole('switch', { name: '1クリックで記録', exact: true })
+      .isChecked(),
+    true,
+  );
+  await codeWindowPage.keyboard.press('Escape');
+  console.log('Code Window capability-marked file Save As and reopen passed');
+
   const settingsWindowPromise = electronApp.waitForEvent('window', {
     timeout: 10_000,
   });
