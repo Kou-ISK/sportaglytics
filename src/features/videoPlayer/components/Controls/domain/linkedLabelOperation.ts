@@ -10,11 +10,11 @@ interface LinkedLabelOperation {
 export const planLinkedLabelOperation = (
   links: EffectiveLink[],
   buttonId: string,
-  getName: (id: string) => string | undefined,
-  isRecording: (name: string) => boolean,
+  getActiveKey: (id: string) => string | undefined,
 ): LinkedLabelOperation => {
   const labelNames = new Set<string>();
   const stopNames = new Set<string>();
+  const stopIds = new Set<string>();
   const startIds = new Set<string>();
   for (const link of links) {
     const outgoing = link.fromId === buttonId;
@@ -24,23 +24,22 @@ export const planLinkedLabelOperation = (
         ? link.fromId
         : undefined;
     if (!targetId || targetId === buttonId) continue;
-    const name = getName(targetId);
-    if (!name) continue;
     if (link.type === 'activate') {
       startIds.add(targetId);
       continue;
     }
-    if (!isRecording(name)) continue;
-    labelNames.add(name);
-    if (link.type === 'deactivate') stopNames.add(name);
+    const activeKey = getActiveKey(targetId);
+    if (activeKey === undefined) continue;
+    labelNames.add(activeKey);
+    if (link.type === 'deactivate') {
+      stopNames.add(activeKey);
+      stopIds.add(targetId);
+    }
   }
   // Do not reopen a code as a side effect of stopping that same code.
   return {
     labelNames: [...labelNames],
     stopNames: [...stopNames],
-    startIds: [...startIds].filter((id) => {
-      const name = getName(id);
-      return name !== undefined && !stopNames.has(name);
-    }),
+    startIds: [...startIds].filter((id) => !stopIds.has(id)),
   };
 };

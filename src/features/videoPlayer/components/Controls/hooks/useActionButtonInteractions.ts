@@ -1,6 +1,9 @@
 import { useCallback } from 'react';
 import type { ActionDefinition } from '../../../../../types/settings/coreTypes';
-import type { ActiveRecordingSession } from './useActiveRecordings';
+import {
+  findSourceRecordingKey,
+  type ActiveRecordingSession,
+} from './useActiveRecordings';
 import { repeatAutomaticRecording } from '../domain/automaticRecording';
 import type { CompleteRecording } from './useRecordingCompletion';
 import type { LabelSelectionsMap } from './useLabelSelections';
@@ -9,6 +12,7 @@ import type { EffectiveLink } from '../effectiveLinks';
 
 interface UseActionButtonInteractionsParams {
   activeMode: 'code' | 'label';
+  canvasScope?: string;
   activeRecordingsRef: React.RefObject<Record<string, ActiveRecordingSession>>;
   effectiveLinks: EffectiveLink[];
   isSameActionName: (a: string, b: string) => boolean;
@@ -37,6 +41,7 @@ const normalizePaddingSeconds = (value: number | undefined): number => {
 
 export const useActionButtonInteractions = ({
   activeMode,
+  canvasScope,
   activeRecordingsRef,
   effectiveLinks,
   isSameActionName,
@@ -87,11 +92,12 @@ export const useActionButtonInteractions = ({
       if (time === null) return;
       // A directed activation is not a user press and never stops or
       // extends a recording that is already active.
-      if (explicitActivation && activeRecordingsRef.current[clickedButtonName])
-        return;
-      const activeKey = explicitActivation
-        ? undefined
+      const source =
+        canvasScope && buttonId ? { scope: canvasScope, buttonId } : undefined;
+      const activeKey = source
+        ? findSourceRecordingKey(activeRecordingsRef.current, source)
         : resolveRecordingKey(clickedButtonName);
+      if (explicitActivation && activeKey) return;
       if (activeKey) {
         const active = activeRecordingsRef.current[activeKey];
         if (!active?.automatic) {
@@ -105,6 +111,14 @@ export const useActionButtonInteractions = ({
           return;
         }
         completeRecording(activeKey, undefined, active.automatic.deadline);
+      }
+
+      // The row map is still keyed by its activation-time name. Never replace
+      // another in-flight session that happens to own that exact name.
+      if (activeRecordingsRef.current[clickedButtonName]) {
+        if (!explicitActivation)
+          setWarning('この名前のコードはすでに記録中です');
+        return;
       }
 
       const relatedLinks = findRelatedLinks(
@@ -142,6 +156,7 @@ export const useActionButtonInteractions = ({
       setActiveRecordings((prev) => ({
         ...prev,
         [clickedButtonName]: {
+          source,
           teamName,
           startTime: time,
           leadTimeSeconds: normalizePaddingSeconds(leadTimeSeconds),
@@ -172,6 +187,7 @@ export const useActionButtonInteractions = ({
     },
     [
       activeMode,
+      canvasScope,
       activeRecordingsRef,
       completeRecording,
       effectiveLinks,
