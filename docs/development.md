@@ -435,7 +435,7 @@ Mainのパッケージ通知を変更する場合は`packageOpenDelivery.test.ts
 
 `did-finish-load`はReactの購読完了を保証しません。起動通知は `packageOpenBridge` で保持し、React側では既存の `onPackageDirectoryOpen` を購読・解除します。単体テストでStrictModeと購読者交代を確認し、`test:e2e:clip-sync`で本物のsandbox preloadへ購読前に通知を送って配送と再購読時の非再生を検証します。ウィンドウ取得は生成順に頼らず、file URLとrouteで対象を特定します。
 
-`pnpm run test:e2e:timeline-rows`は、単体／複数インスタンスの削除・Undo、行内選択、行削除の確認、範囲選択後の対象切替、Enter／ダブルクリック編集、入力欄のBackspaceを実機で確認します。
+`pnpm run test:e2e:timeline-rows`は、単体／複数インスタンスの削除・Undo、行内選択、行削除の確認、範囲選択後の対象切替、Enterによる編集、入力欄のBackspaceを実機で確認します。
 
 `pnpm run test:e2e:paint-export`は、合成映像と実Canvas描画を使ってRendererの書き出し組立・共通サービス・実IPC・FFmpegまで検証します。出力映像の画素、寸法、尺、音声から、クリップ途中の追尾、芝色による前景復元、静止挿入、別アングル、異なる解像度の2画面を確認します。アーティファクトを残す場合は`E2E_SCREENSHOT_DIR=output/playwright/paint-export`を指定します。これらは実試合の追尾精度やWindows実機検証の代替ではありません。
 
