@@ -440,6 +440,15 @@ export const useEnhancedCodePanelController = ({
   const triggerAction = useCallback(
     (teamName: string, actionName: string, buttonId?: string) => {
       if (!documentEditable) return;
+      if (buttonId) {
+        // Canvas hotkeys must dispatch the same typed button as a click.
+        // In particular, a label hotkey must not start a row with its group name.
+        const button = customLayout?.buttons.find(
+          (entry) => entry.id === buttonId,
+        );
+        if (button) handleCustomButtonClick(button);
+        return;
+      }
       const matchingTeam = teamNames.find((team) =>
         actionName.startsWith(`${team} `),
       );
@@ -457,7 +466,7 @@ export const useEnhancedCodePanelController = ({
         } as ActionDefinition);
       const configuredButton = customLayout?.buttons.find(
         (entry) =>
-          entry.id === buttonId ||
+          entry.type === 'action' &&
           replaceTeamPlaceholderAliases(entry.name, teamContext) === actionName,
       );
 
@@ -479,6 +488,7 @@ export const useEnhancedCodePanelController = ({
       getButtonColorByName,
       documentEditable,
       handleActionClick,
+      handleCustomButtonClick,
       teamContext,
       teamNames,
     ],

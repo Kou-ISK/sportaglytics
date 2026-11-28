@@ -353,6 +353,7 @@ try {
             name: 'Result',
             type: 'label',
             labelValue: 'Won',
+            hotkey: 'E',
             labelTargetMode: 'linked',
           },
         ].map((button, index) => ({
@@ -594,7 +595,9 @@ try {
   await pressCode('lineout');
   await pressCode('unrelated');
   await seekCodingPosition(15);
-  await pressCode('won');
+  await coding.bringToFront();
+  await coding.waitForFunction(() => document.hasFocus());
+  await coding.keyboard.press('E');
   await seekCodingPosition(17);
   await pressCode('lineout-attack');
   await seekCodingPosition(18);
