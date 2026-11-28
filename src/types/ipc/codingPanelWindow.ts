@@ -22,6 +22,7 @@ export interface CodingPanelWindowSyncPayload {
   firstTeamName?: string;
   activeActions: ActionDefinition[];
   activeRecordings: Record<string, { startTime: number }>;
+  activeCanvasButtonIds?: string[];
   primaryAction: string | null;
   activeLabelButtons: Record<string, boolean>;
   isRecording: boolean;
@@ -189,6 +190,8 @@ export const isCodingPanelWindowSyncPayload = (
     Array.isArray(value.activeActions) &&
     value.activeActions.every(isActionDefinition) &&
     isRecordingMap(value.activeRecordings) &&
+    (value.activeCanvasButtonIds === undefined ||
+      isStringArray(value.activeCanvasButtonIds)) &&
     (value.primaryAction === null || isString(value.primaryAction)) &&
     isBooleanMap(value.activeLabelButtons) &&
     typeof value.isRecording === 'boolean' &&

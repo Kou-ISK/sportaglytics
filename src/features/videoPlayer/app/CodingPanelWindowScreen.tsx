@@ -226,6 +226,7 @@ export const CodingPanelWindowScreen = (): React.ReactElement => {
             customLayout={payload.customLayout}
             teamContext={teamContext}
             activeRecordings={payload.activeRecordings}
+            activeCanvasButtonIds={payload.activeCanvasButtonIds}
             primaryAction={payload.primaryAction}
             activeLabelButtons={payload.activeLabelButtons}
             isRecording={payload.isRecording}

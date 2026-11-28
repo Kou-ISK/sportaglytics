@@ -35,9 +35,7 @@ describe('linked label workflows', () => {
         type: 'deactivate',
       },
     ];
-    expect(
-      planLinkedLabelOperation(links, 'won', resolveName, () => true),
-    ).toEqual({
+    expect(planLinkedLabelOperation(links, 'won', resolveName)).toEqual({
       labelNames: ['Red Lineout'],
       stopNames: ['Red Lineout'],
       startIds: ['attack'],
@@ -62,11 +60,8 @@ describe('linked label workflows', () => {
       },
     ];
     expect(
-      planLinkedLabelOperation(
-        links,
-        'won',
-        resolveName,
-        (name) => name === 'Red Lineout',
+      planLinkedLabelOperation(links, 'won', (id) =>
+        id === 'a' ? 'Red Lineout' : undefined,
       ),
     ).toEqual({
       labelNames: ['Red Lineout'],

@@ -28,7 +28,7 @@ execFileSync(ffmpegPath, [
   '-f',
   'lavfi',
   '-i',
-  'color=c=blue:s=320x180:r=24:d=20',
+  'color=c=blue:s=320x180:r=24:d=24',
   '-threads',
   '2',
   '-c:v',
@@ -77,7 +77,7 @@ await fs.writeFile(
             relativePath: 'videos/synthetic.mp4',
             gapBeforeSeconds: 0,
             timelineStartSeconds: 0,
-            durationSeconds: 20,
+            durationSeconds: 24,
           },
         ],
       },
@@ -627,6 +627,62 @@ try {
   console.log(
     'Code Window linked result isolated the label and started the next independent interval',
   );
+  await seekCodingPosition(18.25);
+  await pressCode('lineout');
+  await coding.getByRole('button', { name: '編集', exact: true }).click();
+  await coding.locator('[data-code-window-button="lineout"]').dblclick();
+  await coding
+    .getByRole('textbox', { name: 'ボタン名（自由入力）' })
+    .fill('Falcon Lineout');
+  await coding.keyboard.press('Escape');
+  await coding.getByRole('button', { name: 'コード', exact: true }).click();
+  await coding
+    .locator('[data-code-window-button="lineout"]')
+    .getByText('Falcon Lineout')
+    .waitFor();
+  await seekCodingPosition(19);
+  await coding.bringToFront();
+  await coding.waitForFunction(() => document.hasFocus());
+  await coding.keyboard.press('E');
+  await seekCodingPosition(20);
+  await pressCode('lineout-attack');
+  await seekCodingPosition(21);
+  await pressCode('lineout');
+  await seekCodingPosition(22);
+  await pressCode('lineout');
+  for (let attempt = 0; attempt < 100; attempt++) {
+    const { instances } = JSON.parse(await fs.readFile(emptyPath, 'utf8'));
+    if (instances.length >= 8) {
+      assert.equal(instances.length, 8);
+      const labelled = instances.filter(
+        (item) => item.actionName === 'Coral Lineout',
+      );
+      assert.equal(labelled.length, 2);
+      for (const [start, end] of [
+        [14, 15],
+        [18.25, 19],
+      ]) {
+        const item = labelled.find(
+          (tag) => Math.abs(tag.startTime - start) < 0.1,
+        );
+        assert.ok(item, `Coral Lineout at ${start}`);
+        assert.ok(Math.abs(item.endTime - end) < 0.1);
+        assert.deepEqual(item.labels, [{ group: 'Result', name: 'Won' }]);
+      }
+      const next = instances.find(
+        (item) => item.actionName === 'Falcon Lineout',
+      );
+      assert.ok(next);
+      assert.ok(Math.abs(next.startTime - 21) < 0.1);
+      assert.ok(Math.abs(next.endTime - 22) < 0.1);
+      assert.deepEqual(next.labels ?? [], []);
+      break;
+    }
+    if (attempt === 99)
+      assert.fail('Editing a recording button disrupted recording identity');
+    await delay(50);
+  }
+  console.log('Code Window rename left the recording and prior tags intact');
   const probe = path.join(root, 'atomic.json');
   await fs.writeFile(probe, '{"sequence":-1}');
   const writes = main.evaluate(async (file) => {
@@ -684,8 +740,11 @@ try {
   );
   assert.deepEqual(loadedInstances.map((item) => item.actionName).sort(), [
     'Coral Lineout',
+    'Coral Lineout',
+    'Coral Lineout Attack',
     'Coral Lineout Attack',
     'Coral Synthetic coding',
+    'Falcon Lineout',
     'Falcon One-click Scrum',
     'Falcon Possession',
   ]);

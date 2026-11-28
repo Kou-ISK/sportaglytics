@@ -80,6 +80,7 @@ export const useEnhancedCodePanelController = ({
     null,
   );
   const [sessionFilePath, setSessionFilePath] = useState<string | null>(null);
+  const [canvasGeneration, setCanvasGeneration] = useState(0);
   const saveLayoutInFlightRef = useRef(false);
 
   const teamContext: TeamContext = useMemo(
@@ -107,6 +108,11 @@ export const useEnhancedCodePanelController = ({
     settings.codingPanel?.activeCodeWindowId,
   ]);
   const customLayout = sessionLayout ?? settingsLayout;
+  // Opening another file creates a new runtime identity, even for copied
+  // templates with shared layout/button IDs. Editing or Save As keeps it.
+  const canvasScope = customLayout
+    ? JSON.stringify([canvasGeneration, customLayout.id])
+    : undefined;
 
   useEffect(() => {
     onActiveLayoutChange?.(customLayout);
@@ -115,6 +121,7 @@ export const useEnhancedCodePanelController = ({
   const openRuntimeCodeWindowFile = useCallback(async (filePath: string) => {
     const file = await loadRuntimeCodeWindowFile(filePath);
     if (!file) return;
+    setCanvasGeneration((previous) => previous + 1);
     setSessionLayout(file.layout);
     setSessionFilePath(file.filePath);
     await consumeRuntimeCodeWindowExternalOpen(filePath);
@@ -124,6 +131,7 @@ export const useEnhancedCodePanelController = ({
   const chooseRuntimeCodeWindow = useCallback(async () => {
     const file = await chooseRuntimeCodeWindowFile();
     if (!file) return;
+    setCanvasGeneration((previous) => previous + 1);
     setSessionLayout(file.layout);
     setSessionFilePath(file.filePath);
     await openCodingPanelWindow();
@@ -160,6 +168,7 @@ export const useEnhancedCodePanelController = ({
       name: getCodeWindowNameFromFilePath(savedPath),
     };
     await saveRuntimeCodeWindowFile(namedLayout, savedPath);
+    setCanvasGeneration((previous) => previous + 1);
     setSessionLayout(namedLayout);
     setSessionFilePath(savedPath);
     await openCodingPanelWindow();
@@ -260,6 +269,7 @@ export const useEnhancedCodePanelController = ({
     selectedIds,
     onApplyLabels,
     customLayout,
+    canvasScope,
     effectiveLinks,
     isSameActionName,
     resolveRecordingKey,
@@ -274,6 +284,13 @@ export const useEnhancedCodePanelController = ({
     setActiveLabelButtons,
   });
 
+  const activeCanvasButtonIds = useMemo(
+    () =>
+      Object.values(activeRecordings).flatMap(({ source }) =>
+        source && source.scope === canvasScope ? [source.buttonId] : [],
+      ),
+    [activeRecordings, canvasScope],
+  );
   const codingPanelWindowPayload = useMemo(
     (): CodingPanelWindowSyncPayload => ({
       activeMode,
@@ -282,6 +299,7 @@ export const useEnhancedCodePanelController = ({
       firstTeamName,
       activeActions,
       activeRecordings,
+      activeCanvasButtonIds,
       primaryAction,
       activeLabelButtons,
       isRecording,
@@ -296,6 +314,7 @@ export const useEnhancedCodePanelController = ({
     }),
     [
       activeActions,
+      activeCanvasButtonIds,
       activeLabelButtons,
       activeMode,
       activeRecordings,
@@ -502,6 +521,7 @@ export const useEnhancedCodePanelController = ({
       customLayout,
       teamContext,
       activeRecordings,
+      activeCanvasButtonIds,
       primaryAction,
       activeLabelButtons,
       isRecording,

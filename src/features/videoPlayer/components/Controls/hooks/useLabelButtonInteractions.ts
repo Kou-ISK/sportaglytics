@@ -7,7 +7,7 @@ import type { LabelSelectionsMap } from './useLabelSelections';
 import { planLinkedLabelOperation } from '../domain/linkedLabelOperation';
 
 interface LinkedActions {
-  getExactActionNameById: (id: string) => string | undefined;
+  getActiveRecordingKeyById: (id: string) => string | undefined;
   startLinkedAction: (id: string) => void;
 }
 
@@ -81,8 +81,7 @@ export const useLabelButtonInteractions = ({
         const { labelNames, stopNames, startIds } = planLinkedLabelOperation(
           effectiveLinks,
           button.id,
-          linkedActions.getExactActionNameById,
-          (name) => Boolean(activeRecordingsRef.current[name]),
+          linkedActions.getActiveRecordingKeyById,
         );
         if (labelNames.length === 0) {
           setWarning('このラベルのリンク先で記録中のコードがありません');
